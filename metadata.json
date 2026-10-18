@@ -1,0 +1,8 @@
+{
+  "name": "I Have A School",
+  "description": "Educational platform by MD Touhidul Hoque Tuhin featuring regular educational posts, notes, free video classes, suggestions, and quality courses.",
+  "permissions": [],
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
