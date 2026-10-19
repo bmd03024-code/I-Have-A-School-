@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { 
   ShieldCheck, 
   User, 
@@ -28,9 +29,20 @@ import {
   Bot, 
   Cloud, 
   Key,
-  X
+  X,
+  ArrowLeft,
+  Phone,
+  Mail,
+  MapPin,
+  Facebook,
+  Youtube,
+  Send,
+  MessageCircle,
+  ExternalLink,
+  RotateCcw
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { DEFAULT_SCHOOL_SETTINGS } from '../data/mockData';
 import { 
   HeroSlide, 
   Course, 
@@ -128,7 +140,6 @@ export const AdminPanel: React.FC = () => {
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [showDemoCredentials, setShowDemoCredentials] = useState(false);
   const [loginError, setLoginError] = useState('');
 
   // Active Tab
@@ -171,6 +182,151 @@ export const AdminPanel: React.FC = () => {
 
   // Settings form state
   const [settingsForm, setSettingsForm] = useState(schoolSettings);
+  const [prevSettings, setPrevSettings] = useState(schoolSettings);
+
+  if (schoolSettings !== prevSettings) {
+    setPrevSettings(schoolSettings);
+    setSettingsForm(schoolSettings);
+  }
+
+  // Footer Learning Hub and Services Link Management States
+  const [newLearningTitleBn, setNewLearningTitleBn] = useState('');
+  const [newLearningTitleEn, setNewLearningTitleEn] = useState('');
+  const [newLearningUrl, setNewLearningUrl] = useState('');
+  const [editingLearningLink, setEditingLearningLink] = useState<{ id: string; titleBn: string; titleEn: string; url: string } | null>(null);
+
+  const [newServiceTitleBn, setNewServiceTitleBn] = useState('');
+  const [newServiceTitleEn, setNewServiceTitleEn] = useState('');
+  const [newServiceUrl, setNewServiceUrl] = useState('');
+  const [editingServiceLink, setEditingServiceLink] = useState<{ id: string; titleBn: string; titleEn: string; url: string } | null>(null);
+
+  const handleAddLearningLink = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newLearningTitleBn.trim() || !newLearningUrl.trim()) {
+      showToast(lang === 'bn' ? 'শিরোনাম ও লিংক আবশ্যক!' : 'Title and URL are required!');
+      return;
+    }
+    const current = settingsForm.learningHubLinks || [];
+    const newLink = {
+      id: `lh-${Date.now()}`,
+      titleBn: newLearningTitleBn.trim(),
+      titleEn: newLearningTitleEn.trim() || newLearningTitleBn.trim(),
+      url: newLearningUrl.trim()
+    };
+    const updated = {
+      ...settingsForm,
+      learningHubLinks: [...current, newLink]
+    };
+    setSettingsForm(updated);
+    updateSchoolSettings(updated);
+    setNewLearningTitleBn('');
+    setNewLearningTitleEn('');
+    setNewLearningUrl('');
+    showToast(lang === 'bn' ? 'নতুন লার্নিং হাব লিংক যুক্ত হয়েছে!' : 'Learning Hub link added!');
+  };
+
+  const handleUpdateLearningLink = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingLearningLink || !editingLearningLink.titleBn.trim() || !editingLearningLink.url.trim()) {
+      showToast(lang === 'bn' ? 'শিরোনাম ও লিংক আবশ্যক!' : 'Title and URL are required!');
+      return;
+    }
+    const current = settingsForm.learningHubLinks || [];
+    const updated = {
+      ...settingsForm,
+      learningHubLinks: current.map((l) => (l.id === editingLearningLink.id ? editingLearningLink : l))
+    };
+    setSettingsForm(updated);
+    updateSchoolSettings(updated);
+    setEditingLearningLink(null);
+    showToast(lang === 'bn' ? 'লার্নিং হাব লিংক আপডেট সম্পন্ন হয়েছে!' : 'Learning Hub link updated!');
+  };
+
+  const handleDeleteLearningLink = (id: string) => {
+    const current = settingsForm.learningHubLinks || [];
+    const updated = {
+      ...settingsForm,
+      learningHubLinks: current.filter((l) => l.id !== id)
+    };
+    setSettingsForm(updated);
+    updateSchoolSettings(updated);
+    showToast(lang === 'bn' ? 'লার্নিং হাব লিংক মুছে ফেলা হয়েছে!' : 'Learning Hub link removed!');
+  };
+
+  const handleAddServiceLink = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newServiceTitleBn.trim() || !newServiceUrl.trim()) {
+      showToast(lang === 'bn' ? 'শিরোনাম ও লিংক আবশ্যক!' : 'Title and URL are required!');
+      return;
+    }
+    const current = settingsForm.servicesLinks || [];
+    const newLink = {
+      id: `srv-${Date.now()}`,
+      titleBn: newServiceTitleBn.trim(),
+      titleEn: newServiceTitleEn.trim() || newServiceTitleBn.trim(),
+      url: newServiceUrl.trim()
+    };
+    const updated = {
+      ...settingsForm,
+      servicesLinks: [...current, newLink]
+    };
+    setSettingsForm(updated);
+    updateSchoolSettings(updated);
+    setNewServiceTitleBn('');
+    setNewServiceTitleEn('');
+    setNewServiceUrl('');
+    showToast(lang === 'bn' ? 'নতুন সার্ভিস লিংক যুক্ত হয়েছে!' : 'Service link added!');
+  };
+
+  const handleUpdateServiceLink = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingServiceLink || !editingServiceLink.titleBn.trim() || !editingServiceLink.url.trim()) {
+      showToast(lang === 'bn' ? 'শিরোনাম ও লিংক আবশ্যক!' : 'Title and URL are required!');
+      return;
+    }
+    const current = settingsForm.servicesLinks || [];
+    const updated = {
+      ...settingsForm,
+      servicesLinks: current.map((s) => (s.id === editingServiceLink.id ? editingServiceLink : s))
+    };
+    setSettingsForm(updated);
+    updateSchoolSettings(updated);
+    setEditingServiceLink(null);
+    showToast(lang === 'bn' ? 'সার্ভিস লিংক আপডেট সম্পন্ন হয়েছে!' : 'Service link updated!');
+  };
+
+  const handleDeleteServiceLink = (id: string) => {
+    const current = settingsForm.servicesLinks || [];
+    const updated = {
+      ...settingsForm,
+      servicesLinks: current.filter((l) => l.id !== id)
+    };
+    setSettingsForm(updated);
+    updateSchoolSettings(updated);
+    showToast(lang === 'bn' ? 'সার্ভিস লিংক মুছে ফেলা হয়েছে!' : 'Service link removed!');
+  };
+
+  const handleResetDefaultLearningLinks = () => {
+    const defaultLinks = DEFAULT_SCHOOL_SETTINGS.learningHubLinks || [];
+    const updated = {
+      ...settingsForm,
+      learningHubLinks: defaultLinks
+    };
+    setSettingsForm(updated);
+    updateSchoolSettings(updated);
+    showToast(lang === 'bn' ? 'ডিফল্ট লার্নিং হাব লিঙ্কসমূহ ফিরিয়ে আনা হয়েছে!' : 'Default Learning Hub links restored!');
+  };
+
+  const handleResetDefaultServicesLinks = () => {
+    const defaultLinks = DEFAULT_SCHOOL_SETTINGS.servicesLinks || [];
+    const updated = {
+      ...settingsForm,
+      servicesLinks: defaultLinks
+    };
+    setSettingsForm(updated);
+    updateSchoolSettings(updated);
+    showToast(lang === 'bn' ? 'ডিফল্ট প্রয়োজনীয় সার্ভিস লিঙ্কসমূহ ফিরিয়ে আনা হয়েছে!' : 'Default academic services links restored!');
+  };
 
   // 1. New Slide Form State (Image Upload instead of URL)
   const [newSlideTitleBn, setNewSlideTitleBn] = useState('');
@@ -660,9 +816,9 @@ export const AdminPanel: React.FC = () => {
               <div className="relative">
                 <User className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
-                  type="text"
+                  type="email"
                   required
-                  placeholder="tu*****@gmail.com"
+                  placeholder={lang === 'bn' ? 'আপনার জিমেইল টাইপ করুন...' : 'Type admin email...'}
                   value={loginEmail}
                   onChange={(e) => setLoginEmail(e.target.value)}
                   className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-10 pr-3 py-2.5 text-sm text-white focus:border-emerald-500 focus:outline-none"
@@ -672,14 +828,14 @@ export const AdminPanel: React.FC = () => {
 
             <div>
               <label className="block text-slate-300 font-semibold mb-1">
-                {lang === 'bn' ? 'সিক্রেট পাসওয়ার্ড (মাস্কড)' : 'Password (Completely Masked)'}
+                {lang === 'bn' ? 'সিক্রেট পাসওয়ার্ড (টাইপ করুন)' : 'Password (Type to Login)'}
               </label>
               <div className="relative">
                 <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   required
-                  placeholder="************"
+                  placeholder={lang === 'bn' ? 'আপনার পাসওয়ার্ড টাইপ করুন...' : 'Type password...'}
                   value={loginPassword}
                   onChange={(e) => setLoginPassword(e.target.value)}
                   className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-10 pr-10 py-2.5 text-sm text-white focus:border-emerald-500 focus:outline-none tracking-widest"
@@ -692,73 +848,29 @@ export const AdminPanel: React.FC = () => {
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-              <p className="text-[10px] text-slate-500 mt-1">
-                {lang === 'bn' ? '* পাসওয়ার্ডটি সম্পূর্ণ তারা চিহ্ন (মাস্কড) দিয়ে সুরক্ষিত থাকবে।' : '* Password is fully masked with asterisks for security.'}
+              <p className="text-[10px] text-slate-400 mt-1">
+                {lang === 'bn' ? '* শুধুমাত্র সঠিক জিমেইল ও পাসওয়ার্ড টাইপ করে প্রবেশ করতে হবে।' : '* Only valid typed credentials can authenticate into dashboard.'}
               </p>
             </div>
 
             <button
               type="submit"
-              className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-sm rounded-xl transition-all shadow-md mt-2"
+              className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-sm rounded-xl transition-all shadow-md mt-2 flex items-center justify-center gap-2"
             >
-              {lang === 'bn' ? 'নিরাপদে প্রবেশ করুন' : 'Authenticate & Enter'}
+              <ShieldCheck className="w-4 h-4" />
+              <span>{lang === 'bn' ? 'লগইন করুন' : 'Authenticate & Enter'}</span>
             </button>
           </form>
 
-          {/* Star-Marked Demo Credentials (তারা চিহ্ন দিয়ে সুরক্ষিত ডেমো তথ্য) */}
-          <div className="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-700/80 text-[11px] text-slate-400 space-y-2.5">
-            <div className="flex items-center justify-between">
-              <span className="font-bold text-emerald-400 flex items-center gap-1.5">
-                <ShieldCheck className="w-4 h-4" />
-                {lang === 'bn' ? 'সুরক্ষিত ডেমো অ্যাক্সেস (তারা চিহ্নযুক্ত):' : 'Demo Credentials (Masked):'}
-              </span>
-              <button
-                type="button"
-                onClick={() => setShowDemoCredentials(!showDemoCredentials)}
-                className="text-slate-400 hover:text-slate-200 text-[10px] flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-800 border border-slate-700 transition-colors"
-                title={showDemoCredentials ? "Mask" : "Reveal"}
-              >
-                {showDemoCredentials ? (
-                  <>
-                    <EyeOff className="w-3 h-3" />
-                    <span>{lang === 'bn' ? 'তারা চিহ্ন করুন' : 'Mask'}</span>
-                  </>
-                ) : (
-                  <>
-                    <Eye className="w-3 h-3" />
-                    <span>{lang === 'bn' ? 'দেখান' : 'Reveal'}</span>
-                  </>
-                )}
-              </button>
-            </div>
-
-            <div className="space-y-1.5 font-mono text-[11px] bg-slate-950/70 p-2.5 rounded-xl border border-slate-800/80">
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400">{lang === 'bn' ? 'ডেমো জিমেইল:' : 'Demo Gmail:'}</span>
-                <span className="font-bold text-slate-200">
-                  {showDemoCredentials ? 'tuhinsir@gmail.com' : 'tu*****@gmail.com'}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400">{lang === 'bn' ? 'ডেমো পাসওয়ার্ড:' : 'Demo Password:'}</span>
-                <span className="font-bold text-slate-200 tracking-wider">
-                  {showDemoCredentials ? 'tuhinsir1234' : '************'}
-                </span>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => {
-                setLoginEmail('tuhinsir@gmail.com');
-                setLoginPassword('tuhinsir1234');
-                showToast(lang === 'bn' ? 'ডেমো তথ্য সফলভাবে ইনপুট করা হয়েছে!' : 'Demo credentials autofilled successfully!');
-              }}
-              className="w-full py-2 px-3 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-emerald-400 hover:text-emerald-300 font-semibold text-[11px] transition-colors border border-slate-700/60 flex items-center justify-center gap-1.5 shadow-xs"
+          {/* Return to Website Button (এই ওয়েবসাইটে ফিরে যান) */}
+          <div className="pt-2 border-t border-slate-700/60">
+            <Link
+              to="/"
+              className="w-full py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-750 text-slate-300 hover:text-white border border-slate-700 text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-2"
             >
-              <Key className="w-3.5 h-3.5" />
-              <span>{lang === 'bn' ? '১-ক্লিকে ডেমো তথ্য পূরণ করুন' : '1-Click Autofill Demo'}</span>
-            </button>
+              <ArrowLeft className="w-4 h-4 text-emerald-400" />
+              <span>{lang === 'bn' ? 'এই ওয়েবসাইটে ফিরে যান' : 'Return to Website'}</span>
+            </Link>
           </div>
         </div>
       </div>
@@ -907,120 +1019,694 @@ export const AdminPanel: React.FC = () => {
           })}
         </div>
 
-        {/* ==================== TAB: SETTINGS & BRANDING ==================== */}
+        {/* ==================== TAB 1: INSTITUTION & FOOTER SETTINGS ==================== */}
         {activeTab === 'settings' && (
-          <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xs space-y-6">
-            <div className="border-b border-slate-100 pb-4">
-              <h3 className="text-xl font-bold text-slate-900">
-                {lang === 'bn' ? 'প্রতিষ্ঠান সেটিংস, লোগো, সিল ও স্বাক্ষর' : 'Institution Branding, Logo & Official Seals'}
-              </h3>
-              <p className="text-xs text-slate-500">
-                {lang === 'bn' ? 'প্রধান শিক্ষকের স্বাক্ষর এবং অফিসিয়াল সিল সরাসরি ছবি হিসেবে আপলোড করুন।' : 'Upload headmaster signature and official seal directly without image URLs.'}
-              </p>
+          <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xs space-y-8">
+            <div className="border-b border-slate-100 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider">
+                  {lang === 'bn' ? '১ নম্বর কন্ট্রোল প্যানেল' : 'OPTION 1 CONTROL PANEL'}
+                </span>
+                <h3 className="text-xl font-bold text-slate-900 mt-0.5">
+                  {lang === 'bn' ? 'প্রতিষ্ঠান, ব্র্যান্ডিং ও সম্পূর্ণ ফুটার কন্ট্রোল' : 'Institution Branding & Complete Footer Control'}
+                </h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  {lang === 'bn'
+                    ? 'এখানে পরিবর্তিত প্রতিটি তথ্য (ফুটারের লেখা, লোগো, ফেসবুক/ইউটিউব/মেসেঞ্জার লিংক, লার্নিং হাব, সার্ভিস ও যোগাযোগ) তাৎক্ষণিকভাবে লাইভ ওয়েবসাইটে আপডেট হবে।'
+                    : 'All footer texts, logos, social links, learning hub shortcuts, services, and contacts update live on the website.'}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleSaveSettings}
+                className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 shrink-0"
+              >
+                <Save className="w-4 h-4" />
+                <span>{lang === 'bn' ? 'সকল পরিবর্তন সংরক্ষণ করুন' : 'Save All Changes'}</span>
+              </button>
             </div>
 
-            <form onSubmit={handleSaveSettings} className="space-y-4 text-xs">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Institute Name (English)</label>
-                  <input
-                    type="text"
-                    required
-                    value={settingsForm.instituteNameEn}
-                    onChange={(e) => setSettingsForm({ ...settingsForm, instituteNameEn: e.target.value })}
-                    className="w-full border rounded-xl px-3 py-2 text-xs focus:border-emerald-500 focus:outline-none"
-                  />
+            <form onSubmit={handleSaveSettings} className="space-y-8 text-xs">
+              {/* SECTION A: Brand Name & Slogan */}
+              <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
+                <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2 border-b border-slate-200/80 pb-2">
+                  <GraduationCap className="w-4 h-4 text-emerald-600" />
+                  <span>{lang === 'bn' ? 'ক. প্রতিষ্ঠানের নাম, ব্র্যান্ডিং ও স্লোগান' : 'A. Institution Name & Tagline'}</span>
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      {lang === 'bn' ? 'প্রতিষ্ঠানের নাম (বাংলা)' : 'Institute Name (Bengali)'}
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={settingsForm.instituteNameBn}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, instituteNameBn: e.target.value })}
+                      className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs focus:border-emerald-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      {lang === 'bn' ? 'প্রতিষ্ঠানের নাম (English)' : 'Institute Name (English)'}
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={settingsForm.instituteNameEn}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, instituteNameEn: e.target.value })}
+                      className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs focus:border-emerald-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      {lang === 'bn' ? 'ট্যাগলাইন / স্লোগান (বাংলা)' : 'Tagline / Slogan (Bengali)'}
+                    </label>
+                    <input
+                      type="text"
+                      value={settingsForm.taglineBn || ''}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, taglineBn: e.target.value })}
+                      placeholder="যেমন: শিখুন, এগিয়ে যান, সফল হোন • এমডি তৌহিদুল হক তুহিন"
+                      className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs focus:border-emerald-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      {lang === 'bn' ? 'ট্যাগলাইন / স্লোগান (English)' : 'Tagline / Slogan (English)'}
+                    </label>
+                    <input
+                      type="text"
+                      value={settingsForm.taglineEn || ''}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, taglineEn: e.target.value })}
+                      placeholder="e.g. Learn, Grow, Succeed • By MD Touhidul Hoque Tuhin"
+                      className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs focus:border-emerald-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      {lang === 'bn' ? 'প্রতিষ্ঠাতা ও পরিচালক নাম (বাংলা)' : 'Founder & Director Name (Bengali)'}
+                    </label>
+                    <input
+                      type="text"
+                      value={settingsForm.founderNameBn || ''}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, founderNameBn: e.target.value })}
+                      placeholder="যেমন: মো. তৌহিদুল হক তুহিন"
+                      className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs focus:border-emerald-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      {lang === 'bn' ? 'প্রতিষ্ঠাতা ও পরিচালক নাম (English)' : 'Founder & Director Name (English)'}
+                    </label>
+                    <input
+                      type="text"
+                      value={settingsForm.founderNameEn || ''}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, founderNameEn: e.target.value })}
+                      placeholder="e.g. MD Touhidul Hoque Tuhin"
+                      className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs focus:border-emerald-500 focus:outline-none"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">প্রতিষ্ঠানের নাম (বাংলা)</label>
-                  <input
-                    type="text"
-                    required
-                    value={settingsForm.instituteNameBn}
-                    onChange={(e) => setSettingsForm({ ...settingsForm, instituteNameBn: e.target.value })}
-                    className="w-full border rounded-xl px-3 py-2 text-xs focus:border-emerald-500 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">মোবাইল নম্বর / হেল্পলাইন</label>
-                  <input
-                    type="text"
-                    required
-                    value={settingsForm.phone}
-                    onChange={(e) => setSettingsForm({ ...settingsForm, phone: e.target.value })}
-                    className="w-full border rounded-xl px-3 py-2 text-xs font-mono focus:border-emerald-500 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">হোয়াটসঅ্যাপ নাম্বার</label>
-                  <input
-                    type="text"
-                    required
-                    value={settingsForm.whatsapp}
-                    onChange={(e) => setSettingsForm({ ...settingsForm, whatsapp: e.target.value })}
-                    className="w-full border rounded-xl px-3 py-2 text-xs font-mono focus:border-emerald-500 focus:outline-none"
-                  />
+
+                {/* Uploads: Logo, Signature, Seal */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+                  <div className="p-3.5 border border-slate-200 rounded-xl bg-white space-y-2">
+                    <span className="font-bold text-slate-800 block text-[11px]">
+                      {lang === 'bn' ? 'লোগো সরাসরি আপলোড' : 'Upload Logo'}
+                    </span>
+                    <div className="flex items-center gap-3">
+                      <label className="cursor-pointer px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors">
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>{lang === 'bn' ? 'ফাইল বেছে নিন' : 'Choose File'}</span>
+                        <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, (val) => setSettingsForm({ ...settingsForm, logoUrl: val }))} className="hidden" />
+                      </label>
+                      {settingsForm.logoUrl && (
+                        <img src={settingsForm.logoUrl} alt="Logo preview" className="w-10 h-10 object-contain rounded border bg-slate-50 p-1" />
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="p-3.5 border border-emerald-200 rounded-xl bg-emerald-50/50 space-y-2">
+                    <span className="font-bold text-emerald-900 block text-[11px]">
+                      {lang === 'bn' ? 'প্রধান শিক্ষকের স্বাক্ষর' : 'Headmaster Signature'}
+                    </span>
+                    <div className="flex items-center gap-3">
+                      <label className="cursor-pointer px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors">
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>{lang === 'bn' ? 'স্বাক্ষর ফাইল নিন' : 'Choose Sign'}</span>
+                        <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, (val) => setSettingsForm({ ...settingsForm, headmasterSignatureUrl: val }), 'স্বাক্ষর আপলোড হয়েছে!')} className="hidden" />
+                      </label>
+                      {settingsForm.headmasterSignatureUrl && (
+                        <img src={settingsForm.headmasterSignatureUrl} alt="Signature preview" className="h-10 w-20 object-contain rounded border bg-white" />
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="p-3.5 border border-emerald-200 rounded-xl bg-emerald-50/50 space-y-2">
+                    <span className="font-bold text-emerald-900 block text-[11px]">
+                      {lang === 'bn' ? 'অফিসিয়াল সিল আপলোড' : 'Official School Seal'}
+                    </span>
+                    <div className="flex items-center gap-3">
+                      <label className="cursor-pointer px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors">
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>{lang === 'bn' ? 'সিল ফাইল নিন' : 'Choose Seal'}</span>
+                        <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, (val) => setSettingsForm({ ...settingsForm, officialSealUrl: val }), 'অফিসিয়াল সিল আপলোড হয়েছে!')} className="hidden" />
+                      </label>
+                      {settingsForm.officialSealUrl && (
+                        <img src={settingsForm.officialSealUrl} alt="Seal preview" className="w-10 h-10 object-contain rounded border bg-white" />
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* DIRECT FILE UPLOADS: LOGO, HEADMASTER SIGNATURE, OFFICIAL SEAL */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-                {/* 1. Logo Upload */}
-                <div className="p-4 border border-slate-200 rounded-2xl bg-slate-50 space-y-2">
-                  <span className="font-bold text-slate-800 block">{lang === 'bn' ? 'প্রতিষ্ঠানের লোগো আপলোড' : 'Upload School Logo'}</span>
-                  <div className="flex items-center gap-3">
-                    <label className="cursor-pointer px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors">
-                      <Upload className="w-3.5 h-3.5" />
-                      <span>{lang === 'bn' ? 'ফাইল বেছে নিন' : 'Choose File'}</span>
-                      <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, (val) => setSettingsForm({ ...settingsForm, logoUrl: val }))} className="hidden" />
-                    </label>
-                    {settingsForm.logoUrl && (
-                      <img src={settingsForm.logoUrl} alt="Logo preview" className="w-10 h-10 object-contain rounded border bg-white" />
-                    )}
-                  </div>
-                </div>
+              {/* SECTION B: Footer Bio / Description */}
+              <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
+                <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2 border-b border-slate-200/80 pb-2">
+                  <FileText className="w-4 h-4 text-emerald-600" />
+                  <span>{lang === 'bn' ? 'খ. ফুটারের পরিচিতি ও বিবরণী লেখা' : 'B. Footer Description Text'}</span>
+                </h4>
 
-                {/* 2. Headmaster Signature Upload (REQUIREMENT #5) */}
-                <div className="p-4 border border-emerald-200 rounded-2xl bg-emerald-50/50 space-y-2">
-                  <span className="font-bold text-emerald-900 block">{lang === 'bn' ? 'প্রধান শিক্ষকের স্বাক্ষর আপলোড' : 'Headmaster Signature'}</span>
-                  <div className="flex items-center gap-3">
-                    <label className="cursor-pointer px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors">
-                      <Upload className="w-3.5 h-3.5" />
-                      <span>{lang === 'bn' ? 'স্বাক্ষর ফাইল নিন' : 'Choose Sign'}</span>
-                      <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, (val) => setSettingsForm({ ...settingsForm, headmasterSignatureUrl: val }), 'স্বাক্ষর আপলোড হয়েছে!')} className="hidden" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      {lang === 'bn' ? 'ফুটার বিবরণী টেক্সট (বাংলা)' : 'Footer Bio (Bengali)'}
                     </label>
-                    {settingsForm.headmasterSignatureUrl && (
-                      <img src={settingsForm.headmasterSignatureUrl} alt="Signature preview" className="h-10 w-20 object-contain rounded border bg-white" />
-                    )}
+                    <textarea
+                      rows={3}
+                      value={settingsForm.footerDescriptionBn || ''}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, footerDescriptionBn: e.target.value })}
+                      placeholder="এমডি তৌহিদুল হক তুহিন স্যারের শিক্ষামূলক প্ল্যাটফর্ম..."
+                      className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs focus:border-emerald-500 focus:outline-none leading-relaxed"
+                    />
                   </div>
-                </div>
-
-                {/* 3. Official Seal Upload (REQUIREMENT #5) */}
-                <div className="p-4 border border-emerald-200 rounded-2xl bg-emerald-50/50 space-y-2">
-                  <span className="font-bold text-emerald-900 block">{lang === 'bn' ? 'অফিসিয়াল সিল আপলোড' : 'Official School Seal'}</span>
-                  <div className="flex items-center gap-3">
-                    <label className="cursor-pointer px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors">
-                      <Upload className="w-3.5 h-3.5" />
-                      <span>{lang === 'bn' ? 'সিল ফাইল নিন' : 'Choose Seal'}</span>
-                      <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, (val) => setSettingsForm({ ...settingsForm, officialSealUrl: val }), 'অফিসিয়াল সিল আপলোড হয়েছে!')} className="hidden" />
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      {lang === 'bn' ? 'ফুটার বিবরণী টেক্সট (English)' : 'Footer Bio (English)'}
                     </label>
-                    {settingsForm.officialSealUrl && (
-                      <img src={settingsForm.officialSealUrl} alt="Seal preview" className="w-10 h-10 object-contain rounded border bg-white" />
-                    )}
+                    <textarea
+                      rows={3}
+                      value={settingsForm.footerDescriptionEn || ''}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, footerDescriptionEn: e.target.value })}
+                      placeholder="Educational mentorship initiative led by MD Touhidul Hoque Tuhin..."
+                      className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs focus:border-emerald-500 focus:outline-none leading-relaxed"
+                    />
                   </div>
                 </div>
               </div>
 
-              <div className="flex justify-end pt-3">
+              {/* SECTION C: Contact & Support (হটলাইন, হোয়াটসঅ্যাপ, ইমেইল, ঠিকানা) */}
+              <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
+                <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2 border-b border-slate-200/80 pb-2">
+                  <Phone className="w-4 h-4 text-emerald-600" />
+                  <span>{lang === 'bn' ? 'গ. যোগাযোগ ও সাপোর্ট এক্সেস (হটলাইন, হোয়াটসঅ্যাপ, ইমেইল, ঠিকানা)' : 'C. Contact & Support Details'}</span>
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      {lang === 'bn' ? 'হটলাইন নম্বর (কলের জন্য)' : 'Hotline Phone'}
+                    </label>
+                    <div className="relative">
+                      <Phone className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        required
+                        value={settingsForm.phone}
+                        onChange={(e) => setSettingsForm({ ...settingsForm, phone: e.target.value })}
+                        className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs font-mono focus:border-emerald-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      {lang === 'bn' ? 'হোয়াটসঅ্যাপ হেল্পলাইন নম্বর' : 'WhatsApp Number'}
+                    </label>
+                    <div className="relative">
+                      <MessageCircle className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[#25D366]" />
+                      <input
+                        type="text"
+                        required
+                        value={settingsForm.whatsapp}
+                        onChange={(e) => setSettingsForm({ ...settingsForm, whatsapp: e.target.value })}
+                        placeholder="8801712345678"
+                        className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs font-mono focus:border-emerald-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      {lang === 'bn' ? 'অফিসিয়াল ইমেইল অ্যাড্রেস' : 'Official Email'}
+                    </label>
+                    <div className="relative">
+                      <Mail className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="email"
+                        required
+                        value={settingsForm.email}
+                        onChange={(e) => setSettingsForm({ ...settingsForm, email: e.target.value })}
+                        className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs focus:border-emerald-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      {lang === 'bn' ? 'প্রতিষ্ঠানের ঠিকানা (বাংলা)' : 'Physical Address (Bengali)'}
+                    </label>
+                    <div className="relative">
+                      <MapPin className="w-3.5 h-3.5 absolute left-3 top-3 text-slate-400" />
+                      <textarea
+                        rows={2}
+                        value={settingsForm.addressBn}
+                        onChange={(e) => setSettingsForm({ ...settingsForm, addressBn: e.target.value })}
+                        className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs focus:border-emerald-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      {lang === 'bn' ? 'Physical Address (English)' : 'Physical Address (English)'}
+                    </label>
+                    <div className="relative">
+                      <MapPin className="w-3.5 h-3.5 absolute left-3 top-3 text-slate-400" />
+                      <textarea
+                        rows={2}
+                        value={settingsForm.addressEn}
+                        onChange={(e) => setSettingsForm({ ...settingsForm, addressEn: e.target.value })}
+                        className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs focus:border-emerald-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION D: Social Media & Messenger Links */}
+              <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
+                <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2 border-b border-slate-200/80 pb-2">
+                  <Facebook className="w-4 h-4 text-emerald-600" />
+                  <span>{lang === 'bn' ? 'ঘ. সোশ্যাল মিডিয়া ও মেসেঞ্জার লিঙ্কসমূহ' : 'D. Social Media & Messenger Links'}</span>
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Facebook Link</label>
+                    <div className="relative">
+                      <Facebook className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-blue-600" />
+                      <input
+                        type="url"
+                        value={settingsForm.facebookUrl}
+                        onChange={(e) => setSettingsForm({ ...settingsForm, facebookUrl: e.target.value })}
+                        placeholder="https://facebook.com/..."
+                        className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs focus:border-emerald-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">YouTube Channel Link</label>
+                    <div className="relative">
+                      <Youtube className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-red-600" />
+                      <input
+                        type="url"
+                        value={settingsForm.youtubeUrl}
+                        onChange={(e) => setSettingsForm({ ...settingsForm, youtubeUrl: e.target.value })}
+                        placeholder="https://youtube.com/..."
+                        className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs focus:border-emerald-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Messenger Link</label>
+                    <div className="relative">
+                      <Send className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-blue-500" />
+                      <input
+                        type="url"
+                        value={settingsForm.messengerUrl || ''}
+                        onChange={(e) => setSettingsForm({ ...settingsForm, messengerUrl: e.target.value })}
+                        placeholder="https://m.me/yourpage"
+                        className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs focus:border-emerald-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Telegram Link</label>
+                    <div className="relative">
+                      <Send className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-sky-500" />
+                      <input
+                        type="url"
+                        value={settingsForm.telegramUrl}
+                        onChange={(e) => setSettingsForm({ ...settingsForm, telegramUrl: e.target.value })}
+                        placeholder="https://t.me/yourgroup"
+                        className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs focus:border-emerald-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Save All Core Settings Button */}
+              <div className="flex justify-end pt-1">
                 <button
                   type="submit"
-                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5"
+                  className="px-8 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold text-xs rounded-xl shadow-lg transition-all flex items-center gap-2"
                 >
                   <Save className="w-4 h-4" />
-                  <span>{lang === 'bn' ? 'সকল সেটিংস সংরক্ষণ করুন' : 'Save All Settings'}</span>
+                  <span>{lang === 'bn' ? 'প্রতিষ্ঠান ও যোগাযোগ তথ্য সংরক্ষণ করুন' : 'Save Core Information'}</span>
                 </button>
               </div>
             </form>
+
+            {/* SECTION E: Footer Learning Hub Shortcuts Management */}
+            <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-200/80 pb-2 gap-2">
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <BookOpen className="w-4 h-4 text-emerald-600" />
+                    <span>{lang === 'bn' ? 'ঙ. ফুটার লার্নিং হাব শর্টকাট লিংক কাস্টমাইজেশন (যোগ, এডিট ও ডিলিট)' : 'E. Footer Learning Hub Shortcuts (Add, Edit, Delete)'}</span>
+                  </h4>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    {lang === 'bn' ? 'লার্নিং হাবের প্রতিটি লিঙ্ক এডিট করুন অথবা নতুন শর্টকাট যুক্ত করুন।' : 'Edit existing links or add custom shortcuts for the learning hub.'}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-slate-500 font-semibold bg-white px-2.5 py-1 rounded-lg border border-slate-200">
+                    {(settingsForm.learningHubLinks || []).length} {lang === 'bn' ? 'টি সক্রিয়' : 'Active'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleResetDefaultLearningLinks}
+                    className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-[11px] font-semibold flex items-center gap-1 transition-colors"
+                    title="Reset to default links"
+                  >
+                    <RotateCcw className="w-3 h-3 text-emerald-600" />
+                    <span>{lang === 'bn' ? 'ডিফল্ট আনুন' : 'Reset Default'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Edit Learning Link Form (Inline when item is selected for editing) */}
+              {editingLearningLink && (
+                <form onSubmit={handleUpdateLearningLink} className="p-4 bg-emerald-50/80 rounded-xl border border-emerald-300 space-y-3 shadow-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
+                      <Edit3 className="w-3.5 h-3.5 text-emerald-600" />
+                      {lang === 'bn' ? 'লার্নিং হাব লিংক সম্পাদনা / এডিট করুন' : 'Edit Learning Hub Link'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setEditingLearningLink(null)}
+                      className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">{lang === 'bn' ? 'শিরোনাম (বাংলা)' : 'Title (Bengali)'}</label>
+                      <input
+                        type="text"
+                        required
+                        value={editingLearningLink.titleBn}
+                        onChange={(e) => setEditingLearningLink({ ...editingLearningLink, titleBn: e.target.value })}
+                        className="w-full bg-white border border-emerald-300 rounded-xl px-3 py-2 text-xs focus:border-emerald-600 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">{lang === 'bn' ? 'Title (English)' : 'Title (English)'}</label>
+                      <input
+                        type="text"
+                        value={editingLearningLink.titleEn}
+                        onChange={(e) => setEditingLearningLink({ ...editingLearningLink, titleEn: e.target.value })}
+                        className="w-full bg-white border border-emerald-300 rounded-xl px-3 py-2 text-xs focus:border-emerald-600 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">{lang === 'bn' ? 'ইউআরএল বা রাউট পাথ' : 'URL or Route Path'}</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          required
+                          value={editingLearningLink.url}
+                          onChange={(e) => setEditingLearningLink({ ...editingLearningLink, url: e.target.value })}
+                          className="w-full bg-white border border-emerald-300 rounded-xl px-3 py-2 text-xs font-mono focus:border-emerald-600 focus:outline-none"
+                        />
+                        <button
+                          type="submit"
+                          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors shrink-0 flex items-center gap-1"
+                        >
+                          <Save className="w-3.5 h-3.5" />
+                          <span>{lang === 'bn' ? 'সংরক্ষণ' : 'Save'}</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </form>
+              )}
+
+              {/* Current List of Learning Hub Links */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                {(settingsForm.learningHubLinks || []).map((link) => (
+                  <div key={link.id} className="p-3 bg-white rounded-xl border border-slate-200 flex items-center justify-between shadow-2xs hover:border-emerald-300 transition-all">
+                    <div className="overflow-hidden pr-2">
+                      <span className="font-bold text-slate-800 text-xs block truncate">{link.titleBn}</span>
+                      <span className="text-[10px] text-slate-400 block truncate">{link.titleEn} • <code className="text-emerald-600">{link.url}</code></span>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setEditingLearningLink(link)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+                        title="Edit link"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteLearningLink(link.id)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                        title="Delete link"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Add New Learning Hub Link Form */}
+              <form onSubmit={handleAddLearningLink} className="p-4 bg-white rounded-xl border border-emerald-200/80 space-y-3">
+                <span className="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
+                  <Plus className="w-3.5 h-3.5" />
+                  {lang === 'bn' ? 'নতুন লার্নিং হাব শর্টকাট লিংক যোগ করুন' : 'Add New Learning Hub Link'}
+                </span>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <input
+                    type="text"
+                    required
+                    placeholder={lang === 'bn' ? 'শিরোনাম (বাংলা যেমন: স্পেশাল সাজেশন)' : 'Title (Bengali)'}
+                    value={newLearningTitleBn}
+                    onChange={(e) => setNewLearningTitleBn(e.target.value)}
+                    className="border border-slate-200 rounded-xl px-3 py-2 text-xs focus:border-emerald-500 focus:outline-none"
+                  />
+                  <input
+                    type="text"
+                    placeholder={lang === 'bn' ? 'Title (English যেমন: Suggestions)' : 'Title (English)'}
+                    value={newLearningTitleEn}
+                    onChange={(e) => setNewLearningTitleEn(e.target.value)}
+                    className="border border-slate-200 rounded-xl px-3 py-2 text-xs focus:border-emerald-500 focus:outline-none"
+                  />
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      required
+                      placeholder="/courses, /classes etc."
+                      value={newLearningUrl}
+                      onChange={(e) => setNewLearningUrl(e.target.value)}
+                      className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono focus:border-emerald-500 focus:outline-none"
+                    />
+                    <button
+                      type="submit"
+                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors shrink-0 flex items-center gap-1"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>{lang === 'bn' ? 'যোগ' : 'Add'}</span>
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </div>
+
+            {/* SECTION F: Footer Important Services Shortcuts Management */}
+            <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-200/80 pb-2 gap-2">
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <Award className="w-4 h-4 text-teal-600" />
+                    <span>{lang === 'bn' ? 'চ. ফুটার প্রয়োজনীয় সার্ভিস ও শর্টকাট কাস্টমাইজেশন (যোগ, এডিট ও ডিলিট)' : 'F. Footer Academic Services Shortcuts (Add, Edit, Delete)'}</span>
+                  </h4>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    {lang === 'bn' ? 'ফুটারের প্রয়োজনীয় সার্ভিসের তালিকা নিজের ইচ্ছামতো সাজান, এডিট ও রিমুভ করুন।' : 'Customize, edit, and organize services displayed in the footer.'}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-slate-500 font-semibold bg-white px-2.5 py-1 rounded-lg border border-slate-200">
+                    {(settingsForm.servicesLinks || []).length} {lang === 'bn' ? 'টি সক্রিয়' : 'Active'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleResetDefaultServicesLinks}
+                    className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-[11px] font-semibold flex items-center gap-1 transition-colors"
+                    title="Reset to default services"
+                  >
+                    <RotateCcw className="w-3 h-3 text-teal-600" />
+                    <span>{lang === 'bn' ? 'ডিফল্ট আনুন' : 'Reset Default'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Edit Service Link Form (Inline when item is selected for editing) */}
+              {editingServiceLink && (
+                <form onSubmit={handleUpdateServiceLink} className="p-4 bg-teal-50/80 rounded-xl border border-teal-300 space-y-3 shadow-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-teal-900 flex items-center gap-1.5">
+                      <Edit3 className="w-3.5 h-3.5 text-teal-600" />
+                      {lang === 'bn' ? 'প্রয়োজনীয় সার্ভিস লিংক সম্পাদনা / এডিট করুন' : 'Edit Academic Service Link'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setEditingServiceLink(null)}
+                      className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">{lang === 'bn' ? 'সার্ভিসের নাম (বাংলা)' : 'Service Name (Bengali)'}</label>
+                      <input
+                        type="text"
+                        required
+                        value={editingServiceLink.titleBn}
+                        onChange={(e) => setEditingServiceLink({ ...editingServiceLink, titleBn: e.target.value })}
+                        className="w-full bg-white border border-teal-300 rounded-xl px-3 py-2 text-xs focus:border-teal-600 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">{lang === 'bn' ? 'Title (English)' : 'Title (English)'}</label>
+                      <input
+                        type="text"
+                        value={editingServiceLink.titleEn}
+                        onChange={(e) => setEditingServiceLink({ ...editingServiceLink, titleEn: e.target.value })}
+                        className="w-full bg-white border border-teal-300 rounded-xl px-3 py-2 text-xs focus:border-teal-600 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">{lang === 'bn' ? 'ইউআরএল বা রাউট পাথ' : 'URL or Route Path'}</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          required
+                          value={editingServiceLink.url}
+                          onChange={(e) => setEditingServiceLink({ ...editingServiceLink, url: e.target.value })}
+                          className="w-full bg-white border border-teal-300 rounded-xl px-3 py-2 text-xs font-mono focus:border-teal-600 focus:outline-none"
+                        />
+                        <button
+                          type="submit"
+                          className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors shrink-0 flex items-center gap-1"
+                        >
+                          <Save className="w-3.5 h-3.5" />
+                          <span>{lang === 'bn' ? 'সংরক্ষণ' : 'Save'}</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </form>
+              )}
+
+              {/* Current List of Services Links */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                {(settingsForm.servicesLinks || []).map((srv) => (
+                  <div key={srv.id} className="p-3 bg-white rounded-xl border border-slate-200 flex items-center justify-between shadow-2xs hover:border-teal-300 transition-all">
+                    <div className="overflow-hidden pr-2">
+                      <span className="font-bold text-slate-800 text-xs block truncate">{srv.titleBn}</span>
+                      <span className="text-[10px] text-slate-400 block truncate">{srv.titleEn} • <code className="text-teal-600">{srv.url}</code></span>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setEditingServiceLink(srv)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-teal-600 hover:bg-teal-50 transition-colors"
+                        title="Edit service"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteServiceLink(srv.id)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                        title="Delete service link"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Add New Services Link Form */}
+              <form onSubmit={handleAddServiceLink} className="p-4 bg-white rounded-xl border border-teal-200/80 space-y-3">
+                <span className="text-xs font-bold text-teal-800 flex items-center gap-1.5">
+                  <Plus className="w-3.5 h-3.5" />
+                  {lang === 'bn' ? 'নতুন প্রয়োজনীয় সার্ভিস শর্টকাট যোগ করুন' : 'Add New Service Shortcut'}
+                </span>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <input
+                    type="text"
+                    required
+                    placeholder={lang === 'bn' ? 'সার্ভিসের নাম (যেমন: রেজাল্ট শিট)' : 'Service Title (Bengali)'}
+                    value={newServiceTitleBn}
+                    onChange={(e) => setNewServiceTitleBn(e.target.value)}
+                    className="border border-slate-200 rounded-xl px-3 py-2 text-xs focus:border-teal-500 focus:outline-none"
+                  />
+                  <input
+                    type="text"
+                    placeholder={lang === 'bn' ? 'Title (English যেমন: Results)' : 'Service Title (English)'}
+                    value={newServiceTitleEn}
+                    onChange={(e) => setNewServiceTitleEn(e.target.value)}
+                    className="border border-slate-200 rounded-xl px-3 py-2 text-xs focus:border-teal-500 focus:outline-none"
+                  />
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      required
+                      placeholder="/results, /dictionary, #calc"
+                      value={newServiceUrl}
+                      onChange={(e) => setNewServiceUrl(e.target.value)}
+                      className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono focus:border-teal-500 focus:outline-none"
+                    />
+                    <button
+                      type="submit"
+                      className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors shrink-0 flex items-center gap-1"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>{lang === 'bn' ? 'যোগ' : 'Add'}</span>
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </div>
           </div>
         )}
 

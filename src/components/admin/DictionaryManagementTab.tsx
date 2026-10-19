@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { BookA, Key, Upload, Database, CheckCircle2, Save, FileText, Plus, Sparkles } from 'lucide-react';
 import { Language } from '../../types';
+import { notifyRealtimeUpdate } from '../../lib/storageService';
 
 interface DictionaryManagementTabProps {
   lang: Language;
@@ -34,6 +35,7 @@ export const DictionaryManagementTab: React.FC<DictionaryManagementTabProps> = (
     e.preventDefault();
     localStorage.setItem('ihas_oxford_api_code', oxfordApiCode);
     localStorage.setItem('ihas_oxford_active', String(isOxfordActive));
+    notifyRealtimeUpdate('dictionary', { oxfordApiCode, isOxfordActive });
     showToast(lang === 'bn' ? 'অক্সফোর্ড ডিকশনারি API Code সংরক্ষিত হয়েছে!' : 'Oxford Dictionary API Code saved!');
   };
 

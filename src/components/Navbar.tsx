@@ -29,6 +29,8 @@ export const Navbar: React.FC = () => {
     setSearchQuery,
     isCalcOpen,
     setIsCalcOpen,
+    isFloatingDictOpen,
+    setIsFloatingDictOpen,
     isAdminLoggedIn
   } = useApp();
 
@@ -162,10 +164,20 @@ export const Navbar: React.FC = () => {
             <button
               onClick={() => setIsCalcOpen(!isCalcOpen)}
               className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold flex items-center gap-1 transition-colors"
-              title={lang === 'bn' ? 'ক্যালকুলেটর' : 'Calculator'}
+              title={lang === 'bn' ? 'সায়েন্টিফিক ক্যালকুলেটর' : 'Scientific Calculator'}
             >
               <CalcIcon className="w-4 h-4 text-emerald-600" />
               <span className="hidden xl:inline">{lang === 'bn' ? 'ক্যালকুলেটর' : 'Calculator'}</span>
+            </button>
+
+            {/* Quick Floating Dictionary Trigger */}
+            <button
+              onClick={() => setIsFloatingDictOpen(!isFloatingDictOpen)}
+              className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold flex items-center gap-1 transition-colors"
+              title={lang === 'bn' ? 'ভাসমান ডিকশনারি' : 'Floating Dictionary'}
+            >
+              <BookA className="w-4 h-4 text-emerald-600" />
+              <span className="hidden xl:inline">{lang === 'bn' ? 'ডিকশনারি' : 'Dictionary'}</span>
             </button>
 
             {/* Admin Badge / Link */}

@@ -17,12 +17,19 @@ try {
 
 export const notifyRealtimeUpdate = (topic: string, data?: any) => {
   try {
+    const payload = { topic, timestamp: Date.now(), data };
     if (broadcastChannel) {
-      broadcastChannel.postMessage({ topic, timestamp: Date.now(), data });
+      broadcastChannel.postMessage(payload);
     }
     // Also trigger custom window event for same-tab subscribers
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('ihas-realtime', { detail: { topic, data } }));
+      window.dispatchEvent(new CustomEvent('ihas-realtime', { detail: payload }));
+      // Write ping timestamp to localStorage to guarantee native cross-tab/iframe 'storage' event fires
+      try {
+        localStorage.setItem('ihas_realtime_ping', JSON.stringify({ topic, timestamp: Date.now(), data }));
+      } catch {
+        // ignore storage errors
+      }
     }
   } catch (err) {
     console.warn('Realtime broadcast error:', err);
@@ -45,16 +52,40 @@ export const subscribeRealtimeUpdate = (callback: (topic: string, data?: any) =>
     }
   };
 
+  const handleStorage = (e: StorageEvent) => {
+    if (e.key === 'ihas_realtime_ping' && e.newValue) {
+      try {
+        const ping = JSON.parse(e.newValue);
+        if (ping?.topic) {
+          callback(ping.topic, ping.data);
+        }
+      } catch {
+        // ignore
+      }
+    } else if (e.key && e.key.startsWith('ihas_')) {
+      const topic = e.key.replace('ihas_', '');
+      let parsed = null;
+      try {
+        parsed = e.newValue ? JSON.parse(e.newValue) : null;
+      } catch {
+        parsed = e.newValue;
+      }
+      callback(topic, parsed);
+    }
+  };
+
   if (broadcastChannel) {
     broadcastChannel.addEventListener('message', handleMessage);
   }
   window.addEventListener('ihas-realtime', handleCustomEvent);
+  window.addEventListener('storage', handleStorage);
 
   return () => {
     if (broadcastChannel) {
       broadcastChannel.removeEventListener('message', handleMessage);
     }
     window.removeEventListener('ihas-realtime', handleCustomEvent);
+    window.removeEventListener('storage', handleStorage);
   };
 };
 

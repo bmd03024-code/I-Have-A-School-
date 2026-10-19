@@ -1,5 +1,12 @@
 export type Language = 'bn' | 'en';
 
+export interface FooterCustomLink {
+  id: string;
+  titleBn: string;
+  titleEn: string;
+  url: string;
+}
+
 export interface SchoolSettings {
   instituteNameEn: string;
   instituteNameBn: string;
@@ -16,6 +23,13 @@ export interface SchoolSettings {
   facebookUrl: string;
   youtubeUrl: string;
   telegramUrl: string;
+  messengerUrl?: string;
+  founderNameBn?: string;
+  founderNameEn?: string;
+  footerDescriptionBn?: string;
+  footerDescriptionEn?: string;
+  learningHubLinks?: FooterCustomLink[];
+  servicesLinks?: FooterCustomLink[];
 }
 
 export interface HeroSlide {

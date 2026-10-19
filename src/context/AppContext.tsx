@@ -150,6 +150,8 @@ export interface AppContextType {
   showToast: (msg: string) => void;
   isCalcOpen: boolean;
   setIsCalcOpen: (open: boolean) => void;
+  isFloatingDictOpen: boolean;
+  setIsFloatingDictOpen: (open: boolean) => void;
 }
 
 export const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -720,62 +722,140 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Listen to cross-tab / cross-window real-time synchronization updates
   useEffect(() => {
-    const unsubscribe = subscribeRealtimeUpdate((topic) => {
+    const unsubscribe = subscribeRealtimeUpdate((topic, data) => {
       try {
         switch (topic) {
-          case 'schoolSettings': {
-            const raw = localStorage.getItem('ihas_school_settings');
-            if (raw) setSchoolSettings(JSON.parse(raw));
+          case 'schoolSettings':
+          case 'settings': {
+            if (data) setSchoolSettings(data);
+            else {
+              const raw = localStorage.getItem('ihas_school_settings');
+              if (raw) setSchoolSettings(JSON.parse(raw));
+            }
             break;
           }
-          case 'heroSlides': {
-            const raw = localStorage.getItem('ihas_hero_slides');
-            if (raw) setHeroSlides(JSON.parse(raw));
+          case 'heroSlides':
+          case 'slides': {
+            if (data) setHeroSlides(data);
+            else {
+              const raw = localStorage.getItem('ihas_hero_slides');
+              if (raw) setHeroSlides(JSON.parse(raw));
+            }
             break;
           }
           case 'courses': {
-            const raw = localStorage.getItem('ihas_courses');
-            if (raw) setCourses(JSON.parse(raw));
+            if (data) setCourses(data);
+            else {
+              const raw = localStorage.getItem('ihas_courses');
+              if (raw) setCourses(JSON.parse(raw));
+            }
             break;
           }
           case 'students': {
-            const raw = localStorage.getItem('ihas_students');
-            if (raw) setStudents(JSON.parse(raw));
+            if (data) setStudents(data);
+            else {
+              const raw = localStorage.getItem('ihas_students');
+              if (raw) setStudents(JSON.parse(raw));
+            }
+            break;
+          }
+          case 'subjects': {
+            if (data) setSubjects(data);
+            else {
+              const raw = localStorage.getItem('ihas_subjects');
+              if (raw) setSubjects(JSON.parse(raw));
+            }
+            break;
+          }
+          case 'exams': {
+            if (data) setExams(data);
+            else {
+              const raw = localStorage.getItem('ihas_exams');
+              if (raw) setExams(JSON.parse(raw));
+            }
+            break;
+          }
+          case 'results': {
+            if (data) setResults(data);
+            else {
+              const raw = localStorage.getItem('ihas_results');
+              if (raw) setResults(JSON.parse(raw));
+            }
             break;
           }
           case 'teachers': {
-            const raw = localStorage.getItem('ihas_teachers');
-            if (raw) setTeachers(JSON.parse(raw));
+            if (data) setTeachers(data);
+            else {
+              const raw = localStorage.getItem('ihas_teachers');
+              if (raw) setTeachers(JSON.parse(raw));
+            }
             break;
           }
-          case 'videoClasses': {
-            const raw = localStorage.getItem('ihas_videos');
-            if (raw) setVideoClasses(JSON.parse(raw));
+          case 'videoClasses':
+          case 'videos': {
+            if (data) setVideoClasses(data);
+            else {
+              const raw = localStorage.getItem('ihas_videos');
+              if (raw) setVideoClasses(JSON.parse(raw));
+            }
             break;
           }
           case 'notes': {
-            const raw = localStorage.getItem('ihas_notes');
-            if (raw) setNotes(JSON.parse(raw));
+            if (data) setNotes(data);
+            else {
+              const raw = localStorage.getItem('ihas_notes');
+              if (raw) setNotes(JSON.parse(raw));
+            }
             break;
           }
           case 'notices': {
-            const raw = localStorage.getItem('ihas_notices');
-            if (raw) setNotices(JSON.parse(raw));
+            if (data) setNotices(data);
+            else {
+              const raw = localStorage.getItem('ihas_notices');
+              if (raw) setNotices(JSON.parse(raw));
+            }
             break;
           }
           case 'routines': {
-            const raw = localStorage.getItem('ihas_routines');
-            if (raw) setRoutines(JSON.parse(raw));
+            if (data) setRoutines(data);
+            else {
+              const raw = localStorage.getItem('ihas_routines');
+              if (raw) setRoutines(JSON.parse(raw));
+            }
             break;
           }
-          case 'chatbotTraining': {
-            const raw = localStorage.getItem('ihas_chatbot_training');
-            if (raw) setChatbotTraining(JSON.parse(raw));
+          case 'chatbotTraining':
+          case 'chatbot_training': {
+            if (data) setChatbotTraining(data);
+            else {
+              const raw = localStorage.getItem('ihas_chatbot_training');
+              if (raw) setChatbotTraining(JSON.parse(raw));
+            }
             break;
           }
           case 'quizzes': {
-            const raw = localStorage.getItem('ihas_quizzes');
-            if (raw) setModelTests(JSON.parse(raw));
+            if (data) setModelTests(data);
+            else {
+              const raw = localStorage.getItem('ihas_quizzes');
+              if (raw) setModelTests(JSON.parse(raw));
+            }
+            break;
+          }
+          case 'googleCloudConfig':
+          case 'google_cloud': {
+            if (data) setGoogleCloudConfig(data);
+            else {
+              const raw = localStorage.getItem('ihas_google_cloud_config');
+              if (raw) setGoogleCloudConfig(JSON.parse(raw));
+            }
+            break;
+          }
+          case 'admin_creds': {
+            if (data) setAdminCredentials(data);
+            else {
+              const raw = localStorage.getItem('ihas_admin_creds');
+              if (raw) setAdminCredentials(JSON.parse(raw));
+            }
             break;
           }
         }
@@ -828,6 +908,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [searchQuery, setSearchQuery] = useState('');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isCalcOpen, setIsCalcOpen] = useState(false);
+  const [isFloatingDictOpen, setIsFloatingDictOpen] = useState(false);
 
   useEffect(() => {
     localStorage.setItem('ihas_bookmarks', JSON.stringify(bookmarks));
@@ -984,7 +1065,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         toastMessage,
         showToast,
         isCalcOpen,
-        setIsCalcOpen
+        setIsCalcOpen,
+        isFloatingDictOpen,
+        setIsFloatingDictOpen
       }}
     >
       {children}

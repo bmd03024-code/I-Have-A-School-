@@ -1,32 +1,21 @@
 import React, { useState } from 'react';
-import { Search, Volume2, BookA, Sparkles, Filter, ExternalLink, Settings, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Search, Volume2, BookA, Sparkles, Filter, ExternalLink, Settings, CheckCircle2, AlertCircle, Lock } from 'lucide-react';
 import { BUILTIN_VOCABULARY, DICTIONARY_BLOCKS, DictionaryEntry, lookupOnlineWord } from '../services/dictionaryService';
 import { useApp } from '../context/AppContext';
 
 export const Dictionary: React.FC = () => {
-  const { lang, showToast } = useApp();
+  const { lang, showToast, isAdminLoggedIn } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedBlock, setSelectedBlock] = useState('all');
   const [activeWord, setActiveWord] = useState<DictionaryEntry | null>(BUILTIN_VOCABULARY[0]);
   const [isSearchingOnline, setIsSearchingOnline] = useState(false);
   const [onlineResult, setOnlineResult] = useState<DictionaryEntry | null>(null);
   
-  // Oxford API Credentials & Code state
+  // Oxford API Status & Admin-only Info
   const [showOxfordModal, setShowOxfordModal] = useState(false);
-  const [oxfordApiCode, setOxfordApiCode] = useState(() => localStorage.getItem('ihas_oxford_api_code') || 'OXFORD_PRO_2026_LIVE');
-  const [oxfordAppId, setOxfordAppId] = useState(() => localStorage.getItem('ihas_oxford_app_id') || '');
-  const [oxfordAppKey, setOxfordAppKey] = useState(() => localStorage.getItem('ihas_oxford_app_key') || '');
-  const [oxfordConnected, setOxfordConnected] = useState(() => Boolean(localStorage.getItem('ihas_oxford_api_code') || localStorage.getItem('ihas_oxford_app_id')));
-
-  const handleSaveOxfordApi = (e: React.FormEvent) => {
-    e.preventDefault();
-    localStorage.setItem('ihas_oxford_api_code', oxfordApiCode);
-    localStorage.setItem('ihas_oxford_app_id', oxfordAppId);
-    localStorage.setItem('ihas_oxford_app_key', oxfordAppKey);
-    setOxfordConnected(Boolean(oxfordApiCode || oxfordAppId));
-    setShowOxfordModal(false);
-    showToast(lang === 'bn' ? 'অক্সফোর্ড ডিকশনারি API Code সক্রিয় ও সংরক্ষিত হয়েছে!' : 'Oxford API Code active and saved successfully!');
-  };
+  const oxfordApiCode = localStorage.getItem('ihas_oxford_api_code') || 'OXFORD_PRO_2026_LIVE';
+  const oxfordConnected = Boolean(oxfordApiCode);
 
   const handleSearch = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -308,14 +297,14 @@ export const Dictionary: React.FC = () => {
         </div>
       </div>
 
-      {/* Oxford API Configuration Modal */}
+      {/* Oxford API Information & Admin-Only Notice Modal */}
       {showOxfordModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
           <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl p-6 border border-slate-200 space-y-5">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="font-bold text-base text-slate-900 flex items-center gap-2">
                 <Settings className="w-5 h-5 text-emerald-600" />
-                <span>{lang === 'bn' ? 'অক্সফোর্ড ডিকশনারি এপিআই কানেক্টর' : 'Oxford Dictionary API Connector'}</span>
+                <span>{lang === 'bn' ? 'অক্সফোর্ড ডিকশনারি এপিআই স্ট্যাটাস' : 'Oxford Dictionary API Status'}</span>
               </h3>
               <button
                 onClick={() => setShowOxfordModal(false)}
@@ -325,74 +314,61 @@ export const Dictionary: React.FC = () => {
               </button>
             </div>
 
-            <p className="text-xs text-slate-600 leading-relaxed">
-              {lang === 'bn'
-                ? '১০ লাখ শব্দের বৈশ্বিক ডাটাবেজ স্বয়ংক্রিয়ভাবে একটিভ রয়েছে। আপনি চাইলে আপনার নিজস্ব Oxford Dictionaries API App ID ও App Key এখানে যুক্ত করতে পারেন।'
-                : '1 Million Words global lexicon is active via high-speed API. You may also provide your personal Oxford Dictionaries API App ID and Key.'}
-            </p>
-
-            <form onSubmit={handleSaveOxfordApi} className="space-y-3 text-xs">
-              <div>
-                <label className="block font-bold text-slate-800 mb-1">
-                  {lang === 'bn' ? 'Oxford Dictionary API Code (সক্রিয় কোড)' : 'Oxford Dictionary API Code (Active)'}
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. OXFORD_PRO_2026_LIVE"
-                  value={oxfordApiCode}
-                  onChange={(e) => setOxfordApiCode(e.target.value)}
-                  className="w-full border border-emerald-400 bg-emerald-50/30 rounded-xl px-3 py-2 text-xs font-mono font-bold text-emerald-900 focus:border-emerald-600 focus:outline-none"
-                />
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 space-y-2">
+              <div className="flex items-center gap-2 font-bold text-xs text-amber-900">
+                <Lock className="w-4 h-4 text-amber-700" />
+                <span>{lang === 'bn' ? 'নিরাপত্তা নীতি: অ্যাডমিন নিয়ন্ত্রিত' : 'Security Policy: Admin Controlled'}</span>
               </div>
+              <p className="text-xs text-amber-800 leading-relaxed">
+                {lang === 'bn'
+                  ? 'ডিকশনারির অক্সফোর্ড এপিআই কি (API Key) বা এপিআই কোড শুধুমাত্র অ্যাডমিন প্যানেল (Admin Panel) থেকে পরিবর্তন করা সম্ভব। সাধারণ ব্যবহারকারী এটি পরিবর্তন করতে পারবেন না।'
+                  : 'The Oxford Dictionary API Key can only be updated from the Admin Panel. Regular users cannot alter the API credentials.'}
+              </p>
+            </div>
 
-              <div>
-                <label className="block font-medium text-slate-700 mb-1">Oxford App ID (Optional)</label>
-                <input
-                  type="text"
-                  placeholder="e.g. 7a8b9c0d"
-                  value={oxfordAppId}
-                  onChange={(e) => setOxfordAppId(e.target.value)}
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs focus:border-emerald-500 focus:outline-none"
-                />
+            <div className="space-y-2 text-xs bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
+              <div className="flex justify-between items-center">
+                <span className="font-medium text-slate-600">{lang === 'bn' ? 'বর্তমান API কোড:' : 'Active API Code:'}</span>
+                <span className="font-mono font-bold text-emerald-800">{oxfordApiCode}</span>
               </div>
-
-              <div>
-                <label className="block font-medium text-slate-700 mb-1">Oxford App Key (Optional)</label>
-                <input
-                  type="password"
-                  placeholder="••••••••••••••••"
-                  value={oxfordAppKey}
-                  onChange={(e) => setOxfordAppKey(e.target.value)}
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs focus:border-emerald-500 focus:outline-none"
-                />
+              <div className="flex justify-between items-center">
+                <span className="font-medium text-slate-600">{lang === 'bn' ? 'ডাটাবেজ ক্যাপাসিটি:' : 'Database Capacity:'}</span>
+                <span className="font-bold text-slate-800">১০,০০,০০০+ শব্দ (1M Words)</span>
               </div>
-
-              <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-100 text-[11px] text-emerald-800 flex items-start gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                <span>
-                  {lang === 'bn' 
-                    ? 'এপিআই কী না থাকলেও ফ্রি ডিকশনারি মোডে সকল ১০ লাখ শব্দ অ্যাক্সেসযোগ্য।' 
-                    : 'All 1M+ words remain accessible via the built-in lexicon fallback even without custom keys.'}
+              <div className="flex justify-between items-center">
+                <span className="font-medium text-slate-600">{lang === 'bn' ? 'কানেকশন স্ট্যাটাস:' : 'Connection Status:'}</span>
+                <span className="text-emerald-700 font-bold flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                  {oxfordConnected ? (lang === 'bn' ? 'সক্রিয় (Active)' : 'Active') : (lang === 'bn' ? 'ফলব্যাক সক্রিয়' : 'Fallback Active')}
                 </span>
               </div>
+            </div>
 
-              <div className="flex gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowOxfordModal(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-bold"
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowOxfordModal(false)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs"
+              >
+                {lang === 'bn' ? 'বন্ধ করুন' : 'Close'}
+              </button>
+              {isAdminLoggedIn ? (
+                <Link
+                  to="/admin"
+                  className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs text-center transition-colors"
                 >
-                  {lang === 'bn' ? 'বাতিল' : 'Cancel'}
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition-colors"
+                  {lang === 'bn' ? 'অ্যাডমিন প্যানেলে যান' : 'Go to Admin Panel'}
+                </Link>
+              ) : (
+                <Link
+                  to="/admin"
+                  className="flex-1 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs text-center transition-colors flex items-center justify-center gap-1"
                 >
-                  {lang === 'bn' ? 'সংরক্ষণ করুন' : 'Save Credentials'}
-                </button>
-              </div>
-            </form>
+                  <Lock className="w-3 h-3 text-amber-400" />
+                  <span>{lang === 'bn' ? 'অ্যাডমিন লগইন' : 'Admin Login'}</span>
+                </Link>
+              )}
+            </div>
           </div>
         </div>
       )}

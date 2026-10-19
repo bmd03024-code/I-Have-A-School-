@@ -13,12 +13,39 @@ import {
   Award, 
   Lock, 
   Calculator as CalcIcon,
-  BookA
+  BookA,
+  ArrowRight,
+  ExternalLink
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 export const Footer: React.FC = () => {
   const { lang, schoolSettings, setIsCalcOpen } = useApp();
+
+  const defaultLearningHub = [
+    { id: 'lh-1', titleBn: 'কোয়ালিটি কোর্সসমূহ', titleEn: 'Quality Courses', url: '/courses' },
+    { id: 'lh-2', titleBn: 'ফ্রি ভিডিও ক্লাস', titleEn: 'Free Video Classes', url: '/classes' },
+    { id: 'lh-3', titleBn: 'লেকচার নোটস ও পিডিএফ', titleEn: 'Lecture Notes & PDFs', url: '/notes' },
+    { id: 'lh-4', titleBn: 'এইচএসসি ও বোর্ড সাজেশন', titleEn: 'Exam Suggestions', url: '/suggestions' },
+    { id: 'lh-5', titleBn: 'অনলাইন মডেল টেস্ট', titleEn: 'Online Model Tests', url: '/model-tests' }
+  ];
+
+  const defaultServices = [
+    { id: 'srv-1', titleBn: 'মার্কশিট ও ফলাফল প্রিন্ট', titleEn: 'Marksheet & Results', url: '/results' },
+    { id: 'srv-2', titleBn: '১০ লাখ শব্দের ডিকশনারি', titleEn: '1M Words Dictionary', url: '/dictionary' },
+    { id: 'srv-3', titleBn: 'সায়েন্টিফিক ক্যালকুলেটর', titleEn: 'Scientific Calculator', url: '#calc' },
+    { id: 'srv-4', titleBn: 'শিক্ষক প্যানেল ও আইডি কার্ড', titleEn: 'Faculty & ID Cards', url: '/teachers' },
+    { id: 'srv-5', titleBn: 'ক্লাস রুটিন ও সময়সূচি', titleEn: 'Class Routines', url: '/routines' },
+    { id: 'srv-6', titleBn: 'অ্যাডমিন ড্যাশবোর্ড', titleEn: 'Admin Dashboard', url: '/admin' }
+  ];
+
+  const learningHubLinks = schoolSettings.learningHubLinks && schoolSettings.learningHubLinks.length > 0 
+    ? schoolSettings.learningHubLinks 
+    : defaultLearningHub;
+
+  const servicesLinks = schoolSettings.servicesLinks && schoolSettings.servicesLinks.length > 0 
+    ? schoolSettings.servicesLinks 
+    : defaultServices;
 
   return (
     <footer className="bg-slate-950 text-slate-300 pt-14 pb-8 border-t border-slate-800 print:hidden">
@@ -28,11 +55,19 @@ export const Footer: React.FC = () => {
           {/* Brand & Mission */}
           <div className="lg:col-span-2 space-y-4">
             <Link to="/" className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-950 shadow-md">
-                <GraduationCap className="w-6 h-6" />
-              </div>
+              {schoolSettings.logoUrl ? (
+                <img 
+                  src={schoolSettings.logoUrl} 
+                  alt={schoolSettings.instituteNameEn}
+                  className="w-11 h-11 rounded-xl object-contain bg-white/10 p-1 border border-emerald-500/40 shadow-md"
+                />
+              ) : (
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-950 shadow-md">
+                  <GraduationCap className="w-6 h-6" />
+                </div>
+              )}
               <div>
-                <span className="font-extrabold text-xl text-white tracking-tight">
+                <span className="font-extrabold text-xl text-white tracking-tight block">
                   {lang === 'bn' ? schoolSettings.instituteNameBn : schoolSettings.instituteNameEn}
                 </span>
                 <p className="text-xs text-emerald-400 font-medium">
@@ -40,149 +75,172 @@ export const Footer: React.FC = () => {
                 </p>
               </div>
             </Link>
+
             <p className="text-xs sm:text-sm text-slate-400 leading-relaxed max-w-sm">
               {lang === 'bn'
-                ? 'এমডি তৌহিদুল হক তুহিন স্যারের শিক্ষামূলক প্ল্যাটফর্ম—ইংরেজি ব্যাকরণ সহজীকরণ, অনর্গল স্পোকেন ইংলিশ, বোর্ড পরীক্ষার ১০০% সাজেশন ও কোয়ালিটি কোর্স।'
-                : 'Educational mentorship initiative led by MD Touhidul Hoque Tuhin to empower students across Bangladesh with intuitive English mastery.'}
+                ? (schoolSettings.footerDescriptionBn || 'এমডি তৌহিদুল হক তুহিন স্যারের শিক্ষামূলক প্ল্যাটফর্ম—ইংরেজি ব্যাকরণ সহজীকরণ, অনর্গল স্পোকেন ইংলিশ, বোর্ড পরীক্ষার ১০০% সাজেশন ও কোয়ালিটি কোর্স।')
+                : (schoolSettings.footerDescriptionEn || 'Educational mentorship initiative led by MD Touhidul Hoque Tuhin to empower students across Bangladesh with intuitive English mastery.')}
             </p>
-            <div className="pt-2 flex items-center gap-3 text-slate-400">
-              <a 
-                href={schoolSettings.facebookUrl} 
-                target="_blank" 
-                rel="noreferrer"
-                className="w-9 h-9 rounded-full bg-slate-800 hover:bg-emerald-600 hover:text-white flex items-center justify-center transition-colors"
-                title="Follow Facebook"
-              >
-                <Facebook className="w-4 h-4" />
-              </a>
-              <a 
-                href={schoolSettings.youtubeUrl} 
-                target="_blank" 
-                rel="noreferrer"
-                className="w-9 h-9 rounded-full bg-slate-800 hover:bg-red-600 hover:text-white flex items-center justify-center transition-colors"
-                title="Subscribe on YouTube"
-              >
-                <Youtube className="w-4 h-4" />
-              </a>
-              <a 
-                href={`https://wa.me/${schoolSettings.whatsapp}`} 
-                target="_blank" 
-                rel="noreferrer"
-                className="w-9 h-9 rounded-full bg-slate-800 hover:bg-emerald-600 hover:text-white flex items-center justify-center transition-colors"
-                title="WhatsApp Direct"
-              >
-                <MessageCircle className="w-4 h-4" />
-              </a>
+
+            {/* Social Links */}
+            <div className="pt-2 flex flex-wrap items-center gap-2.5 text-slate-400">
+              {schoolSettings.facebookUrl && (
+                <a 
+                  href={schoolSettings.facebookUrl} 
+                  target="_blank" 
+                  rel="noreferrer"
+                  className="w-9 h-9 rounded-full bg-slate-900 border border-slate-800 hover:border-emerald-500 hover:bg-emerald-600 hover:text-white flex items-center justify-center transition-all shadow-xs"
+                  title="Facebook"
+                >
+                  <Facebook className="w-4 h-4" />
+                </a>
+              )}
+
+              {schoolSettings.youtubeUrl && (
+                <a 
+                  href={schoolSettings.youtubeUrl} 
+                  target="_blank" 
+                  rel="noreferrer"
+                  className="w-9 h-9 rounded-full bg-slate-900 border border-slate-800 hover:border-red-500 hover:bg-red-600 hover:text-white flex items-center justify-center transition-all shadow-xs"
+                  title="YouTube"
+                >
+                  <Youtube className="w-4 h-4" />
+                </a>
+              )}
+
+              {schoolSettings.whatsapp && (
+                <a 
+                  href={`https://wa.me/${schoolSettings.whatsapp.replace(/[^0-9]/g, '')}`} 
+                  target="_blank" 
+                  rel="noreferrer"
+                  className="w-9 h-9 rounded-full bg-slate-900 border border-slate-800 hover:border-emerald-500 hover:bg-[#25D366] hover:text-white flex items-center justify-center transition-all shadow-xs"
+                  title="WhatsApp"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                </a>
+              )}
+
+              {schoolSettings.messengerUrl && (
+                <a 
+                  href={schoolSettings.messengerUrl} 
+                  target="_blank" 
+                  rel="noreferrer"
+                  className="w-9 h-9 rounded-full bg-slate-900 border border-slate-800 hover:border-blue-500 hover:bg-blue-600 hover:text-white flex items-center justify-center transition-all shadow-xs"
+                  title="Messenger"
+                >
+                  <Send className="w-4 h-4" />
+                </a>
+              )}
+
+              {schoolSettings.telegramUrl && (
+                <a 
+                  href={schoolSettings.telegramUrl} 
+                  target="_blank" 
+                  rel="noreferrer"
+                  className="w-9 h-9 rounded-full bg-slate-900 border border-slate-800 hover:border-sky-500 hover:bg-sky-600 hover:text-white flex items-center justify-center transition-all shadow-xs"
+                  title="Telegram"
+                >
+                  <Send className="w-4 h-4" />
+                </a>
+              )}
             </div>
           </div>
 
-          {/* Quick Learning Links */}
+          {/* Quick Learning Links (Dynamic) */}
           <div>
             <h4 className="text-white text-xs font-bold uppercase tracking-wider mb-4 border-l-2 border-emerald-500 pl-2">
               {lang === 'bn' ? 'লার্নিং হাব' : 'Learning Hub'}
             </h4>
-            <ul className="space-y-2 text-xs">
-              <li>
-                <Link to="/courses" className="hover:text-emerald-400 transition-colors">
-                  {lang === 'bn' ? 'কোয়ালিটি কোর্সসমূহ' : 'Quality Courses'}
-                </Link>
-              </li>
-              <li>
-                <Link to="/classes" className="hover:text-emerald-400 transition-colors">
-                  {lang === 'bn' ? 'ফ্রি ভিডিও ক্লাস' : 'Free Video Classes'}
-                </Link>
-              </li>
-              <li>
-                <Link to="/notes" className="hover:text-emerald-400 transition-colors">
-                  {lang === 'bn' ? 'লেকচার নোটস ও পিডিএফ' : 'Lecture Notes & PDFs'}
-                </Link>
-              </li>
-              <li>
-                <Link to="/suggestions" className="hover:text-emerald-400 transition-colors">
-                  {lang === 'bn' ? 'এইচএসসি ও বোর্ড সাজেশন' : 'Exam Suggestions'}
-                </Link>
-              </li>
-              <li>
-                <Link to="/model-tests" className="hover:text-emerald-400 transition-colors">
-                  {lang === 'bn' ? 'অনলাইন মডেল টেস্ট' : 'Online Model Tests'}
-                </Link>
-              </li>
+            <ul className="space-y-2.5 text-xs">
+              {learningHubLinks.map((link) => (
+                <li key={link.id}>
+                  <Link 
+                    to={link.url} 
+                    className="hover:text-emerald-400 transition-colors flex items-center gap-1 group"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/50 group-hover:bg-emerald-400 transition-colors" />
+                    <span>{lang === 'bn' ? link.titleBn : link.titleEn}</span>
+                  </Link>
+                </li>
+              ))}
             </ul>
           </div>
 
-          {/* Institutional Shortcuts */}
+          {/* Institutional Shortcuts & Services (Dynamic) */}
           <div>
             <h4 className="text-white text-xs font-bold uppercase tracking-wider mb-4 border-l-2 border-emerald-500 pl-2">
               {lang === 'bn' ? 'প্রয়োজনীয় সার্ভিস' : 'Academic Services'}
             </h4>
-            <ul className="space-y-2 text-xs">
-              <li>
-                <Link to="/results" className="hover:text-emerald-400 transition-colors flex items-center gap-1.5 font-semibold text-emerald-400">
-                  <Award className="w-3.5 h-3.5" />
-                  <span>{lang === 'bn' ? 'মার্কশিট ও ফলাফল প্রিন্ট' : 'Marksheet & Results'}</span>
-                </Link>
-              </li>
-              <li>
-                <Link to="/dictionary" className="hover:text-emerald-400 transition-colors flex items-center gap-1.5">
-                  <BookA className="w-3.5 h-3.5" />
-                  <span>{lang === 'bn' ? '১০ লাখ শব্দের ডিকশনারি' : '1M Words Dictionary'}</span>
-                </Link>
-              </li>
-              <li>
-                <button
-                  onClick={() => setIsCalcOpen(true)}
-                  className="hover:text-emerald-400 transition-colors flex items-center gap-1.5 text-left"
-                >
-                  <CalcIcon className="w-3.5 h-3.5 text-emerald-500" />
-                  <span>{lang === 'bn' ? 'স্মার্ট ক্যালকুলেটর' : 'Smart Calculator'}</span>
-                </button>
-              </li>
-              <li>
-                <Link to="/teachers" className="hover:text-emerald-400 transition-colors">
-                  {lang === 'bn' ? 'শিক্ষক প্যানেল ও আইডি কার্ড' : 'Faculty & ID Cards'}
-                </Link>
-              </li>
-              <li>
-                <Link to="/admin" className="hover:text-emerald-400 transition-colors flex items-center gap-1.5 text-slate-400">
-                  <Lock className="w-3.5 h-3.5" />
-                  <span>{lang === 'bn' ? 'অ্যাডমিন ড্যাশবোর্ড' : 'Admin Login'}</span>
-                </Link>
-              </li>
+            <ul className="space-y-2.5 text-xs">
+              {servicesLinks.map((srv) => (
+                <li key={srv.id}>
+                  {srv.url === '#calc' || srv.url === '/calc' ? (
+                    <button
+                      onClick={() => setIsCalcOpen(true)}
+                      className="hover:text-emerald-400 transition-colors flex items-center gap-1.5 text-left text-emerald-400 font-semibold"
+                    >
+                      <CalcIcon className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>{lang === 'bn' ? srv.titleBn : srv.titleEn}</span>
+                    </button>
+                  ) : (
+                    <Link 
+                      to={srv.url} 
+                      className="hover:text-emerald-400 transition-colors flex items-center gap-1 group"
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-teal-500/50 group-hover:bg-emerald-400 transition-colors" />
+                      <span>{lang === 'bn' ? srv.titleBn : srv.titleEn}</span>
+                    </Link>
+                  )}
+                </li>
+              ))}
             </ul>
           </div>
 
-          {/* Contact Details */}
+          {/* Contact Details (Dynamic) */}
           <div>
             <h4 className="text-white text-xs font-bold uppercase tracking-wider mb-4 border-l-2 border-emerald-500 pl-2">
               {lang === 'bn' ? 'যোগাযোগ ও সাপোর্ট' : 'Contact & Support'}
             </h4>
-            <div className="space-y-3 text-xs text-slate-400">
+            <div className="space-y-3.5 text-xs text-slate-400">
               <div className="flex items-start gap-2.5">
                 <Phone className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                 <div>
-                  <span className="block text-slate-200 font-semibold">{lang === 'bn' ? 'হটলাইন' : 'Hotline'}</span>
-                  <span>{schoolSettings.phone}</span>
+                  <span className="block text-slate-200 font-semibold">{lang === 'bn' ? 'হটলাইন নম্বর' : 'Hotline'}</span>
+                  <a href={`tel:${schoolSettings.phone}`} className="hover:text-emerald-400 transition-colors font-mono">
+                    {schoolSettings.phone}
+                  </a>
                 </div>
               </div>
               <div className="flex items-start gap-2.5">
-                <MessageCircle className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                <MessageCircle className="w-4 h-4 text-[#25D366] shrink-0 mt-0.5" />
                 <div>
-                  <span className="block text-slate-200 font-semibold">WhatsApp</span>
-                  <span>+{schoolSettings.whatsapp}</span>
+                  <span className="block text-slate-200 font-semibold">WhatsApp হেল্পলাইন</span>
+                  <a 
+                    href={`https://wa.me/${schoolSettings.whatsapp.replace(/[^0-9]/g, '')}`} 
+                    target="_blank" 
+                    rel="noreferrer"
+                    className="hover:text-emerald-400 transition-colors font-mono"
+                  >
+                    +{schoolSettings.whatsapp}
+                  </a>
                 </div>
               </div>
               <div className="flex items-start gap-2.5">
                 <Mail className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                 <div>
-                  <span className="block text-slate-200 font-semibold">Email</span>
-                  <span className="truncate">{schoolSettings.email}</span>
+                  <span className="block text-slate-200 font-semibold">{lang === 'bn' ? 'অফিসিয়াল ইমেইল' : 'Email'}</span>
+                  <a href={`mailto:${schoolSettings.email}`} className="hover:text-emerald-400 transition-colors truncate block">
+                    {schoolSettings.email}
+                  </a>
                 </div>
               </div>
               <div className="flex items-start gap-2.5">
                 <MapPin className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                 <div>
-                  <span className="block text-slate-200 font-semibold">{lang === 'bn' ? 'ঠিকানা' : 'Address'}</span>
-                  <span>{lang === 'bn' ? schoolSettings.addressBn : schoolSettings.addressEn}</span>
+                  <span className="block text-slate-200 font-semibold">{lang === 'bn' ? 'ঠিকানা ও অবস্থান' : 'Address'}</span>
+                  <span className="leading-relaxed block">
+                    {lang === 'bn' ? schoolSettings.addressBn : schoolSettings.addressEn}
+                  </span>
                 </div>
               </div>
             </div>
@@ -192,10 +250,10 @@ export const Footer: React.FC = () => {
         {/* Bottom copyright */}
         <div className="pt-8 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-4">
           <p>
-            © {new Date().getFullYear()} <strong>{lang === 'bn' ? schoolSettings.instituteNameBn : schoolSettings.instituteNameEn}</strong>. Directed by <strong>MD Touhidul Hoque Tuhin</strong>. All rights reserved.
+            © {new Date().getFullYear()} <strong>{lang === 'bn' ? schoolSettings.instituteNameBn : schoolSettings.instituteNameEn}</strong>. {lang === 'bn' ? 'পরিচালনায়' : 'Directed by'} <strong>{lang === 'bn' ? (schoolSettings.founderNameBn || 'মো. তৌহিদুল হক তুহিন') : (schoolSettings.founderNameEn || 'MD Touhidul Hoque Tuhin')}</strong>. All rights reserved.
           </p>
           <div className="flex items-center gap-1 text-slate-400">
-            <span>Learn, Grow, Succeed with Tuhin Sir</span>
+            <span>{lang === 'bn' ? schoolSettings.taglineBn : schoolSettings.taglineEn}</span>
             <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500 inline ml-1" />
           </div>
         </div>

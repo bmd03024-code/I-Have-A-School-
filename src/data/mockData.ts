@@ -34,7 +34,26 @@ export const DEFAULT_SCHOOL_SETTINGS: SchoolSettings = {
   addressBn: 'বাড়ি ৪২, রোড ১১, ধানমন্ডি, ঢাকা-১২০৯, বাংলাদেশ',
   facebookUrl: 'https://facebook.com',
   youtubeUrl: 'https://youtube.com',
-  telegramUrl: 'https://t.me'
+  telegramUrl: 'https://t.me',
+  messengerUrl: 'https://m.me/ihaveaschool',
+  founderNameBn: 'মো. তৌহিদুল হক তুহিন',
+  founderNameEn: 'MD Touhidul Hoque Tuhin',
+  footerDescriptionBn: 'এমডি তৌহিদুল হক তুহিন স্যারের শিক্ষামূলক প্ল্যাটফর্ম—ইংরেজি ব্যাকরণ সহজীকরণ, অনর্গল স্পোকেন ইংলিশ, বোর্ড পরীক্ষার ১০০% সাজেশন ও কোয়ালিটি কোর্স।',
+  footerDescriptionEn: 'Educational mentorship initiative led by MD Touhidul Hoque Tuhin to empower students across Bangladesh with intuitive English mastery.',
+  learningHubLinks: [
+    { id: 'lh-1', titleBn: 'কোয়ালিটি কোর্সসমূহ', titleEn: 'Quality Courses', url: '/courses' },
+    { id: 'lh-2', titleBn: 'ফ্রি ভিডিও ক্লাস', titleEn: 'Free Video Classes', url: '/classes' },
+    { id: 'lh-3', titleBn: 'লেকচার নোটস ও পিডিএফ', titleEn: 'Lecture Notes & PDFs', url: '/notes' },
+    { id: 'lh-4', titleBn: 'এইচএসসি ও বোর্ড সাজেশন', titleEn: 'Exam Suggestions', url: '/suggestions' },
+    { id: 'lh-5', titleBn: 'অনলাইন মডেল টেস্ট', titleEn: 'Online Model Tests', url: '/model-tests' }
+  ],
+  servicesLinks: [
+    { id: 'srv-1', titleBn: 'মার্কশিট ও ফলাফল প্রিন্ট', titleEn: 'Marksheet & Results', url: '/results' },
+    { id: 'srv-2', titleBn: '১০ লাখ শব্দের ডিকশনারি', titleEn: '1M Words Dictionary', url: '/dictionary' },
+    { id: 'srv-3', titleBn: 'সায়েন্টিফিক ক্যালকুলেটর', titleEn: 'Scientific Calculator', url: '#calc' },
+    { id: 'srv-4', titleBn: 'শিক্ষক প্যানেল ও আইডি কার্ড', titleEn: 'Faculty & ID Cards', url: '/teachers' },
+    { id: 'srv-5', titleBn: 'ক্লাস রুটিন ও সময়সূচি', titleEn: 'Class Routines', url: '/routines' }
+  ]
 };
 
 export const INITIAL_HERO_SLIDES: HeroSlide[] = [
