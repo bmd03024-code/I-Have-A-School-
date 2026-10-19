@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { MessageCircle, X, Send, PhoneCall } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
+import { MessageCircle, X, Send, PhoneCall, Home, Lock, ShieldCheck } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 export const FloatingWhatsApp: React.FC = () => {
-  const { lang, schoolSettings } = useApp();
+  const { lang, schoolSettings, isAdminLoggedIn } = useApp();
+  const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
 
   // Clean phone number for WhatsApp link
@@ -21,12 +23,66 @@ export const FloatingWhatsApp: React.FC = () => {
 
   return (
     <>
-      {/* Floating WhatsApp Action Button - Always Floating on Mobile and Desktop */}
+      {/* Floating Action Stack (Home, Admin Panel & WhatsApp) - Vertically Stacked on the Left */}
       <aside
-        aria-label={lang === 'bn' ? 'ভাসমান হোয়াটসঅ্যাপ চ্যাট' : 'Floating WhatsApp Chat'}
-        className="!fixed bottom-4 sm:bottom-6 left-3 sm:left-6 z-[9990] flex items-center gap-3 pointer-events-auto select-none"
+        aria-label={lang === 'bn' ? 'ভাসমান নেভিগেশন ও হেল্পডেস্ক' : 'Floating Navigation and Helpdesk'}
+        className="!fixed bottom-4 sm:bottom-6 left-3 sm:left-6 z-[9990] flex flex-col items-start gap-2.5 sm:gap-3 pointer-events-auto select-none"
       >
-        <div className="relative group">
+        {/* 1. ভাসমান মূল পাতা (Home) */}
+        <div className="relative group flex items-center">
+          <Link
+            to="/"
+            className={`w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-gradient-to-tr from-slate-900 via-slate-800 to-emerald-950 hover:from-slate-800 hover:to-emerald-900 text-white shadow-xl flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 border border-slate-700/80 focus:outline-none focus:ring-2 focus:ring-emerald-400 ${
+              location.pathname === '/' ? 'ring-2 ring-emerald-400 ring-offset-2 ring-offset-slate-900' : ''
+            }`}
+            title={lang === 'bn' ? 'মূল পাতা (হোম)' : 'Main Page (Home)'}
+            aria-label={lang === 'bn' ? 'মূল পাতায় ফিরে যান' : 'Go to Home Page'}
+          >
+            <Home className="w-5 h-5 text-emerald-400" />
+          </Link>
+
+          {/* Tooltip on hover */}
+          <span className="hidden sm:inline-flex items-center gap-1.5 absolute left-14 sm:left-16 bg-slate-900/95 backdrop-blur-md text-white text-[11px] font-semibold px-3 py-1.5 rounded-xl shadow-2xl border border-slate-700/80 whitespace-nowrap opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity pointer-events-none z-10">
+            <Home className="w-3.5 h-3.5 text-emerald-400" />
+            <span>{lang === 'bn' ? 'মূল পাতা' : 'Main Page'}</span>
+          </span>
+        </div>
+
+        {/* 2. ভাসমান অ্যাডমিন প্যানেল (Admin Panel Dashboard) */}
+        <div className="relative group flex items-center">
+          <Link
+            to="/admin"
+            className={`relative w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-gradient-to-tr from-slate-950 via-slate-900 to-indigo-950 hover:from-slate-900 hover:to-indigo-900 text-white shadow-xl flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 border border-indigo-500/40 focus:outline-none focus:ring-2 focus:ring-indigo-400 ${
+              location.pathname === '/admin' ? 'ring-2 ring-indigo-400 ring-offset-2 ring-offset-slate-900' : ''
+            }`}
+            title={lang === 'bn' ? 'অ্যাডমিন প্যানেল (লগইন ড্যাশবোর্ড)' : 'Admin Panel & Login'}
+            aria-label={lang === 'bn' ? 'অ্যাডমিন প্যানেলে যান' : 'Go to Admin Panel'}
+          >
+            {isAdminLoggedIn ? (
+              <ShieldCheck className="w-5 h-5 text-emerald-400" />
+            ) : (
+              <Lock className="w-5 h-5 text-indigo-300" />
+            )}
+
+            {/* Active Indicator if logged in */}
+            {isAdminLoggedIn && (
+              <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-emerald-400 border-2 border-slate-900 rounded-full" />
+            )}
+          </Link>
+
+          {/* Tooltip on hover */}
+          <span className="hidden sm:inline-flex items-center gap-1.5 absolute left-14 sm:left-16 bg-slate-900/95 backdrop-blur-md text-white text-[11px] font-semibold px-3 py-1.5 rounded-xl shadow-2xl border border-slate-700/80 whitespace-nowrap opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity pointer-events-none z-10">
+            {isAdminLoggedIn ? <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> : <Lock className="w-3.5 h-3.5 text-indigo-300" />}
+            <span>
+              {isAdminLoggedIn 
+                ? (lang === 'bn' ? 'অ্যাডমিন ড্যাশবোর্ড (সক্রিয়)' : 'Admin Dashboard (Active)')
+                : (lang === 'bn' ? 'অ্যাডমিন প্যানেল' : 'Admin Panel')}
+            </span>
+          </span>
+        </div>
+
+        {/* 3. ভাসমান হোয়াটসঅ্যাপ (WhatsApp Action Button) */}
+        <div className="relative group flex items-center">
           <button
             type="button"
             onClick={() => setIsOpen(!isOpen)}
@@ -50,7 +106,7 @@ export const FloatingWhatsApp: React.FC = () => {
           </button>
 
           {/* Tooltip on hover */}
-          <span className="hidden sm:inline-flex items-center gap-1.5 absolute left-16 top-1/2 -translate-y-1/2 bg-slate-900/95 backdrop-blur-md text-white text-[11px] font-semibold px-3 py-1.5 rounded-xl shadow-2xl border border-slate-700/80 whitespace-nowrap opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity pointer-events-none">
+          <span className="hidden sm:inline-flex items-center gap-1.5 absolute left-16 sm:left-18 bg-slate-900/95 backdrop-blur-md text-white text-[11px] font-semibold px-3 py-1.5 rounded-xl shadow-2xl border border-slate-700/80 whitespace-nowrap opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity pointer-events-none z-10">
             <MessageCircle className="w-3.5 h-3.5 text-emerald-400" />
             <span>{lang === 'bn' ? 'হোয়াটসঅ্যাপ হেল্পডেস্ক' : 'WhatsApp Helpdesk'}</span>
           </span>
@@ -63,7 +119,7 @@ export const FloatingWhatsApp: React.FC = () => {
           role="dialog"
           aria-modal="true"
           aria-label={lang === 'bn' ? 'তুহিন স্যার হেল্পডেস্ক' : 'Tuhin Sir Helpdesk'}
-          className="!fixed bottom-18 sm:bottom-22 left-3 sm:left-6 z-[9999] w-[calc(100vw-24px)] sm:w-80 max-w-xs bg-white rounded-3xl shadow-2xl shadow-emerald-950/40 border border-slate-200 overflow-hidden text-slate-800 animate-scale-in"
+          className="!fixed bottom-4 sm:bottom-6 left-16 sm:left-22 z-[9999] w-[calc(100vw-80px)] sm:w-80 max-w-xs bg-white rounded-3xl shadow-2xl shadow-emerald-950/40 border border-slate-200 overflow-hidden text-slate-800 animate-scale-in"
         >
           {/* Card Header */}
           <div className="bg-[#075E54] text-white p-3.5 sm:p-4 flex items-center justify-between">
