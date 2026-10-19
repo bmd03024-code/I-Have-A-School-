@@ -17,6 +17,7 @@ import { Dictionary } from './pages/Dictionary';
 import { TeachersDirectory } from './pages/TeachersDirectory';
 import { AboutTeacher } from './pages/AboutTeacher';
 import { NoticeBoard } from './pages/NoticeBoard';
+import { ClassRoutines } from './pages/ClassRoutines';
 import { MyLearning } from './pages/MyLearning';
 import { AdminPanel } from './pages/AdminPanel';
 import { useApp } from './context/AppContext';
@@ -43,6 +44,7 @@ export const App: React.FC = () => {
           <Route path="/teachers" element={<TeachersDirectory />} />
           <Route path="/about" element={<AboutTeacher />} />
           <Route path="/notices" element={<NoticeBoard />} />
+          <Route path="/routines" element={<ClassRoutines />} />
           <Route path="/admin" element={<AdminPanel />} />
           <Route path="/my-learning" element={<MyLearning />} />
           <Route path="*" element={<Navigate to="/" replace />} />

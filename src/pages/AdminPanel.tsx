@@ -1,72 +1,126 @@
 import React, { useState } from 'react';
 import { 
   ShieldCheck, 
-  Lock, 
   User, 
+  Lock, 
+  Eye, 
+  EyeOff, 
   LogOut, 
-  Settings, 
+  Plus, 
+  Trash2, 
+  Edit3, 
+  Printer, 
+  Upload, 
+  CheckCircle2, 
+  Calendar, 
+  Search, 
+  FileText, 
+  Image as ImageIcon, 
   BookOpen, 
   Users, 
   Award, 
   Layers, 
-  Image, 
-  FileText, 
+  GraduationCap, 
   Video, 
   Bell, 
-  Plus, 
-  Trash2, 
-  Edit, 
-  Eye, 
-  EyeOff, 
-  CheckCircle2, 
+  Settings, 
   Save, 
-  Printer, 
-  SlidersHorizontal,
-  ChevronRight,
-  ExternalLink,
-  GraduationCap
+  Bot, 
+  Cloud, 
+  Key,
+  X
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { Course, Student, CourseSubject, CourseExam, StudentResult, Teacher, HeroSlide, VideoClass, NoteResource, Notice } from '../types';
+import { 
+  HeroSlide, 
+  Course, 
+  Student, 
+  CourseSubject, 
+  CourseExam, 
+  StudentResult, 
+  Teacher, 
+  VideoClass, 
+  NoteResource, 
+  Notice 
+} from '../types';
+import { readFileAsDataUrl } from '../lib/storageService';
+import { TeacherIdCardModal } from '../components/admin/TeacherIdCardModal';
+import { PrintableResultSheet } from '../components/admin/PrintableResultSheet';
+import { QuizManagementTab } from '../components/admin/QuizManagementTab';
+import { ChatbotTrainingTab } from '../components/admin/ChatbotTrainingTab';
+import { GoogleCloudTab } from '../components/admin/GoogleCloudTab';
+import { RoutineManagementTab } from '../components/admin/RoutineManagementTab';
+import { DictionaryManagementTab } from '../components/admin/DictionaryManagementTab';
+import { 
+  EditSlideModal, 
+  EditCourseModal, 
+  EditStudentModal, 
+  EditTeacherModal 
+} from '../components/admin/AdminModals';
 
 export const AdminPanel: React.FC = () => {
-  const { 
-    lang, 
-    isAdminLoggedIn, 
-    adminCredentials, 
-    loginAdmin, 
-    logoutAdmin, 
+  const {
+    lang,
+    isAdminLoggedIn,
+    adminCredentials,
+    loginAdmin,
+    logoutAdmin,
     updateAdminCredentials,
     schoolSettings,
     updateSchoolSettings,
     heroSlides,
     addHeroSlide,
+    updateHeroSlide,
     deleteHeroSlide,
     courses,
     addCourse,
+    updateCourse,
     deleteCourse,
     students,
     addStudent,
+    updateStudent,
     deleteStudent,
     subjects,
     addSubject,
+    deleteSubject,
     exams,
     addExam,
+    deleteExam,
     results,
     addResult,
     deleteResult,
     teachers,
     addTeacher,
+    updateTeacher,
     deleteTeacher,
     videoClasses,
     addVideoClass,
+    updateVideoClass,
     deleteVideoClass,
     notes,
     addNote,
+    updateNote,
     deleteNote,
     notices,
     addNotice,
+    updateNotice,
     deleteNotice,
+    routines,
+    addRoutine,
+    updateRoutine,
+    deleteRoutine,
+    chatbotTraining,
+    addChatbotTraining,
+    updateChatbotTraining,
+    deleteChatbotTraining,
+    modelTests,
+    addModelTest,
+    updateModelTest,
+    deleteModelTest,
+    googleCloudConfig,
+    updateGoogleCloudConfig,
+    isCloudSyncing,
+    triggerCloudSync,
     showToast
   } = useApp();
 
@@ -74,14 +128,43 @@ export const AdminPanel: React.FC = () => {
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showDemoCredentials, setShowDemoCredentials] = useState(false);
   const [loginError, setLoginError] = useState('');
 
-  // Active Admin Tab
+  // Active Tab
   const [activeTab, setActiveTab] = useState<
-    'settings' | 'slides' | 'courses' | 'students' | 'subjects_exams' | 'results' | 'teachers' | 'classes' | 'notes' | 'notices' | 'security'
+    | 'settings' 
+    | 'slides' 
+    | 'courses' 
+    | 'students' 
+    | 'subjects_exams' 
+    | 'results' 
+    | 'teachers' 
+    | 'classes' 
+    | 'notes' 
+    | 'notices' 
+    | 'routines' 
+    | 'chatbot_training' 
+    | 'dictionary' 
+    | 'quizzes' 
+    | 'google_cloud' 
+    | 'security'
   >('settings');
 
-  // Change Credentials State
+  // Modal States
+  const [editingSlide, setEditingSlide] = useState<HeroSlide | null>(null);
+  const [editingCourse, setEditingCourse] = useState<Course | null>(null);
+  const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+  const [editingTeacher, setEditingTeacher] = useState<Teacher | null>(null);
+  const [idCardTeacher, setIdCardTeacher] = useState<Teacher | null>(null);
+  const [showPrintResultSheet, setShowPrintResultSheet] = useState(false);
+
+  // Editing Note & Notice Inline/Modal
+  const [editingNote, setEditingNote] = useState<NoteResource | null>(null);
+  const [editingNotice, setEditingNotice] = useState<Notice | null>(null);
+  const [editingVideoClass, setEditingVideoClass] = useState<VideoClass | null>(null);
+
+  // Change Password State
   const [newEmail, setNewEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -89,21 +172,33 @@ export const AdminPanel: React.FC = () => {
   // Settings form state
   const [settingsForm, setSettingsForm] = useState(schoolSettings);
 
-  // New Slide State
-  const [newSlide, setNewSlide] = useState<Partial<HeroSlide>>({
-    titleEn: '',
-    titleBn: '',
-    subtitleEn: '',
-    subtitleBn: '',
-    imageUrl: 'https://images.unsplash.com/photo-1524178232363-1fb2b075b655?q=80&w=1200&auto=format&fit=crop',
-    buttonTextEn: 'Explore Courses',
-    buttonTextBn: 'কোর্সগুলো দেখুন',
-    buttonUrl: '/courses',
-    active: true
-  });
+  // 1. New Slide Form State (Image Upload instead of URL)
+  const [newSlideTitleBn, setNewSlideTitleBn] = useState('');
+  const [newSlideTitleEn, setNewSlideTitleEn] = useState('');
+  const [newSlideSubtitleBn, setNewSlideSubtitleBn] = useState('');
+  const [newSlideSubtitleEn, setNewSlideSubtitleEn] = useState('');
+  const [newSlideImage, setNewSlideImage] = useState('');
+  const [newSlideButtonTextBn, setNewSlideButtonTextBn] = useState('কোর্সগুলো দেখুন');
+  const [newSlideButtonTextEn, setNewSlideButtonTextEn] = useState('Explore Courses');
+  const [newSlideButtonUrl, setNewSlideButtonUrl] = useState('/courses');
 
-  // Student Filter & Form State
-  const [studentFilterYear, setStudentFilterYear] = useState('2026');
+  // 2. New Course Form State (Logo/Banner Upload instead of URL)
+  const [newCourseTitleBn, setNewCourseTitleBn] = useState('');
+  const [newCourseTitleEn, setNewCourseTitleEn] = useState('');
+  const [newCourseSubtitleBn, setNewCourseSubtitleBn] = useState('');
+  const [newCourseSubtitleEn, setNewCourseSubtitleEn] = useState('');
+  const [newCoursePrice, setNewCoursePrice] = useState(1500);
+  const [newCourseOriginalPrice, setNewCourseOriginalPrice] = useState(2500);
+  const [newCourseCategory, setNewCourseCategory] = useState<any>('HSC & SSC');
+  const [newCourseLevel, setNewCourseLevel] = useState<any>('All Levels');
+  const [newCourseDurationBn, setNewCourseDurationBn] = useState('৩ মাস (২৪টি লাইভ ক্লাস)');
+  const [newCourseDurationEn, setNewCourseDurationEn] = useState('3 Months (24 Live Classes)');
+  const [newCourseBanner, setNewCourseBanner] = useState('');
+  const [newCourseDescBn, setNewCourseDescBn] = useState('');
+  const [newCourseDescEn, setNewCourseDescEn] = useState('');
+
+  // 3. Student Filter & New Student Form State (Photo Upload)
+  const [studentFilterYear, setStudentFilterYear] = useState('all');
   const [studentFilterCourse, setStudentFilterCourse] = useState('all');
   const [newStudent, setNewStudent] = useState<Partial<Student>>({
     academicYear: '2026',
@@ -117,10 +212,11 @@ export const AdminPanel: React.FC = () => {
     motherNameBn: '',
     address: '',
     phone: '',
-    admissionDate: new Date().toISOString().split('T')[0]
+    admissionDate: new Date().toISOString().split('T')[0],
+    photoUrl: ''
   });
 
-  // Subjects & Exams State
+  // 4. Subjects & Exams State
   const [selectedCourseForSetup, setSelectedCourseForSetup] = useState(courses[0]?.id || 'course-1');
   const [newSubjectName, setNewSubjectName] = useState('');
   const [newSubjectFullMarks, setNewSubjectFullMarks] = useState(100);
@@ -129,151 +225,239 @@ export const AdminPanel: React.FC = () => {
   const [newExamType, setNewExamType] = useState('Term Exam');
   const [newExamDate, setNewExamDate] = useState(new Date().toISOString().split('T')[0]);
 
-  // Results Entry State
+  // 5. Results Entry & Filter State
   const [resYear, setResYear] = useState('2026');
   const [resCourseId, setResCourseId] = useState(courses[0]?.id || 'course-1');
   const [resExamId, setResExamId] = useState(exams[0]?.id || 'exam-1');
   const [resRoll, setResRoll] = useState('');
   const [resSubjectMarks, setResSubjectMarks] = useState<Record<string, number>>({});
 
-  // Auto-filled student for result
+  // 6. New Teacher Form State (Photo Upload, Mobile, Address)
+  const [newTeacherNameBn, setNewTeacherNameBn] = useState('');
+  const [newTeacherNameEn, setNewTeacherNameEn] = useState('');
+  const [newTeacherDesigBn, setNewTeacherDesigBn] = useState('সহকারী শিক্ষক (ইংরেজি)');
+  const [newTeacherDesigEn, setNewTeacherDesigEn] = useState('Assistant Teacher (English)');
+  const [newTeacherQual, setNewTeacherQual] = useState('B.A (Hons), M.A in English');
+  const [newTeacherPhone, setNewTeacherPhone] = useState('+880 1');
+  const [newTeacherEmail, setNewTeacherEmail] = useState('');
+  const [newTeacherAddress, setNewTeacherAddress] = useState('');
+  const [newTeacherPhoto, setNewTeacherPhoto] = useState('');
+  const [newTeacherIsHeadmaster, setNewTeacherIsHeadmaster] = useState(false);
+
+  // 7. Video Class State (Direct Video File Upload OR YouTube / Facebook / TikTok URL)
+  const [newVideoTitleBn, setNewVideoTitleBn] = useState('');
+  const [newVideoTitleEn, setNewVideoTitleEn] = useState('');
+  const [newVideoDescBn, setNewVideoDescBn] = useState('');
+  const [newVideoCategory, setNewVideoCategory] = useState<any>('Grammar Hacks');
+  const [newVideoDuration, setNewVideoDuration] = useState('18:45');
+  const [newVideoPlatform, setNewVideoPlatform] = useState<'youtube' | 'facebook' | 'tiktok' | 'uploaded'>('youtube');
+  const [newVideoUrl, setNewVideoUrl] = useState('');
+  const [newVideoFile, setNewVideoFile] = useState('');
+  const [newVideoThumb, setNewVideoThumb] = useState('');
+
+  // 8. Notes & Sheets State (Direct Image & PDF Upload)
+  const [newNoteTitleBn, setNewNoteTitleBn] = useState('');
+  const [newNoteTitleEn, setNewNoteTitleEn] = useState('');
+  const [newNoteSubject, setNewNoteSubject] = useState('English 2nd Paper');
+  const [newNoteCategory, setNewNoteCategory] = useState<any>('Handwritten Notes');
+  const [newNotePages, setNewNotePages] = useState(12);
+  const [newNoteDescBn, setNewNoteDescBn] = useState('');
+  const [newNoteFileUrl, setNewNoteFileUrl] = useState('');
+  const [newNoteFileType, setNewNoteFileType] = useState<'pdf' | 'image' | 'link'>('pdf');
+
+  // 9. Notices State (Direct Image & PDF Upload)
+  const [newNoticeTitleBn, setNewNoticeTitleBn] = useState('');
+  const [newNoticeTitleEn, setNewNoticeTitleEn] = useState('');
+  const [newNoticeCategory, setNewNoticeCategory] = useState<any>('Admission');
+  const [newNoticeContentBn, setNewNoticeContentBn] = useState('');
+  const [newNoticeContentEn, setNewNoticeContentEn] = useState('');
+  const [newNoticeImageUrl, setNewNoticeImageUrl] = useState('');
+  const [newNoticePdfUrl, setNewNoticePdfUrl] = useState('');
+  const [newNoticeIsPinned, setNewNoticeIsPinned] = useState(false);
+
+  // Student auto-lookup for result entry
   const autoStudent = students.find(
     (s: Student) => s.roll === resRoll && s.academicYear === resYear && s.courseId === resCourseId
   );
-
-  // Filtered subjects for current course
   const currentCourseSubjects = subjects.filter((s: CourseSubject) => s.courseId === resCourseId);
 
   // Login handler
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setLoginError('');
-    const success = loginAdmin(loginEmail.trim(), loginPassword);
+    const success = loginAdmin(loginEmail, loginPassword);
     if (!success) {
-      setLoginError(lang === 'bn' ? 'ভুল ইউজার আইডি বা পাসওয়ার্ড! অনুগ্রহ করে আবার চেষ্টা করুন।' : 'Invalid ID or Password! Please try again.');
+      setLoginError(lang === 'bn' ? 'ভুল ইমেইল বা পাসওয়ার্ড!' : 'Invalid credentials!');
     } else {
-      showToast(lang === 'bn' ? 'অ্যাডমিন ড্যাশবোর্ডে স্বাগতম!' : 'Welcome to Admin Dashboard!');
+      setLoginError('');
+      showToast(lang === 'bn' ? 'লগইন সফল হয়েছে!' : 'Logged in successfully!');
     }
   };
 
-  // Change credentials handler
-  const handleChangeCredentials = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newEmail || !newPassword) {
-      showToast(lang === 'bn' ? 'ইমেইল এবং পাসওয়ার্ড উভয়ই দিন।' : 'Please provide both email and password.');
-      return;
+  // Generic File Upload Handlers (Reading to Data URL)
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, setter: (val: string) => void, msg?: string) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      try {
+        const dataUrl = await readFileAsDataUrl(file);
+        setter(dataUrl);
+        showToast(msg || (lang === 'bn' ? 'ফাইল সফলভাবে আপলোড হয়েছে!' : 'File uploaded successfully!'));
+      } catch {
+        showToast(lang === 'bn' ? 'ফাইল আপলোড করতে সমস্যা হয়েছে।' : 'Error uploading file.');
+      }
     }
-    if (newPassword !== confirmPassword) {
-      showToast(lang === 'bn' ? 'পাসওয়ার্ড দুটি মিলেনি!' : 'Passwords do not match!');
-      return;
-    }
-    updateAdminCredentials(newEmail.trim(), newPassword);
-    setNewEmail('');
-    setNewPassword('');
-    setConfirmPassword('');
-    showToast(lang === 'bn' ? 'অ্যাডমিন ক্রডেনশিয়াল সফলভাবে পরিবর্তিত হয়েছে!' : 'Admin credentials updated successfully!');
   };
 
-  // Save Settings handler
+  // Save Settings
   const handleSaveSettings = (e: React.FormEvent) => {
     e.preventDefault();
     updateSchoolSettings(settingsForm);
-    showToast(lang === 'bn' ? 'স্কুলের তথ্য ও লোগো আপডেট হয়েছে!' : 'School settings and branding saved!');
+    showToast(lang === 'bn' ? 'প্রতিষ্ঠান সেটিংস ও সিল/স্বাক্ষর সংরক্ষিত হয়েছে!' : 'Settings updated successfully!');
   };
 
-  // Add Slide handler
+  // Add Slide
   const handleAddSlide = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newSlide.titleEn || !newSlide.imageUrl) return;
-    addHeroSlide({
-      id: `slide-${Date.now()}`,
-      titleEn: newSlide.titleEn || '',
-      titleBn: newSlide.titleBn || newSlide.titleEn || '',
-      subtitleEn: newSlide.subtitleEn || '',
-      subtitleBn: newSlide.subtitleBn || '',
-      imageUrl: newSlide.imageUrl || '',
-      buttonTextEn: newSlide.buttonTextEn || 'Explore',
-      buttonTextBn: newSlide.buttonTextBn || 'কোর্স দেখুন',
-      buttonUrl: newSlide.buttonUrl || '/courses',
-      active: true
-    });
-    setNewSlide({
-      titleEn: '',
-      titleBn: '',
-      subtitleEn: '',
-      subtitleBn: '',
-      imageUrl: 'https://images.unsplash.com/photo-1524178232363-1fb2b075b655?q=80&w=1200&auto=format&fit=crop',
-      buttonTextEn: 'Explore Courses',
-      buttonTextBn: 'কোর্সগুলো দেখুন',
-      buttonUrl: '/courses',
-      active: true
-    });
-    showToast(lang === 'bn' ? 'নতুন হিরো স্লাইড যোগ হয়েছে!' : 'New hero slide added!');
-  };
-
-  // Add Student handler
-  const handleAddStudent = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newStudent.roll || !newStudent.nameEn) {
-      showToast(lang === 'bn' ? 'রোল এবং নাম আবশ্যক!' : 'Roll and Name are required!');
+    if (!newSlideTitleBn.trim() || !newSlideImage) {
+      showToast(lang === 'bn' ? 'স্লাইডের শিরোনাম ও ছবি আপলোড আবশ্যক!' : 'Title and image are required!');
       return;
     }
-    addStudent({
-      id: `std-${Date.now()}`,
+    const slide: HeroSlide = {
+      id: `slide-${Date.now()}`,
+      titleBn: newSlideTitleBn.trim(),
+      titleEn: newSlideTitleEn.trim() || newSlideTitleBn.trim(),
+      subtitleBn: newSlideSubtitleBn.trim(),
+      subtitleEn: newSlideSubtitleEn.trim(),
+      imageUrl: newSlideImage,
+      buttonTextBn: newSlideButtonTextBn,
+      buttonTextEn: newSlideButtonTextEn,
+      buttonUrl: newSlideButtonUrl,
+      active: true
+    };
+    addHeroSlide(slide);
+    setNewSlideTitleBn('');
+    setNewSlideTitleEn('');
+    setNewSlideSubtitleBn('');
+    setNewSlideSubtitleEn('');
+    setNewSlideImage('');
+    showToast(lang === 'bn' ? 'নতুন স্লাইড সফলভাবে যোগ হয়েছে!' : 'Hero slide added!');
+  };
+
+  // Add Course
+  const handleAddCourse = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCourseTitleBn.trim() || !newCourseBanner) {
+      showToast(lang === 'bn' ? 'কোর্সের নাম ও ব্যানার ইমেজ আপলোড আবশ্যক!' : 'Course title and banner are required!');
+      return;
+    }
+    const course: Course = {
+      id: `course-${Date.now()}`,
+      titleBn: newCourseTitleBn.trim(),
+      titleEn: newCourseTitleEn.trim() || newCourseTitleBn.trim(),
+      subtitleBn: newCourseSubtitleBn.trim(),
+      subtitleEn: newCourseSubtitleEn.trim(),
+      category: newCourseCategory,
+      level: newCourseLevel,
+      durationBn: newCourseDurationBn,
+      durationEn: newCourseDurationEn,
+      lecturesCount: 24,
+      price: Number(newCoursePrice),
+      originalPrice: Number(newCourseOriginalPrice),
+      bannerImage: newCourseBanner,
+      descriptionBn: newCourseDescBn,
+      descriptionEn: newCourseDescEn,
+      syllabus: [
+        { week: 'Week 1', topics: ['Orientation & Fundamentals', 'Grammar Diagnostic Test'] },
+        { week: 'Week 2', topics: ['Right Forms of Verbs Mastery', 'Sentence Patterns'] }
+      ],
+      featuresBn: ['লাইভ ক্লাস ও প্রশ্নোত্তর', 'হাতে লেখা রঙিন লেকচার শিট', 'প্রতি সপ্তাহে মডেল টেস্ট'],
+      featuresEn: ['Live interactive sessions', 'Colored handwritten notes', 'Weekly assessment exams'],
+      instructor: {
+        name: 'MD Touhidul Hoque Tuhin',
+        designation: 'Founder & English Specialist',
+        image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=240&auto=format&fit=crop'
+      }
+    };
+    addCourse(course);
+    setNewCourseTitleBn('');
+    setNewCourseTitleEn('');
+    setNewCourseSubtitleBn('');
+    setNewCourseSubtitleEn('');
+    setNewCourseBanner('');
+    setNewCourseDescBn('');
+    showToast(lang === 'bn' ? 'নতুন কোর্স সফলভাবে যোগ হয়েছে!' : 'New course added!');
+  };
+
+  // Add Student
+  const handleAddStudent = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newStudent.roll || !newStudent.nameBn) {
+      showToast(lang === 'bn' ? 'রোল এবং শিক্ষার্থীর নাম আবশ্যক!' : 'Roll and name are required!');
+      return;
+    }
+    const student: Student = {
+      id: `st-${Date.now()}`,
       academicYear: newStudent.academicYear || '2026',
       courseId: newStudent.courseId || courses[0]?.id || 'course-1',
-      roll: newStudent.roll,
-      nameEn: newStudent.nameEn,
-      nameBn: newStudent.nameBn || newStudent.nameEn,
+      roll: newStudent.roll.trim(),
+      nameEn: newStudent.nameEn?.trim() || newStudent.nameBn?.trim() || '',
+      nameBn: newStudent.nameBn.trim(),
       fatherNameEn: newStudent.fatherNameEn || '',
       fatherNameBn: newStudent.fatherNameBn || '',
       motherNameEn: newStudent.motherNameEn || '',
       motherNameBn: newStudent.motherNameBn || '',
       address: newStudent.address || '',
       phone: newStudent.phone || '',
-      admissionDate: newStudent.admissionDate || new Date().toISOString().split('T')[0]
-    });
+      admissionDate: newStudent.admissionDate || new Date().toISOString().split('T')[0],
+      photoUrl: newStudent.photoUrl || ''
+    };
+    addStudent(student);
     setNewStudent({
       ...newStudent,
       roll: '',
       nameEn: '',
       nameBn: '',
-      phone: ''
+      fatherNameEn: '',
+      fatherNameBn: '',
+      motherNameEn: '',
+      motherNameBn: '',
+      phone: '',
+      address: '',
+      photoUrl: ''
     });
     showToast(lang === 'bn' ? 'শিক্ষার্থী সফলভাবে তালিকাভুক্ত হয়েছে!' : 'Student enrolled into database!');
   };
 
-  // Add Subject handler
+  // Add Subject
   const handleAddSubject = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newSubjectName) return;
+    if (!newSubjectName.trim()) return;
     addSubject({
       id: `sub-${Date.now()}`,
       courseId: selectedCourseForSetup,
-      name: newSubjectName,
+      name: newSubjectName.trim(),
       fullMarks: Number(newSubjectFullMarks),
       passMarks: Number(newSubjectPassMarks)
     });
     setNewSubjectName('');
-    showToast('Subject added to course!');
+    showToast(lang === 'bn' ? 'বিষয় যুক্ত হয়েছে!' : 'Subject added!');
   };
 
-  // Add Exam handler
+  // Add Exam
   const handleAddExam = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newExamName) return;
+    if (!newExamName.trim()) return;
     addExam({
       id: `exam-${Date.now()}`,
       courseId: selectedCourseForSetup,
-      name: newExamName,
+      name: newExamName.trim(),
       examType: newExamType,
       date: newExamDate
     });
     setNewExamName('');
-    showToast('Exam added to course schedule!');
+    showToast(lang === 'bn' ? 'পরীক্ষা যুক্ত হয়েছে!' : 'Exam added!');
   };
 
-  // Save Result handler
+  // Save Result
   const handleSaveResult = (e: React.FormEvent) => {
     e.preventDefault();
     if (!autoStudent) {
@@ -322,6 +506,129 @@ export const AdminPanel: React.FC = () => {
     showToast(lang === 'bn' ? 'ফলাফল সংরক্ষিত ও মার্কশিট জেনারেট হয়েছে!' : 'Result saved and marksheet generated!');
   };
 
+  // Add Teacher
+  const handleAddTeacher = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTeacherNameBn.trim()) {
+      showToast(lang === 'bn' ? 'শিক্ষকের নাম আবশ্যক!' : 'Teacher name is required!');
+      return;
+    }
+    const tch: Teacher = {
+      id: `tch-${Date.now()}`,
+      nameBn: newTeacherNameBn.trim(),
+      nameEn: newTeacherNameEn.trim() || newTeacherNameBn.trim(),
+      designationBn: newTeacherDesigBn.trim(),
+      designationEn: newTeacherDesigEn.trim(),
+      qualification: newTeacherQual.trim(),
+      phone: newTeacherPhone.trim(),
+      email: newTeacherEmail.trim() || 'teacher@school.com',
+      address: newTeacherAddress.trim(),
+      photoUrl: newTeacherPhoto || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=240&auto=format&fit=crop',
+      isHeadmaster: newTeacherIsHeadmaster
+    };
+    addTeacher(tch);
+    setNewTeacherNameBn('');
+    setNewTeacherNameEn('');
+    setNewTeacherPhone('+880 1');
+    setNewTeacherAddress('');
+    setNewTeacherPhoto('');
+    showToast(lang === 'bn' ? 'শিক্ষক সফলভাবে যুক্ত হয়েছেন!' : 'Teacher profile added!');
+  };
+
+  // Add Video Class
+  const handleAddVideoClass = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newVideoTitleBn.trim()) {
+      showToast(lang === 'bn' ? 'ভিডিও শিরোনাম দিন!' : 'Please enter title!');
+      return;
+    }
+    const vid: VideoClass = {
+      id: `vid-${Date.now()}`,
+      titleBn: newVideoTitleBn.trim(),
+      titleEn: newVideoTitleEn.trim() || newVideoTitleBn.trim(),
+      descriptionBn: newVideoDescBn.trim(),
+      descriptionEn: newVideoDescBn.trim(),
+      category: newVideoCategory,
+      duration: newVideoDuration,
+      youtubeId: newVideoUrl.includes('v=') ? newVideoUrl.split('v=')[1]?.substring(0, 11) : (newVideoUrl.split('/').pop() || 'dQw4w9WgXcQ'),
+      videoUrl: newVideoUrl,
+      videoPlatform: newVideoPlatform,
+      videoFileUrl: newVideoFile,
+      thumbnailUrl: newVideoThumb || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=600&auto=format&fit=crop',
+      views: '1.2K',
+      publishedDate: 'Just now',
+      level: 'All Levels'
+    };
+    addVideoClass(vid);
+    setNewVideoTitleBn('');
+    setNewVideoTitleEn('');
+    setNewVideoUrl('');
+    setNewVideoFile('');
+    setNewVideoThumb('');
+    showToast(lang === 'bn' ? 'ফ্রি ক্লাস যুক্ত হয়েছে!' : 'Video class added!');
+  };
+
+  // Add Note
+  const handleAddNote = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newNoteTitleBn.trim() || !newNoteFileUrl) {
+      showToast(lang === 'bn' ? 'নোটের শিরোনাম ও ফাইল আপলোড আবশ্যক!' : 'Title and file are required!');
+      return;
+    }
+    const note: NoteResource = {
+      id: `note-${Date.now()}`,
+      titleBn: newNoteTitleBn.trim(),
+      titleEn: newNoteTitleEn.trim() || newNoteTitleBn.trim(),
+      subject: newNoteSubject,
+      category: newNoteCategory,
+      pages: Number(newNotePages),
+      fileSize: '4.2 MB',
+      downloads: 0,
+      date: new Date().toLocaleDateString('en-GB'),
+      descriptionBn: newNoteDescBn,
+      descriptionEn: newNoteDescBn,
+      fileUrl: newNoteFileUrl,
+      fileType: newNoteFileType,
+      tags: ['Handwritten', 'Exclusive'],
+      sampleContent: ['Chapter Overview', 'Golden Rules']
+    };
+    addNote(note);
+    setNewNoteTitleBn('');
+    setNewNoteTitleEn('');
+    setNewNoteFileUrl('');
+    setNewNoteDescBn('');
+    showToast(lang === 'bn' ? 'নোটস ও শিট যুক্ত হয়েছে!' : 'Note uploaded!');
+  };
+
+  // Add Notice
+  const handleAddNotice = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newNoticeTitleBn.trim() || !newNoticeContentBn.trim()) {
+      showToast(lang === 'bn' ? 'নোটিশের শিরোনাম ও বিবরণ আবশ্যক!' : 'Notice title and details are required!');
+      return;
+    }
+    const nt: Notice = {
+      id: `not-${Date.now()}`,
+      titleBn: newNoticeTitleBn.trim(),
+      titleEn: newNoticeTitleEn.trim() || newNoticeTitleBn.trim(),
+      category: newNoticeCategory,
+      date: new Date().toLocaleDateString('en-GB'),
+      contentBn: newNoticeContentBn.trim(),
+      contentEn: newNoticeContentEn.trim() || newNoticeContentBn.trim(),
+      imageUrl: newNoticeImageUrl,
+      pdfUrl: newNoticePdfUrl,
+      isPinned: newNoticeIsPinned
+    };
+    addNotice(nt);
+    setNewNoticeTitleBn('');
+    setNewNoticeTitleEn('');
+    setNewNoticeContentBn('');
+    setNewNoticeContentEn('');
+    setNewNoticeImageUrl('');
+    setNewNoticePdfUrl('');
+    showToast(lang === 'bn' ? 'অফিশিয়াল নোটিশ প্রকাশ করা হয়েছে!' : 'Notice published!');
+  };
+
   // If not logged in, render the secure Login screen
   if (!isAdminLoggedIn) {
     return (
@@ -355,7 +662,7 @@ export const AdminPanel: React.FC = () => {
                 <input
                   type="text"
                   required
-                  placeholder="tuhinsir@gmail.com"
+                  placeholder="tu*****@gmail.com"
                   value={loginEmail}
                   onChange={(e) => setLoginEmail(e.target.value)}
                   className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-10 pr-3 py-2.5 text-sm text-white focus:border-emerald-500 focus:outline-none"
@@ -372,7 +679,7 @@ export const AdminPanel: React.FC = () => {
                 <input
                   type={showPassword ? 'text' : 'password'}
                   required
-                  placeholder="••••••••••••"
+                  placeholder="************"
                   value={loginPassword}
                   onChange={(e) => setLoginPassword(e.target.value)}
                   className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-10 pr-10 py-2.5 text-sm text-white focus:border-emerald-500 focus:outline-none tracking-widest"
@@ -386,7 +693,7 @@ export const AdminPanel: React.FC = () => {
                 </button>
               </div>
               <p className="text-[10px] text-slate-500 mt-1">
-                {lang === 'bn' ? '* পাসওয়ার্ডটি সম্পূর্ণ লুকায়িত থাকবে।' : '* Password is fully masked for privacy.'}
+                {lang === 'bn' ? '* পাসওয়ার্ডটি সম্পূর্ণ তারা চিহ্ন (মাস্কড) দিয়ে সুরক্ষিত থাকবে।' : '* Password is fully masked with asterisks for security.'}
               </p>
             </div>
 
@@ -398,13 +705,60 @@ export const AdminPanel: React.FC = () => {
             </button>
           </form>
 
-          {/* Helper hint for default demo login */}
-          <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-700/60 text-[11px] text-slate-400 space-y-1">
-            <span className="font-bold text-emerald-400 block">Default Credentials:</span>
-            <div className="flex justify-between font-mono text-[10px]">
-              <span>ID: <strong className="text-slate-200">tuhinsir@gmail.com</strong></span>
-              <span>Pass: <strong className="text-slate-200">tuhinsir1234</strong></span>
+          {/* Star-Marked Demo Credentials (তারা চিহ্ন দিয়ে সুরক্ষিত ডেমো তথ্য) */}
+          <div className="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-700/80 text-[11px] text-slate-400 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-emerald-400 flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4" />
+                {lang === 'bn' ? 'সুরক্ষিত ডেমো অ্যাক্সেস (তারা চিহ্নযুক্ত):' : 'Demo Credentials (Masked):'}
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowDemoCredentials(!showDemoCredentials)}
+                className="text-slate-400 hover:text-slate-200 text-[10px] flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-800 border border-slate-700 transition-colors"
+                title={showDemoCredentials ? "Mask" : "Reveal"}
+              >
+                {showDemoCredentials ? (
+                  <>
+                    <EyeOff className="w-3 h-3" />
+                    <span>{lang === 'bn' ? 'তারা চিহ্ন করুন' : 'Mask'}</span>
+                  </>
+                ) : (
+                  <>
+                    <Eye className="w-3 h-3" />
+                    <span>{lang === 'bn' ? 'দেখান' : 'Reveal'}</span>
+                  </>
+                )}
+              </button>
             </div>
+
+            <div className="space-y-1.5 font-mono text-[11px] bg-slate-950/70 p-2.5 rounded-xl border border-slate-800/80">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400">{lang === 'bn' ? 'ডেমো জিমেইল:' : 'Demo Gmail:'}</span>
+                <span className="font-bold text-slate-200">
+                  {showDemoCredentials ? 'tuhinsir@gmail.com' : 'tu*****@gmail.com'}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400">{lang === 'bn' ? 'ডেমো পাসওয়ার্ড:' : 'Demo Password:'}</span>
+                <span className="font-bold text-slate-200 tracking-wider">
+                  {showDemoCredentials ? 'tuhinsir1234' : '************'}
+                </span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setLoginEmail('tuhinsir@gmail.com');
+                setLoginPassword('tuhinsir1234');
+                showToast(lang === 'bn' ? 'ডেমো তথ্য সফলভাবে ইনপুট করা হয়েছে!' : 'Demo credentials autofilled successfully!');
+              }}
+              className="w-full py-2 px-3 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-emerald-400 hover:text-emerald-300 font-semibold text-[11px] transition-colors border border-slate-700/60 flex items-center justify-center gap-1.5 shadow-xs"
+            >
+              <Key className="w-3.5 h-3.5" />
+              <span>{lang === 'bn' ? '১-ক্লিকে ডেমো তথ্য পূরণ করুন' : '1-Click Autofill Demo'}</span>
+            </button>
           </div>
         </div>
       </div>
@@ -420,6 +774,69 @@ export const AdminPanel: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-100/70 pb-16">
+      {/* Modals for Edit and Print */}
+      {editingSlide && (
+        <EditSlideModal
+          slide={editingSlide}
+          lang={lang}
+          onSave={updateHeroSlide}
+          onClose={() => setEditingSlide(null)}
+        />
+      )}
+
+      {editingCourse && (
+        <EditCourseModal
+          course={editingCourse}
+          lang={lang}
+          onSave={updateCourse}
+          onClose={() => setEditingCourse(null)}
+        />
+      )}
+
+      {editingStudent && (
+        <EditStudentModal
+          student={editingStudent}
+          courses={courses}
+          lang={lang}
+          onSave={updateStudent}
+          onClose={() => setEditingStudent(null)}
+        />
+      )}
+
+      {editingTeacher && (
+        <EditTeacherModal
+          teacher={editingTeacher}
+          lang={lang}
+          onSave={updateTeacher}
+          onClose={() => setEditingTeacher(null)}
+        />
+      )}
+
+      {idCardTeacher && (
+        <TeacherIdCardModal
+          teacher={idCardTeacher}
+          schoolSettings={schoolSettings}
+          lang={lang}
+          onClose={() => setIdCardTeacher(null)}
+        />
+      )}
+
+      {showPrintResultSheet && (
+        <PrintableResultSheet
+          results={results}
+          students={students}
+          courses={courses}
+          subjects={subjects}
+          exams={exams}
+          academicYear={resYear}
+          selectedCourseId={resCourseId}
+          selectedExamId={resExamId}
+          schoolSettings={schoolSettings}
+          lang={lang}
+          onClose={() => setShowPrintResultSheet(false)}
+        />
+      )}
+
       {/* Top Admin Bar */}
       <div className="bg-slate-900 text-white border-b border-slate-800 sticky top-16 z-30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between gap-4">
@@ -453,21 +870,24 @@ export const AdminPanel: React.FC = () => {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-        
         {/* Navigation Tabs */}
         <div className="flex flex-wrap gap-1.5 bg-white p-2 rounded-2xl border border-slate-200 shadow-xs">
           {[
             { id: 'settings', label: lang === 'bn' ? 'লোগো ও প্রতিষ্ঠান' : 'Branding & Logo', icon: Settings },
-            { id: 'slides', label: lang === 'bn' ? 'হিরো স্লাইডার' : 'Hero Slider', icon: Image },
-            { id: 'courses', label: lang === 'bn' ? 'কোর্স কন্ট্রোল' : 'Courses', icon: BookOpen },
-            { id: 'students', label: lang === 'bn' ? 'শিক্ষার্থী তালিকা' : 'Student Roster', icon: Users },
-            { id: 'subjects_exams', label: lang === 'bn' ? 'বিষয় ও পরীক্ষা সেটআপ' : 'Subjects & Exams', icon: Layers },
-            { id: 'results', label: lang === 'bn' ? 'ফলাফল এন্ট্রি' : 'Result Entry', icon: Award },
-            { id: 'teachers', label: lang === 'bn' ? 'শিক্ষক ও সিল/স্বাক্ষর' : 'Teachers & Seals', icon: GraduationCap },
-            { id: 'classes', label: lang === 'bn' ? 'ফ্রি ক্লাস' : 'Free Classes', icon: Video },
-            { id: 'notes', label: lang === 'bn' ? 'নোটস ও শিট' : 'Notes & PDFs', icon: FileText },
-            { id: 'notices', label: lang === 'bn' ? 'নোটিশ বোর্ড' : 'Notices', icon: Bell },
-            { id: 'security', label: lang === 'bn' ? 'সিকিউরিটি সেটিংস' : 'Security', icon: Lock }
+            { id: 'slides', label: lang === 'bn' ? '১. হিরো স্লাইডার' : '1. Hero Slider', icon: ImageIcon },
+            { id: 'courses', label: lang === 'bn' ? '২. কোর্স কন্ট্রোল' : '2. Courses', icon: BookOpen },
+            { id: 'students', label: lang === 'bn' ? '৩. শিক্ষার্থী তালিকা' : '3. Student Roster', icon: Users },
+            { id: 'results', label: lang === 'bn' ? '৪. ফলাফল ও প্রিন্ট' : '4. Results & Print', icon: Award },
+            { id: 'teachers', label: lang === 'bn' ? '৫. শিক্ষক ও সিল/স্বাক্ষর' : '5. Teachers & Seals', icon: GraduationCap },
+            { id: 'classes', label: lang === 'bn' ? '৬. ফ্রি ক্লাস' : '6. Free Classes', icon: Video },
+            { id: 'notes', label: lang === 'bn' ? '৭. নোটস ও শিট' : '7. Notes & PDFs', icon: FileText },
+            { id: 'notices', label: lang === 'bn' ? '৭. নোটিশ বোর্ড' : '7. Notices', icon: Bell },
+            { id: 'chatbot_training', label: lang === 'bn' ? '৮. চ্যাটবট ট্রেনিং' : '8. Chatbot Training', icon: Bot },
+            { id: 'dictionary', label: lang === 'bn' ? '৯. ডিকশনারি কন্ট্রোল' : '9. Dictionary', icon: BookOpen },
+            { id: 'routines', label: lang === 'bn' ? '১০. রুটিন সেকশন' : '10. Routine', icon: Calendar },
+            { id: 'quizzes', label: lang === 'bn' ? 'কুইজ মেনেজমেন্ট' : 'Quiz Management', icon: Layers },
+            { id: 'google_cloud', label: lang === 'bn' ? '১১. গুগল ক্লাউড ডেটাবেজ' : '11. Google Cloud DB', icon: Cloud },
+            { id: 'security', label: lang === 'bn' ? 'সিকিউরিটি' : 'Security', icon: Lock }
           ].map((tab) => {
             const Icon = tab.icon;
             return (
@@ -487,15 +907,15 @@ export const AdminPanel: React.FC = () => {
           })}
         </div>
 
-        {/* TAB 1: School Branding, Logo & Footer */}
+        {/* ==================== TAB: SETTINGS & BRANDING ==================== */}
         {activeTab === 'settings' && (
           <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xs space-y-6">
             <div className="border-b border-slate-100 pb-4">
               <h3 className="text-xl font-bold text-slate-900">
-                {lang === 'bn' ? 'প্রতিষ্ঠান সেটিংস, লোগো ও ফুটার কন্ট্রোল' : 'Institution Branding, Logo & Footer Setup'}
+                {lang === 'bn' ? 'প্রতিষ্ঠান সেটিংস, লোগো, সিল ও স্বাক্ষর' : 'Institution Branding, Logo & Official Seals'}
               </h3>
               <p className="text-xs text-slate-500">
-                {lang === 'bn' ? 'এখানে যে তথ্য দেবেন তা ওয়েবসাইটের হেডার, ফুটার এবং মার্কশিটে তাৎক্ষণিক প্রদর্শিত হবে।' : 'Information configured here reflects globally across header, footer, and transcripts.'}
+                {lang === 'bn' ? 'প্রধান শিক্ষকের স্বাক্ষর এবং অফিসিয়াল সিল সরাসরি ছবি হিসেবে আপলোড করুন।' : 'Upload headmaster signature and official seal directly without image URLs.'}
               </p>
             </div>
 
@@ -508,7 +928,7 @@ export const AdminPanel: React.FC = () => {
                     required
                     value={settingsForm.instituteNameEn}
                     onChange={(e) => setSettingsForm({ ...settingsForm, instituteNameEn: e.target.value })}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs focus:border-emerald-500 focus:outline-none"
+                    className="w-full border rounded-xl px-3 py-2 text-xs focus:border-emerald-500 focus:outline-none"
                   />
                 </div>
                 <div>
@@ -518,878 +938,1502 @@ export const AdminPanel: React.FC = () => {
                     required
                     value={settingsForm.instituteNameBn}
                     onChange={(e) => setSettingsForm({ ...settingsForm, instituteNameBn: e.target.value })}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs focus:border-emerald-500 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Logo Image URL</label>
-                  <input
-                    type="text"
-                    value={settingsForm.logoUrl}
-                    onChange={(e) => setSettingsForm({ ...settingsForm, logoUrl: e.target.value })}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs focus:border-emerald-500 focus:outline-none"
+                    className="w-full border rounded-xl px-3 py-2 text-xs focus:border-emerald-500 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Official WhatsApp Phone (Number with 880)</label>
+                  <label className="block font-bold text-slate-700 mb-1">মোবাইল নম্বর / হেল্পলাইন</label>
                   <input
                     type="text"
-                    value={settingsForm.whatsapp}
-                    onChange={(e) => setSettingsForm({ ...settingsForm, whatsapp: e.target.value })}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs focus:border-emerald-500 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Hotline / Support Phone</label>
-                  <input
-                    type="text"
+                    required
                     value={settingsForm.phone}
                     onChange={(e) => setSettingsForm({ ...settingsForm, phone: e.target.value })}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs focus:border-emerald-500 focus:outline-none"
+                    className="w-full border rounded-xl px-3 py-2 text-xs font-mono focus:border-emerald-500 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Official Email</label>
+                  <label className="block font-bold text-slate-700 mb-1">হোয়াটসঅ্যাপ নাম্বার</label>
                   <input
-                    type="email"
-                    value={settingsForm.email}
-                    onChange={(e) => setSettingsForm({ ...settingsForm, email: e.target.value })}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs focus:border-emerald-500 focus:outline-none"
+                    type="text"
+                    required
+                    value={settingsForm.whatsapp}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, whatsapp: e.target.value })}
+                    className="w-full border rounded-xl px-3 py-2 text-xs font-mono focus:border-emerald-500 focus:outline-none"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Address (English)</label>
-                  <input
-                    type="text"
-                    value={settingsForm.addressEn}
-                    onChange={(e) => setSettingsForm({ ...settingsForm, addressEn: e.target.value })}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs focus:border-emerald-500 focus:outline-none"
-                  />
+              {/* DIRECT FILE UPLOADS: LOGO, HEADMASTER SIGNATURE, OFFICIAL SEAL */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+                {/* 1. Logo Upload */}
+                <div className="p-4 border border-slate-200 rounded-2xl bg-slate-50 space-y-2">
+                  <span className="font-bold text-slate-800 block">{lang === 'bn' ? 'প্রতিষ্ঠানের লোগো আপলোড' : 'Upload School Logo'}</span>
+                  <div className="flex items-center gap-3">
+                    <label className="cursor-pointer px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors">
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>{lang === 'bn' ? 'ফাইল বেছে নিন' : 'Choose File'}</span>
+                      <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, (val) => setSettingsForm({ ...settingsForm, logoUrl: val }))} className="hidden" />
+                    </label>
+                    {settingsForm.logoUrl && (
+                      <img src={settingsForm.logoUrl} alt="Logo preview" className="w-10 h-10 object-contain rounded border bg-white" />
+                    )}
+                  </div>
                 </div>
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">ঠিকানা (বাংলা)</label>
-                  <input
-                    type="text"
-                    value={settingsForm.addressBn}
-                    onChange={(e) => setSettingsForm({ ...settingsForm, addressBn: e.target.value })}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs focus:border-emerald-500 focus:outline-none"
-                  />
+
+                {/* 2. Headmaster Signature Upload (REQUIREMENT #5) */}
+                <div className="p-4 border border-emerald-200 rounded-2xl bg-emerald-50/50 space-y-2">
+                  <span className="font-bold text-emerald-900 block">{lang === 'bn' ? 'প্রধান শিক্ষকের স্বাক্ষর আপলোড' : 'Headmaster Signature'}</span>
+                  <div className="flex items-center gap-3">
+                    <label className="cursor-pointer px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors">
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>{lang === 'bn' ? 'স্বাক্ষর ফাইল নিন' : 'Choose Sign'}</span>
+                      <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, (val) => setSettingsForm({ ...settingsForm, headmasterSignatureUrl: val }), 'স্বাক্ষর আপলোড হয়েছে!')} className="hidden" />
+                    </label>
+                    {settingsForm.headmasterSignatureUrl && (
+                      <img src={settingsForm.headmasterSignatureUrl} alt="Signature preview" className="h-10 w-20 object-contain rounded border bg-white" />
+                    )}
+                  </div>
+                </div>
+
+                {/* 3. Official Seal Upload (REQUIREMENT #5) */}
+                <div className="p-4 border border-emerald-200 rounded-2xl bg-emerald-50/50 space-y-2">
+                  <span className="font-bold text-emerald-900 block">{lang === 'bn' ? 'অফিসিয়াল সিল আপলোড' : 'Official School Seal'}</span>
+                  <div className="flex items-center gap-3">
+                    <label className="cursor-pointer px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors">
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>{lang === 'bn' ? 'সিল ফাইল নিন' : 'Choose Seal'}</span>
+                      <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, (val) => setSettingsForm({ ...settingsForm, officialSealUrl: val }), 'অফিসিয়াল সিল আপলোড হয়েছে!')} className="hidden" />
+                    </label>
+                    {settingsForm.officialSealUrl && (
+                      <img src={settingsForm.officialSealUrl} alt="Seal preview" className="w-10 h-10 object-contain rounded border bg-white" />
+                    )}
+                  </div>
                 </div>
               </div>
 
-              <button
-                type="submit"
-                className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-colors shadow-xs flex items-center gap-2"
-              >
-                <Save className="w-4 h-4" />
-                <span>{lang === 'bn' ? 'সেটিংস সংরক্ষণ করুন' : 'Save Institutional Settings'}</span>
-              </button>
+              <div className="flex justify-end pt-3">
+                <button
+                  type="submit"
+                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>{lang === 'bn' ? 'সকল সেটিংস সংরক্ষণ করুন' : 'Save All Settings'}</span>
+                </button>
+              </div>
             </form>
           </div>
         )}
 
-        {/* TAB 2: Hero Slider */}
+        {/* ==================== TAB 1: HERO SLIDES (REQUIREMENT #1) ==================== */}
         {activeTab === 'slides' && (
           <div className="space-y-6">
-            <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-4">
-              <h3 className="font-bold text-base text-slate-900">
-                {lang === 'bn' ? 'হোমপেজ হিরো স্লাইডসমূহ' : 'Homepage Hero Slides'} ({heroSlides.length})
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {heroSlides.map((slide: HeroSlide) => (
-                  <div key={slide.id} className="border border-slate-200 rounded-2xl overflow-hidden bg-slate-50 flex flex-col justify-between">
-                    <div>
-                      <img src={slide.imageUrl} alt={slide.titleEn} className="w-full h-32 object-cover" />
-                      <div className="p-4 space-y-1 text-xs">
-                        <strong className="block text-slate-900 line-clamp-1">{slide.titleEn}</strong>
-                        <p className="text-[11px] text-slate-500 line-clamp-1">{slide.titleBn}</p>
-                        <p className="text-[10px] text-slate-400 truncate">URL: {slide.buttonUrl}</p>
-                      </div>
-                    </div>
-                    <div className="p-3 bg-white border-t border-slate-200 flex justify-between items-center text-xs">
-                      <span className="text-emerald-600 font-bold">Active Slide</span>
-                      <button
-                        onClick={() => deleteHeroSlide(slide.id)}
-                        className="text-rose-500 hover:text-rose-700"
-                        title="Delete Slide"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
+            <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xs space-y-4">
+              <div className="border-b border-slate-100 pb-3">
+                <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider">SECTION 1</span>
+                <h3 className="text-xl font-bold text-slate-900 mt-0.5">
+                  {lang === 'bn' ? 'হিরো স্লাইড সেকশন (ছবি আপলোড ও এডিট/ডিলিট)' : 'Hero Slider Management'}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  {lang === 'bn' ? 'নতুন স্লাইড যোগ করার সময় সরাসরি ছবি আপলোড করুন এবং প্রতিটি স্লাইড এডিট ও ডিলিট করুন।' : 'Upload direct images without URLs, edit and delete slides.'}
+                </p>
               </div>
-            </div>
 
-            {/* Add New Slide Form */}
-            <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-4">
-              <h4 className="font-bold text-sm text-slate-900">
-                {lang === 'bn' ? 'নতুন হিরো স্লাইড যোগ করুন' : 'Add New Hero Slide'}
-              </h4>
-              <form onSubmit={handleAddSlide} className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                <div>
-                  <label className="block font-medium text-slate-700 mb-1">Slide Title (English) *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Master English with Tuhin Sir"
-                    value={newSlide.titleEn}
-                    onChange={(e) => setNewSlide({ ...newSlide, titleEn: e.target.value })}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs focus:border-emerald-500 focus:outline-none"
-                  />
+              <form onSubmit={handleAddSlide} className="space-y-4 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">স্লাইড শিরোনাম (বাংলা)</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="যেমন: তুহিন স্যারের সাথে সহজে ইংরেজি জয় করুন"
+                      value={newSlideTitleBn}
+                      onChange={(e) => setNewSlideTitleBn(e.target.value)}
+                      className="w-full border rounded-xl px-3 py-2 text-xs focus:border-emerald-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Slide Title (English)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Master English with Tuhin Sir"
+                      value={newSlideTitleEn}
+                      onChange={(e) => setNewSlideTitleEn(e.target.value)}
+                      className="w-full border rounded-xl px-3 py-2 text-xs focus:border-emerald-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">সাবটাইটেল (বাংলা)</label>
+                    <input
+                      type="text"
+                      placeholder="যেমন: জিরো বেসিক থেকে এইচএসসি জিপিএ ৫.০০ ও বিসিএস প্রস্তুতি"
+                      value={newSlideSubtitleBn}
+                      onChange={(e) => setNewSlideSubtitleBn(e.target.value)}
+                      className="w-full border rounded-xl px-3 py-2 text-xs focus:border-emerald-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Subtitle (English)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. From fundamentals to academic GPA 5.00"
+                      value={newSlideSubtitleEn}
+                      onChange={(e) => setNewSlideSubtitleEn(e.target.value)}
+                      className="w-full border rounded-xl px-3 py-2 text-xs focus:border-emerald-500 focus:outline-none"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block font-medium text-slate-700 mb-1">স্লাইড শিরোনাম (বাংলা)</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. তুহিন স্যারের সাথে সহজে ইংরেজি শিখুন"
-                    value={newSlide.titleBn}
-                    onChange={(e) => setNewSlide({ ...newSlide, titleBn: e.target.value })}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs focus:border-emerald-500 focus:outline-none"
-                  />
+
+                {/* DIRECT IMAGE FILE UPLOAD */}
+                <div className="p-4 bg-emerald-50/50 border border-emerald-200 rounded-2xl space-y-2">
+                  <label className="block font-bold text-emerald-950">
+                    {lang === 'bn' ? 'স্লাইডের ছবি সরাসরি আপলোড করুন (কোনো ইউআরএল প্রয়োজন নেই)' : 'Direct Slide Image Upload (No URL required)'}
+                  </label>
+                  <div className="flex flex-col sm:flex-row items-center gap-4">
+                    <label className="cursor-pointer px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-xs transition-colors shrink-0">
+                      <Upload className="w-4 h-4" />
+                      <span>{lang === 'bn' ? 'স্লাইডের ছবি নির্বাচন করুন' : 'Select Slide Image'}</span>
+                      <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, setNewSlideImage)} className="hidden" />
+                    </label>
+
+                    {newSlideImage ? (
+                      <div className="flex items-center gap-3">
+                        <img src={newSlideImage} alt="preview" className="w-20 h-12 object-cover rounded-xl border border-emerald-400" />
+                        <span className="text-xs text-emerald-800 font-semibold">✓ ছবি আপলোড সম্পন্ন</span>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-slate-400 italic">কোনো ছবি নির্বাচন করা হয়নি</span>
+                    )}
+                  </div>
                 </div>
-                <div className="sm:col-span-2">
-                  <label className="block font-medium text-slate-700 mb-1">Image URL *</label>
-                  <input
-                    type="text"
-                    required
-                    value={newSlide.imageUrl}
-                    onChange={(e) => setNewSlide({ ...newSlide, imageUrl: e.target.value })}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs focus:border-emerald-500 focus:outline-none"
-                  />
-                </div>
-                <div className="sm:col-span-2">
+
+                <div className="flex justify-end pt-2">
                   <button
                     type="submit"
-                    className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5"
+                    className="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center gap-1.5"
                   >
-                    <Plus className="w-4 h-4" /> Add Slide
+                    <Plus className="w-4 h-4 text-emerald-400" />
+                    <span>{lang === 'bn' ? 'নতুন স্লাইড প্রকাশ করুন' : 'Publish Slide'}</span>
                   </button>
                 </div>
               </form>
             </div>
+
+            {/* Slides List with Edit & Delete */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {heroSlides.map((slide) => (
+                <div key={slide.id} className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs space-y-3 flex flex-col justify-between">
+                  <div className="space-y-2">
+                    <div className="aspect-video w-full rounded-xl overflow-hidden border border-slate-100 bg-slate-50">
+                      <img src={slide.imageUrl} alt={slide.titleBn} className="w-full h-full object-cover" />
+                    </div>
+                    <h4 className="font-bold text-slate-900 text-sm">{slide.titleBn}</h4>
+                    <p className="text-xs text-slate-500 line-clamp-2">{slide.subtitleBn}</p>
+                  </div>
+
+                  <div className="flex items-center justify-between border-t border-slate-100 pt-3">
+                    <span className="text-[10px] text-slate-400 font-mono">ID: {slide.id}</span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => setEditingSlide(slide)}
+                        className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold flex items-center gap-1"
+                      >
+                        <Edit3 className="w-3 h-3 text-emerald-600" />
+                        <span>{lang === 'bn' ? 'এডিট' : 'Edit'}</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (confirm(lang === 'bn' ? 'আপনি কি এই স্লাইডটি মুছে ফেলতে চান?' : 'Delete this slide?')) {
+                            deleteHeroSlide(slide.id);
+                            showToast(lang === 'bn' ? 'স্লাইড মুছে ফেলা হয়েছে!' : 'Slide deleted!');
+                          }
+                        }}
+                        className="px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold flex items-center gap-1"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        <span>{lang === 'bn' ? 'ডিলিট' : 'Delete'}</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
-        {/* TAB 3: Student Management & Admission */}
+        {/* ==================== TAB 2: COURSE CONTROL (REQUIREMENT #2) ==================== */}
+        {activeTab === 'courses' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xs space-y-4">
+              <div className="border-b border-slate-100 pb-3">
+                <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider">SECTION 2</span>
+                <h3 className="text-xl font-bold text-slate-900 mt-0.5">
+                  {lang === 'bn' ? 'কোর্স কন্ট্রোল সেকশন (লোগো/ব্যানার আপলোড ও এডিট)' : 'Course Control & Management'}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  {lang === 'bn' ? 'কোর্সের লোগো/ব্যানার সরাসরি আপলোড করুন, মূল্য (টাকা) ও তথ্য নির্ধারণ করুন।' : 'Upload course logo/banner directly, manage fees, edit and delete.'}
+                </p>
+              </div>
+
+              <form onSubmit={handleAddCourse} className="space-y-4 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="sm:col-span-2">
+                    <label className="block font-bold text-slate-700 mb-1">কোর্সের নাম (বাংলা)</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="যেমন: এইচএসসি ২০২৬ ১ম ও ২য় পত্র পূর্ণাঙ্গ ব্যাচ"
+                      value={newCourseTitleBn}
+                      onChange={(e) => setNewCourseTitleBn(e.target.value)}
+                      className="w-full border rounded-xl px-3 py-2 text-xs focus:border-emerald-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">কোর্স ফি / মূল্য (টাকা)</label>
+                    <input
+                      type="number"
+                      required
+                      value={newCoursePrice}
+                      onChange={(e) => setNewCoursePrice(Number(e.target.value))}
+                      className="w-full border rounded-xl px-3 py-2 text-xs font-mono font-bold focus:border-emerald-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">পূর্বের মূল্য (টাকা)</label>
+                    <input
+                      type="number"
+                      value={newCourseOriginalPrice}
+                      onChange={(e) => setNewCourseOriginalPrice(Number(e.target.value))}
+                      className="w-full border rounded-xl px-3 py-2 text-xs font-mono focus:border-emerald-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">কোর্সের বিস্তারিত তথ্য</label>
+                  <textarea
+                    rows={2}
+                    placeholder="কোর্সের সুবিধা, লেকচার সংখ্যা ও লক্ষ্য..."
+                    value={newCourseDescBn}
+                    onChange={(e) => setNewCourseDescBn(e.target.value)}
+                    className="w-full border rounded-xl p-3 text-xs focus:border-emerald-500 focus:outline-none"
+                  />
+                </div>
+
+                {/* Direct Banner File Upload */}
+                <div className="p-4 bg-emerald-50/50 border border-emerald-200 rounded-2xl space-y-2">
+                  <label className="block font-bold text-emerald-950">
+                    {lang === 'bn' ? 'কোর্সের লোগো / ব্যানার ইমেজ সরাসরি আপলোড' : 'Direct Course Logo / Banner Upload'}
+                  </label>
+                  <div className="flex flex-col sm:flex-row items-center gap-4">
+                    <label className="cursor-pointer px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-colors shrink-0">
+                      <Upload className="w-4 h-4" />
+                      <span>{lang === 'bn' ? 'লোগো বা ব্যানার বেছে নিন' : 'Choose Course Banner'}</span>
+                      <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, setNewCourseBanner)} className="hidden" />
+                    </label>
+
+                    {newCourseBanner ? (
+                      <div className="flex items-center gap-3">
+                        <img src={newCourseBanner} alt="preview" className="w-20 h-12 object-cover rounded-xl border border-emerald-400" />
+                        <span className="text-xs text-emerald-800 font-semibold">✓ ব্যানার লোড হয়েছে</span>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-slate-400 italic">কোনো ব্যানার নির্বাচন করা হয়নি</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="submit"
+                    className="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center gap-1.5"
+                  >
+                    <Plus className="w-4 h-4 text-emerald-400" />
+                    <span>{lang === 'bn' ? 'নতুন কোর্স যোগ করুন' : 'Add Course'}</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            {/* Courses List */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {courses.map((course) => (
+                <div key={course.id} className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs space-y-3 flex flex-col justify-between">
+                  <div className="space-y-2">
+                    <div className="aspect-video w-full rounded-xl overflow-hidden border border-slate-100 bg-slate-50">
+                      <img src={course.bannerImage} alt={course.titleBn} className="w-full h-full object-cover" />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700">{course.category}</span>
+                      <span className="font-bold text-emerald-700 text-sm">৳{course.price}</span>
+                    </div>
+                    <h4 className="font-bold text-slate-900 text-sm leading-snug">{course.titleBn}</h4>
+                  </div>
+
+                  <div className="flex items-center justify-between border-t border-slate-100 pt-3">
+                    <span className="text-[10px] text-slate-400 font-mono">ID: {course.id}</span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => setEditingCourse(course)}
+                        className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold flex items-center gap-1"
+                      >
+                        <Edit3 className="w-3 h-3 text-emerald-600" />
+                        <span>{lang === 'bn' ? 'এডিট' : 'Edit'}</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (confirm(lang === 'bn' ? 'আপনি কি এই কোর্সটি মুছে ফেলতে চান?' : 'Delete course?')) {
+                            deleteCourse(course.id);
+                            showToast(lang === 'bn' ? 'কোর্স মুছে ফেলা হয়েছে!' : 'Course deleted!');
+                          }
+                        }}
+                        className="px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold flex items-center gap-1"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        <span>{lang === 'bn' ? 'ডিলিট' : 'Delete'}</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ==================== TAB 3: STUDENT ROSTER (REQUIREMENT #3) ==================== */}
         {activeTab === 'students' && (
           <div className="space-y-6">
-            {/* Filter and roster */}
-            <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-4">
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-slate-100 pb-4">
+            {/* Filter Bar */}
+            <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xs space-y-4">
+              <div className="border-b border-slate-100 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <h3 className="font-bold text-lg text-slate-900">
+                  <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider">SECTION 3</span>
+                  <h3 className="text-xl font-bold text-slate-900 mt-0.5">
                     {lang === 'bn' ? 'শিক্ষার্থী তালিকা ও ব্যাচ ম্যানেজমেন্ট' : 'Student Roster & Batch Management'}
                   </h3>
                   <p className="text-xs text-slate-500">
-                    {lang === 'bn' ? `মোট শিক্ষার্থী: ${filteredStudents.length} জন` : `Total Enrolled: ${filteredStudents.length}`}
+                    {lang === 'bn' ? 'শিক্ষাবর্ষ ও কোর্স অনুযায়ী ফিল্টার করে শিক্ষার্থী তালিকা দেখুন, ছবি আপলোড করুন এবং এডিট/ডিলিট করুন।' : 'Filter by year and course, edit and delete records, upload student photos.'}
                   </p>
                 </div>
+              </div>
 
-                <div className="flex items-center gap-2">
+              {/* Year & Course Filter */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    {lang === 'bn' ? 'শিক্ষাবর্ষ (Academic Year) ফিল্টার' : 'Academic Year Filter'}
+                  </label>
                   <select
                     value={studentFilterYear}
                     onChange={(e) => setStudentFilterYear(e.target.value)}
-                    className="border border-slate-200 rounded-xl px-3 py-1.5 text-xs bg-slate-50"
+                    className="w-full border rounded-xl px-3 py-2 text-xs bg-white font-semibold focus:outline-none"
                   >
-                    <option value="all">All Years</option>
+                    <option value="all">All Academic Years (সকল শিক্ষাবর্ষ)</option>
+                    <option value="2027">Year 2027</option>
                     <option value="2026">Year 2026</option>
                     <option value="2025">Year 2025</option>
+                    <option value="2024">Year 2024</option>
                   </select>
+                </div>
 
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    {lang === 'bn' ? 'কোর্স (Course) ফিল্টার' : 'Course Filter'}
+                  </label>
                   <select
                     value={studentFilterCourse}
                     onChange={(e) => setStudentFilterCourse(e.target.value)}
-                    className="border border-slate-200 rounded-xl px-3 py-1.5 text-xs bg-slate-50"
+                    className="w-full border rounded-xl px-3 py-2 text-xs bg-white font-semibold focus:outline-none"
                   >
-                    <option value="all">All Courses</option>
-                    {courses.map((c: Course) => (
-                      <option key={c.id} value={c.id}>{c.titleEn}</option>
+                    <option value="all">All Courses (সকল কোর্স)</option>
+                    {courses.map((c) => (
+                      <option key={c.id} value={c.id}>{c.titleBn}</option>
                     ))}
                   </select>
                 </div>
               </div>
 
-              {/* Students Table */}
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs text-left">
-                  <thead className="bg-slate-50 text-slate-600 uppercase border-b border-slate-200 font-bold">
-                    <tr>
-                      <th className="p-3">Roll</th>
-                      <th className="p-3">Student Name (EN/BN)</th>
-                      <th className="p-3">Father & Mother</th>
-                      <th className="p-3">Course & Year</th>
-                      <th className="p-3">Phone</th>
-                      <th className="p-3 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {filteredStudents.map((std: Student) => {
-                      const c = courses.find((x: Course) => x.id === std.courseId);
+              {/* Add New Student Form (Includes Photo Upload) */}
+              <div className="pt-2">
+                <h4 className="font-bold text-slate-800 text-sm mb-3">
+                  + {lang === 'bn' ? 'নতুন শিক্ষার্থী এন্ট্রি ফরম' : 'Add New Student Entry'}
+                </h4>
+                <form onSubmit={handleAddStudent} className="space-y-4 text-xs">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">শিক্ষাবর্ষ</label>
+                      <select
+                        value={newStudent.academicYear}
+                        onChange={(e) => setNewStudent({ ...newStudent, academicYear: e.target.value })}
+                        className="w-full border rounded-xl px-3 py-2 text-xs bg-white focus:outline-none"
+                      >
+                        <option value="2027">2027</option>
+                        <option value="2026">2026</option>
+                        <option value="2025">2025</option>
+                        <option value="2024">2024</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">কোর্স</label>
+                      <select
+                        value={newStudent.courseId}
+                        onChange={(e) => setNewStudent({ ...newStudent, courseId: e.target.value })}
+                        className="w-full border rounded-xl px-3 py-2 text-xs bg-white focus:outline-none"
+                      >
+                        {courses.map((c) => (
+                          <option key={c.id} value={c.id}>{c.titleBn}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">রোল নম্বর</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. 2601"
+                        value={newStudent.roll}
+                        onChange={(e) => setNewStudent({ ...newStudent, roll: e.target.value })}
+                        className="w-full border rounded-xl px-3 py-2 text-xs font-mono font-bold focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">শিক্ষার্থীর নাম (বাংলা)</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="যেমন: তানভীর আহমেদ"
+                        value={newStudent.nameBn}
+                        onChange={(e) => setNewStudent({ ...newStudent, nameBn: e.target.value })}
+                        className="w-full border rounded-xl px-3 py-2 text-xs focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Student Name (English)</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Tanvir Ahmed"
+                        value={newStudent.nameEn}
+                        onChange={(e) => setNewStudent({ ...newStudent, nameEn: e.target.value })}
+                        className="w-full border rounded-xl px-3 py-2 text-xs focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">মোবাইল নম্বর</label>
+                      <input
+                        type="text"
+                        placeholder="017xxxxxxxx"
+                        value={newStudent.phone}
+                        onChange={(e) => setNewStudent({ ...newStudent, phone: e.target.value })}
+                        className="w-full border rounded-xl px-3 py-2 text-xs font-mono focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Photo Upload in New Student Form (REQUIREMENT #3) */}
+                  <div className="p-3 bg-emerald-50/50 border border-emerald-200 rounded-xl space-y-2">
+                    <label className="block font-bold text-emerald-950">
+                      {lang === 'bn' ? 'শিক্ষার্থীর ছবি সরাসরি আপলোড' : 'Direct Student Photo Upload'}
+                    </label>
+                    <div className="flex items-center gap-3">
+                      <label className="cursor-pointer px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold flex items-center gap-1.5 transition-colors">
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>{lang === 'bn' ? 'ছবি নির্বাচন করুন' : 'Choose Photo'}</span>
+                        <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, (val) => setNewStudent({ ...newStudent, photoUrl: val }))} className="hidden" />
+                      </label>
+                      {newStudent.photoUrl && (
+                        <img src={newStudent.photoUrl} alt="preview" className="w-10 h-10 object-cover rounded-xl border border-emerald-400" />
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end">
+                    <button
+                      type="submit"
+                      className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center gap-1.5"
+                    >
+                      <Plus className="w-4 h-4 text-emerald-400" />
+                      <span>{lang === 'bn' ? 'শিক্ষার্থী তালিকাভুক্ত করুন' : 'Enroll Student'}</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+
+            {/* Students Table with Edit & Delete */}
+            <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs overflow-x-auto">
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-xs font-bold text-slate-700">
+                  {lang === 'bn' ? `মোট শিক্ষার্থী: ${filteredStudents.length} জন` : `Showing ${filteredStudents.length} students`}
+                </span>
+              </div>
+
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 bg-slate-50 font-bold text-slate-700">
+                    <th className="p-3 w-14">ছবি</th>
+                    <th className="p-3 w-16">রোল</th>
+                    <th className="p-3">নাম</th>
+                    <th className="p-3">শিক্ষাবর্ষ</th>
+                    <th className="p-3">কোর্স</th>
+                    <th className="p-3">মোবাইল</th>
+                    <th className="p-3 text-right">অ্যাকশন</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredStudents.map((st) => {
+                    const crs = courses.find((c) => c.id === st.courseId);
+                    return (
+                      <tr key={st.id} className="border-b border-slate-100 hover:bg-slate-50">
+                        <td className="p-3">
+                          <img
+                            src={st.photoUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=120&auto=format&fit=crop'}
+                            alt={st.nameEn}
+                            className="w-9 h-9 rounded-full object-cover border border-slate-200"
+                          />
+                        </td>
+                        <td className="p-3 font-mono font-bold text-emerald-700">{st.roll}</td>
+                        <td className="p-3 font-semibold text-slate-900">{st.nameBn || st.nameEn}</td>
+                        <td className="p-3 text-slate-600">{st.academicYear}</td>
+                        <td className="p-3 text-slate-600 max-w-xs truncate">{crs?.titleBn || st.courseId}</td>
+                        <td className="p-3 font-mono text-slate-600">{st.phone || '-'}</td>
+                        <td className="p-3 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => setEditingStudent(st)}
+                              className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold"
+                            >
+                              {lang === 'bn' ? 'এডিট' : 'Edit'}
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (confirm(lang === 'bn' ? 'শিক্ষার্থীকে মুছে ফেলতে চান?' : 'Delete student?')) {
+                                  deleteStudent(st.id);
+                                  showToast(lang === 'bn' ? 'শিক্ষার্থী মুছে ফেলা হয়েছে!' : 'Student deleted!');
+                                }
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 font-semibold"
+                            >
+                              {lang === 'bn' ? 'ডিলিট' : 'Delete'}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* ==================== TAB 4: RESULTS & PRINT (REQUIREMENT #4) ==================== */}
+        {activeTab === 'results' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xs space-y-4">
+              <div className="border-b border-slate-100 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider">SECTION 4</span>
+                  <h3 className="text-xl font-bold text-slate-900 mt-0.5">
+                    {lang === 'bn' ? 'ফলাফল, মার্কস এন্ট্রি ও ব্রডশিট প্রিন্ট' : 'Results Entry & Broadsheet Print'}
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    {lang === 'bn' ? 'শিক্ষাবর্ষ, কোর্স ও পরীক্ষার ধরন অনুযায়ী ফলাফল দেখুন এবং সরাসরি তালিকা প্রিন্ট করুন।' : 'Filter results by year, course, and exam; view and print broadsheet.'}
+                  </p>
+                </div>
+
+                {/* DIRECT PRINT BUTTON */}
+                <button
+                  onClick={() => setShowPrintResultSheet(true)}
+                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center gap-2 shadow-md transition-all self-start sm:self-center shrink-0"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>{lang === 'bn' ? 'ফলাফল তালিকা সরাসরি প্রিন্ট করুন' : 'Print Results Sheet'}</span>
+                </button>
+              </div>
+
+              {/* Filters for Results View */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">শিক্ষাবর্ষ (Year)</label>
+                  <select
+                    value={resYear}
+                    onChange={(e) => setResYear(e.target.value)}
+                    className="w-full border rounded-xl px-3 py-2 text-xs bg-white font-semibold focus:outline-none"
+                  >
+                    <option value="2027">2027</option>
+                    <option value="2026">2026</option>
+                    <option value="2025">2025</option>
+                    <option value="2024">2024</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">কোর্স নির্বাচন</label>
+                  <select
+                    value={resCourseId}
+                    onChange={(e) => setResCourseId(e.target.value)}
+                    className="w-full border rounded-xl px-3 py-2 text-xs bg-white font-semibold focus:outline-none"
+                  >
+                    {courses.map((c) => (
+                      <option key={c.id} value={c.id}>{c.titleBn}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">পরীক্ষার ধরন</label>
+                  <select
+                    value={resExamId}
+                    onChange={(e) => setResExamId(e.target.value)}
+                    className="w-full border rounded-xl px-3 py-2 text-xs bg-white font-semibold focus:outline-none"
+                  >
+                    {exams.map((ex) => (
+                      <option key={ex.id} value={ex.id}>{ex.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Entry Form Preserved */}
+              <div className="pt-2">
+                <h4 className="font-bold text-slate-800 text-sm mb-3">
+                  + {lang === 'bn' ? 'শিক্ষার্থীর নম্বর এন্ট্রি করুন' : 'Enter Student Marks'}
+                </h4>
+                <form onSubmit={handleSaveResult} className="space-y-4 text-xs">
+                  <div className="flex items-center gap-3">
+                    <div className="w-48">
+                      <label className="block font-bold text-slate-700 mb-1">শিক্ষার্থীর রোল</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. 2601"
+                        value={resRoll}
+                        onChange={(e) => setResRoll(e.target.value)}
+                        className="w-full border rounded-xl px-3 py-2 text-xs font-mono font-bold focus:outline-none"
+                      />
+                    </div>
+                    {autoStudent && (
+                      <div className="text-xs text-emerald-800 font-bold bg-emerald-50 px-3 py-2 rounded-xl border border-emerald-200 mt-5">
+                        ✓ {autoStudent.nameBn} (পিতা: {autoStudent.fatherNameBn})
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Dynamic Subjects */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 p-4 rounded-2xl border">
+                    {currentCourseSubjects.map((sub: CourseSubject) => (
+                      <div key={sub.id}>
+                        <label className="block font-bold text-slate-700 mb-1 truncate">
+                          {sub.name} ({sub.fullMarks})
+                        </label>
+                        <input
+                          type="number"
+                          min={0}
+                          max={sub.fullMarks}
+                          value={resSubjectMarks[sub.id] || ''}
+                          onChange={(e) => setResSubjectMarks({ ...resSubjectMarks, [sub.id]: Number(e.target.value) })}
+                          className="w-full border rounded-xl px-3 py-2 text-xs font-mono font-bold focus:outline-none bg-white"
+                        />
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex justify-end">
+                    <button
+                      type="submit"
+                      className="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center gap-1.5"
+                    >
+                      <Save className="w-4 h-4 text-emerald-400" />
+                      <span>{lang === 'bn' ? 'ফলাফল সংরক্ষণ করুন' : 'Save Marks'}</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+
+            {/* Results Table */}
+            <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs overflow-x-auto">
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-xs font-bold text-slate-700">
+                  {lang === 'bn' ? 'বর্তমান ফিল্টারের ফলাফল তালিকা' : 'Results Tabulation Table'}
+                </span>
+                <button
+                  onClick={() => setShowPrintResultSheet(true)}
+                  className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg flex items-center gap-1.5"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>প্রিন্ট করুন</span>
+                </button>
+              </div>
+
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 bg-slate-50 font-bold text-slate-700">
+                    <th className="p-3 w-16">রোল</th>
+                    <th className="p-3">শিক্ষার্থীর নাম</th>
+                    <th className="p-3 text-center">মোট নম্বর</th>
+                    <th className="p-3 text-center">%</th>
+                    <th className="p-3 text-center">জিপিএ</th>
+                    <th className="p-3 text-center">গ্রেড</th>
+                    <th className="p-3 text-right">অ্যাকশন</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {results
+                    .filter((r) => r.academicYear === resYear && r.courseId === resCourseId && r.examId === resExamId)
+                    .map((res) => {
+                      const st = students.find((s) => s.roll === res.studentRoll);
                       return (
-                        <tr key={std.id} className="hover:bg-slate-50/60">
-                          <td className="p-3 font-mono font-bold text-emerald-700">{std.roll}</td>
-                          <td className="p-3">
-                            <strong className="block text-slate-900">{std.nameEn}</strong>
-                            <span className="text-[11px] text-slate-500">{std.nameBn}</span>
+                        <tr key={res.id} className="border-b border-slate-100 hover:bg-slate-50">
+                          <td className="p-3 font-mono font-bold text-emerald-700">{res.studentRoll}</td>
+                          <td className="p-3 font-semibold text-slate-900">{st ? st.nameBn : `Roll ${res.studentRoll}`}</td>
+                          <td className="p-3 text-center font-bold">{res.totalMarks} / {res.totalFullMarks}</td>
+                          <td className="p-3 text-center">{res.percentage.toFixed(1)}%</td>
+                          <td className="p-3 text-center font-bold text-emerald-700">{res.gpa.toFixed(2)}</td>
+                          <td className="p-3 text-center">
+                            <span className="px-2 py-0.5 rounded font-black text-xs bg-emerald-100 text-emerald-800">
+                              {res.grade}
+                            </span>
                           </td>
-                          <td className="p-3 text-slate-600">
-                            <span>F: {std.fatherNameEn || '-'}</span>
-                            <span className="block text-[11px] text-slate-400">M: {std.motherNameEn || '-'}</span>
-                          </td>
-                          <td className="p-3">
-                            <span className="text-slate-800 font-medium block truncate max-w-[180px]">{c?.titleEn}</span>
-                            <span className="text-[10px] bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">{std.academicYear}</span>
-                          </td>
-                          <td className="p-3 font-mono">{std.phone}</td>
                           <td className="p-3 text-right">
                             <button
-                              onClick={() => deleteStudent(std.id)}
-                              className="text-rose-500 hover:text-rose-700 p-1"
-                              title="Delete"
+                              onClick={() => {
+                                if (confirm('মুছে ফেলতে চান?')) deleteResult(res.id);
+                              }}
+                              className="px-2.5 py-1 rounded bg-red-50 text-red-600 font-semibold"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              ডিলিট
                             </button>
                           </td>
                         </tr>
                       );
                     })}
-                  </tbody>
-                </table>
-              </div>
+                </tbody>
+              </table>
             </div>
+          </div>
+        )}
 
-            {/* Add Student Form */}
-            <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-4">
-              <h4 className="font-bold text-sm text-slate-900 flex items-center gap-1.5">
-                <Plus className="w-4 h-4 text-emerald-600" />
-                {lang === 'bn' ? 'নতুন শিক্ষার্থী ভর্তি / এন্ট্রি ফরম' : 'Add New Student Entry'}
-              </h4>
-              <form onSubmit={handleAddStudent} className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+        {/* ==================== TAB 5: TEACHERS & ID CARD (REQUIREMENT #5) ==================== */}
+        {activeTab === 'teachers' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xs space-y-4">
+              <div className="border-b border-slate-100 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <label className="block font-medium text-slate-700 mb-1">Academic Year *</label>
-                  <select
-                    value={newStudent.academicYear}
-                    onChange={(e) => setNewStudent({ ...newStudent, academicYear: e.target.value })}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs bg-slate-50"
-                  >
-                    <option value="2026">2026</option>
-                    <option value="2025">2025</option>
-                    <option value="2027">2027</option>
-                  </select>
+                  <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider">SECTION 5</span>
+                  <h3 className="text-xl font-bold text-slate-900 mt-0.5">
+                    {lang === 'bn' ? 'শিক্ষক মণ্ডলী ও আইডি কার্ড প্রিন্ট' : 'Faculty Roster & Teacher ID Card'}
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    {lang === 'bn' ? 'শিক্ষকদের ছবি আপলোড করুন, তথ্য যুক্ত করুন এবং শিক্ষক আইডি কার্ড প্রিন্ট করুন।' : 'Direct photo uploads, teacher contact & address, instant ID card print.'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Add Teacher Form */}
+              <form onSubmit={handleAddTeacher} className="space-y-4 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">শিক্ষকের নাম (বাংলা)</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="যেমন: এমডি তৌহিদুল হক তুহিন"
+                      value={newTeacherNameBn}
+                      onChange={(e) => setNewTeacherNameBn(e.target.value)}
+                      className="w-full border rounded-xl px-3 py-2 text-xs focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Teacher Name (English)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. MD Touhidul Hoque Tuhin"
+                      value={newTeacherNameEn}
+                      onChange={(e) => setNewTeacherNameEn(e.target.value)}
+                      className="w-full border rounded-xl px-3 py-2 text-xs focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">পদবি (বাংলা)</label>
+                    <input
+                      type="text"
+                      required
+                      value={newTeacherDesigBn}
+                      onChange={(e) => setNewTeacherDesigBn(e.target.value)}
+                      className="w-full border rounded-xl px-3 py-2 text-xs focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">শিক্ষাগত যোগ্যতা</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. B.A (Hons), M.A in English"
+                      value={newTeacherQual}
+                      onChange={(e) => setNewTeacherQual(e.target.value)}
+                      className="w-full border rounded-xl px-3 py-2 text-xs focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">মোবাইল নম্বর</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="+880 1712-345678"
+                      value={newTeacherPhone}
+                      onChange={(e) => setNewTeacherPhone(e.target.value)}
+                      className="w-full border rounded-xl px-3 py-2 text-xs font-mono focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">ঠিকানা</label>
+                    <input
+                      type="text"
+                      placeholder="ধানমন্ডি, ঢাকা"
+                      value={newTeacherAddress}
+                      onChange={(e) => setNewTeacherAddress(e.target.value)}
+                      className="w-full border rounded-xl px-3 py-2 text-xs focus:outline-none"
+                    />
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block font-medium text-slate-700 mb-1">Course *</label>
-                  <select
-                    value={newStudent.courseId}
-                    onChange={(e) => setNewStudent({ ...newStudent, courseId: e.target.value })}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs bg-slate-50"
-                  >
-                    {courses.map((c: Course) => (
-                      <option key={c.id} value={c.id}>{c.titleEn}</option>
-                    ))}
-                  </select>
+                {/* Direct Photo Upload */}
+                <div className="p-3 bg-emerald-50/50 border border-emerald-200 rounded-xl space-y-2">
+                  <label className="block font-bold text-emerald-950">
+                    {lang === 'bn' ? 'শিক্ষকের ছবি সরাসরি আপলোড করুন (ছবি সিলেক্ট করুন)' : 'Upload Teacher Photo Directly'}
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <label className="cursor-pointer px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold flex items-center gap-1.5 transition-colors">
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>{lang === 'bn' ? 'ছবি নির্বাচন করুন' : 'Choose Photo'}</span>
+                      <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, setNewTeacherPhoto)} className="hidden" />
+                    </label>
+                    {newTeacherPhoto && (
+                      <img src={newTeacherPhoto} alt="preview" className="w-12 h-12 object-cover rounded-xl border border-emerald-400" />
+                    )}
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block font-medium text-slate-700 mb-1">Roll Number *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. 104"
-                    value={newStudent.roll}
-                    onChange={(e) => setNewStudent({ ...newStudent, roll: e.target.value })}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs focus:border-emerald-500 focus:outline-none"
-                  />
-                </div>
+                <div className="flex items-center justify-between pt-2">
+                  <label className="flex items-center gap-2 cursor-pointer font-bold text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={newTeacherIsHeadmaster}
+                      onChange={(e) => setNewTeacherIsHeadmaster(e.target.checked)}
+                      className="rounded text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <span>{lang === 'bn' ? 'প্রধান শিক্ষক হিসেবে চিহ্নিত করুন' : 'Mark as Headmaster'}</span>
+                  </label>
 
-                <div>
-                  <label className="block font-medium text-slate-700 mb-1">Student Name (English) *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Shakil Mahmud"
-                    value={newStudent.nameEn}
-                    onChange={(e) => setNewStudent({ ...newStudent, nameEn: e.target.value })}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs focus:border-emerald-500 focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-medium text-slate-700 mb-1">শিক্ষার্থীর নাম (বাংলা)</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. শাকিল মাহমুদ"
-                    value={newStudent.nameBn}
-                    onChange={(e) => setNewStudent({ ...newStudent, nameBn: e.target.value })}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs focus:border-emerald-500 focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-medium text-slate-700 mb-1">Mobile (WhatsApp) *</label>
-                  <input
-                    type="tel"
-                    required
-                    placeholder="017xxxxxxxx"
-                    value={newStudent.phone}
-                    onChange={(e) => setNewStudent({ ...newStudent, phone: e.target.value })}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs focus:border-emerald-500 focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-medium text-slate-700 mb-1">Father's Name (পিতার নাম)</label>
-                  <input
-                    type="text"
-                    placeholder="Father's Name"
-                    value={newStudent.fatherNameEn}
-                    onChange={(e) => setNewStudent({ ...newStudent, fatherNameEn: e.target.value })}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs focus:border-emerald-500 focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-medium text-slate-700 mb-1">Mother's Name (মাতার নাম)</label>
-                  <input
-                    type="text"
-                    placeholder="Mother's Name"
-                    value={newStudent.motherNameEn}
-                    onChange={(e) => setNewStudent({ ...newStudent, motherNameEn: e.target.value })}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs focus:border-emerald-500 focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-medium text-slate-700 mb-1">Address / District</label>
-                  <input
-                    type="text"
-                    placeholder="Dhaka, Bangladesh"
-                    value={newStudent.address}
-                    onChange={(e) => setNewStudent({ ...newStudent, address: e.target.value })}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs focus:border-emerald-500 focus:outline-none"
-                  />
-                </div>
-
-                <div className="sm:col-span-3">
                   <button
                     type="submit"
-                    className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5"
+                    className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center gap-1.5"
                   >
-                    <Plus className="w-4 h-4" /> Save Student Record
+                    <Plus className="w-4 h-4 text-emerald-400" />
+                    <span>{lang === 'bn' ? 'শিক্ষক যুক্ত করুন' : 'Add Teacher'}</span>
                   </button>
                 </div>
               </form>
             </div>
-          </div>
-        )}
 
-        {/* TAB 4: Course Subjects & Exams Setup */}
-        {activeTab === 'subjects_exams' && (
-          <div className="space-y-6">
-            <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <h3 className="font-bold text-lg text-slate-900">
-                  {lang === 'bn' ? 'কোর্সভিত্তিক বিষয় ও পরীক্ষা সেটআপ' : 'Course Subjects & Exams Setup'}
-                </h3>
-                <div className="flex items-center gap-2 text-xs">
-                  <span className="font-bold text-slate-600">Select Course:</span>
-                  <select
-                    value={selectedCourseForSetup}
-                    onChange={(e) => setSelectedCourseForSetup(e.target.value)}
-                    className="border border-slate-200 rounded-xl px-3 py-1.5 bg-slate-50 font-bold"
-                  >
-                    {courses.map((c: Course) => (
-                      <option key={c.id} value={c.id}>{c.titleEn}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Current Subjects & Exams Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
-                {/* Subjects Column */}
-                <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-4">
-                  <h4 className="font-bold text-sm text-slate-900 border-b border-slate-200 pb-2">
-                    {lang === 'bn' ? 'বর্তমান বিষয়সমূহ' : 'Registered Subjects'}
-                  </h4>
-                  <div className="space-y-2">
-                    {subjects.filter((s: CourseSubject) => s.courseId === selectedCourseForSetup).map((sub: CourseSubject) => (
-                      <div key={sub.id} className="p-3 rounded-xl bg-white border border-slate-200 flex justify-between items-center text-xs">
-                        <span className="font-bold text-slate-800">{sub.name}</span>
-                        <span className="text-slate-500 font-mono">Full: {sub.fullMarks} | Pass: {sub.passMarks}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Add Subject mini form */}
-                  <form onSubmit={handleAddSubject} className="pt-2 space-y-2 text-xs border-t border-slate-200">
-                    <strong className="block text-slate-800">Add New Subject:</strong>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Subject Name (e.g. Vocabulary & Modifiers)"
-                      value={newSubjectName}
-                      onChange={(e) => setNewSubjectName(e.target.value)}
-                      className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs"
+            {/* Teachers Cards with ID Card Print Button */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {teachers.map((tch) => (
+                <div key={tch.id} className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-3 flex flex-col justify-between">
+                  <div className="flex items-start gap-3">
+                    <img
+                      src={tch.photoUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=240&auto=format&fit=crop'}
+                      alt={tch.nameEn}
+                      className="w-14 h-14 rounded-2xl object-cover border-2 border-emerald-500 shrink-0"
                     />
-                    <div className="flex gap-2">
-                      <input
-                        type="number"
-                        placeholder="Full Marks"
-                        value={newSubjectFullMarks}
-                        onChange={(e) => setNewSubjectFullMarks(Number(e.target.value))}
-                        className="w-1/2 bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs"
-                      />
-                      <input
-                        type="number"
-                        placeholder="Pass Marks"
-                        value={newSubjectPassMarks}
-                        onChange={(e) => setNewSubjectPassMarks(Number(e.target.value))}
-                        className="w-1/2 bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs"
-                      />
+                    <div className="space-y-0.5">
+                      <h4 className="font-bold text-slate-900 text-sm leading-tight">{tch.nameBn || tch.nameEn}</h4>
+                      <p className="text-xs text-emerald-700 font-semibold">{tch.designationBn || tch.designationEn}</p>
+                      <p className="text-[11px] text-slate-500">{tch.qualification}</p>
+                      <p className="text-[11px] text-slate-600 font-mono">{tch.phone}</p>
                     </div>
-                    <button type="submit" className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs">
-                      + Add Subject
-                    </button>
-                  </form>
-                </div>
-
-                {/* Exams Column */}
-                <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-4">
-                  <h4 className="font-bold text-sm text-slate-900 border-b border-slate-200 pb-2">
-                    {lang === 'bn' ? 'নির্ধারিত পরীক্ষাসমূহ' : 'Configured Exams'}
-                  </h4>
-                  <div className="space-y-2">
-                    {exams.filter((e: CourseExam) => e.courseId === selectedCourseForSetup).map((ex: CourseExam) => (
-                      <div key={ex.id} className="p-3 rounded-xl bg-white border border-slate-200 flex justify-between items-center text-xs">
-                        <div>
-                          <strong className="text-slate-800 block">{ex.name}</strong>
-                          <span className="text-[10px] text-slate-400">{ex.examType}</span>
-                        </div>
-                        <span className="font-mono text-emerald-700 text-[11px]">{ex.date}</span>
-                      </div>
-                    ))}
                   </div>
 
-                  {/* Add Exam mini form */}
-                  <form onSubmit={handleAddExam} className="pt-2 space-y-2 text-xs border-t border-slate-200">
-                    <strong className="block text-slate-800">Add New Exam:</strong>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Exam Name (e.g. Model Test 01)"
-                      value={newExamName}
-                      onChange={(e) => setNewExamName(e.target.value)}
-                      className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs"
-                    />
-                    <div className="flex gap-2">
-                      <select
-                        value={newExamType}
-                        onChange={(e) => setNewExamType(e.target.value)}
-                        className="w-1/2 bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs"
+                  <div className="flex items-center justify-between border-t border-slate-100 pt-3">
+                    {/* PRINT TEACHER ID CARD BUTTON (REQUIREMENT #5) */}
+                    <button
+                      onClick={() => setIdCardTeacher(tch)}
+                      className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs"
+                    >
+                      <Printer className="w-3.5 h-3.5" />
+                      <span>{lang === 'bn' ? 'আইডি কার্ড প্রিন্ট' : 'Print ID Card'}</span>
+                    </button>
+
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => setEditingTeacher(tch)}
+                        className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold"
                       >
-                        <option value="Term Exam">Term Exam</option>
-                        <option value="Midterm">Midterm</option>
-                        <option value="Pre-Test">Pre-Test</option>
-                        <option value="Final Model">Final Model</option>
-                      </select>
-                      <input
-                        type="date"
-                        value={newExamDate}
-                        onChange={(e) => setNewExamDate(e.target.value)}
-                        className="w-1/2 bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs"
-                      />
+                        {lang === 'bn' ? 'এডিট' : 'Edit'}
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (confirm('মুছে ফেলতে চান?')) deleteTeacher(tch.id);
+                        }}
+                        className="px-2.5 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold"
+                      >
+                        {lang === 'bn' ? 'ডিলিট' : 'Delete'}
+                      </button>
                     </div>
-                    <button type="submit" className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs">
-                      + Add Exam Schedule
-                    </button>
-                  </form>
+                  </div>
                 </div>
-              </div>
+              ))}
             </div>
           </div>
         )}
 
-        {/* TAB 5: Result Entry & Management */}
-        {activeTab === 'results' && (
+        {/* ==================== TAB 6: FREE CLASSES (REQUIREMENT #6) ==================== */}
+        {activeTab === 'classes' && (
           <div className="space-y-6">
-            <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-5">
+            <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xs space-y-4">
               <div className="border-b border-slate-100 pb-3">
-                <h3 className="text-lg font-bold text-slate-900">
-                  {lang === 'bn' ? 'ফলাফল ও মার্কস এন্ট্রি মডিউল' : 'Student Result Entry Module'}
+                <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider">SECTION 6</span>
+                <h3 className="text-xl font-bold text-slate-900 mt-0.5">
+                  {lang === 'bn' ? 'ফ্রি ক্লাস সেকশন (ভিডিও আপলোড ও লিঙ্ক)' : 'Free Video Classes Management'}
                 </h3>
                 <p className="text-xs text-slate-500">
-                  {lang === 'bn' ? 'শিক্ষাবর্ষ, কোর্স ও রোল দিলেই শিক্ষার্থীর নাম অটো চলে আসবে। বিষয়ভিত্তিক নম্বর দিলে স্বয়ংক্রিয়ভাবে মোট নম্বর ও জিপিএ হিসাব হবে।' : 'Student name auto-populates upon selecting Course and Roll. Marks calculation and GPA auto-computed.'}
+                  {lang === 'bn' ? 'সরাসরি ভিডিও আপলোড অথবা YouTube, Facebook ও TikTok লিঙ্ক দিয়ে ফ্রি ক্লাস যোগ করুন।' : 'Upload video files directly or embed links from YouTube, Facebook, or TikTok.'}
                 </p>
               </div>
 
-              <form onSubmit={handleSaveResult} className="space-y-4 text-xs">
-                {/* Selectors */}
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-200">
-                  <div>
-                    <label className="block font-bold text-slate-700 mb-1">Academic Year</label>
-                    <select
-                      value={resYear}
-                      onChange={(e) => setResYear(e.target.value)}
-                      className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs"
-                    >
-                      <option value="2026">2026</option>
-                      <option value="2025">2025</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block font-bold text-slate-700 mb-1">Course</label>
-                    <select
-                      value={resCourseId}
-                      onChange={(e) => {
-                        setResCourseId(e.target.value);
-                        setResSubjectMarks({});
-                      }}
-                      className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs"
-                    >
-                      {courses.map((c: Course) => (
-                        <option key={c.id} value={c.id}>{c.titleEn}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block font-bold text-slate-700 mb-1">Exam Type</label>
-                    <select
-                      value={resExamId}
-                      onChange={(e) => setResExamId(e.target.value)}
-                      className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs"
-                    >
-                      {exams.filter((x: CourseExam) => x.courseId === resCourseId).map((ex: CourseExam) => (
-                        <option key={ex.id} value={ex.id}>{ex.name}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block font-bold text-slate-700 mb-1">Student Roll *</label>
+              <form onSubmit={handleAddVideoClass} className="space-y-4 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="sm:col-span-2">
+                    <label className="block font-bold text-slate-700 mb-1">ভিডিও ক্লাসের শিরোনাম (বাংলা)</label>
                     <input
                       type="text"
                       required
-                      placeholder="e.g. 101"
-                      value={resRoll}
-                      onChange={(e) => setResRoll(e.target.value.trim())}
-                      className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono font-bold"
+                      placeholder="যেমন: Right Forms of Verbs গোল্ডেন টেকনিক"
+                      value={newVideoTitleBn}
+                      onChange={(e) => setNewVideoTitleBn(e.target.value)}
+                      className="w-full border rounded-xl px-3 py-2 text-xs focus:outline-none"
                     />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">ক্যাটাগরি</label>
+                    <select
+                      value={newVideoCategory}
+                      onChange={(e) => setNewVideoCategory(e.target.value as any)}
+                      className="w-full border rounded-xl px-3 py-2 text-xs bg-white focus:outline-none"
+                    >
+                      <option value="Grammar Hacks">Grammar Hacks</option>
+                      <option value="Spoken English">Spoken English</option>
+                      <option value="HSC English">HSC English</option>
+                      <option value="BCS & Govt Job">BCS & Govt Job</option>
+                    </select>
                   </div>
                 </div>
 
-                {/* Auto Student Info Snapshot */}
-                {autoStudent ? (
-                  <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-2xl flex items-center justify-between text-xs text-emerald-950">
-                    <div>
-                      <span className="font-bold block text-sm">{autoStudent.nameEn} ({autoStudent.nameBn})</span>
-                      <span className="text-emerald-700">Roll: {autoStudent.roll} • Father: {autoStudent.fatherNameEn} • Mobile: {autoStudent.phone}</span>
-                    </div>
-                    <span className="bg-emerald-600 text-white font-bold px-2 py-0.5 rounded text-[10px]">
-                      VERIFIED STUDENT
-                    </span>
-                  </div>
-                ) : resRoll ? (
-                  <div className="bg-rose-50 border border-rose-200 p-3 rounded-xl text-xs text-rose-700">
-                    No student found with Roll: "{resRoll}" in this course. Please verify from Student Roster.
-                  </div>
-                ) : null}
-
-                {/* Subject Marks Input */}
-                {currentCourseSubjects.length > 0 && autoStudent && (
-                  <div className="space-y-3 pt-2">
-                    <h4 className="font-bold text-xs uppercase tracking-wider text-slate-800">
-                      Input Subject Marks:
-                    </h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      {currentCourseSubjects.map((sub: CourseSubject) => (
-                        <div key={sub.id} className="p-3 rounded-xl border border-slate-200 bg-white space-y-1">
-                          <label className="block font-bold text-slate-800 text-xs">
-                            {sub.name} (Full: {sub.fullMarks})
-                          </label>
-                          <input
-                            type="number"
-                            required
-                            min={0}
-                            max={sub.fullMarks}
-                            placeholder="Enter marks"
-                            value={resSubjectMarks[sub.id] || ''}
-                            onChange={(e) => setResSubjectMarks({
-                              ...resSubjectMarks,
-                              [sub.id]: Number(e.target.value)
-                            })}
-                            className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-mono font-bold"
-                          />
-                        </div>
-                      ))}
-                    </div>
-
-                    <button
-                      type="submit"
-                      className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-sm flex items-center gap-1.5 mt-2"
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">ভিডিও প্ল্যাটফর্ম</label>
+                    <select
+                      value={newVideoPlatform}
+                      onChange={(e) => setNewVideoPlatform(e.target.value as any)}
+                      className="w-full border rounded-xl px-3 py-2 text-xs bg-white focus:outline-none font-semibold"
                     >
-                      <Save className="w-4 h-4" /> Calculate & Save Result
-                    </button>
+                      <option value="youtube">YouTube Video</option>
+                      <option value="facebook">Facebook Video</option>
+                      <option value="tiktok">TikTok Video</option>
+                      <option value="uploaded">Direct Uploaded Video File</option>
+                    </select>
                   </div>
-                )}
+
+                  {newVideoPlatform === 'uploaded' ? (
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">সরাসরি ভিডিও ফাইল নির্বাচন করুন (MP4/WebM)</label>
+                      <input
+                        type="file"
+                        accept="video/*"
+                        onChange={(e) => handleFileChange(e, setNewVideoFile, 'ভিডিও ফাইল লোড হয়েছে!')}
+                        className="w-full border rounded-xl p-1.5 text-xs bg-white"
+                      />
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">
+                        {newVideoPlatform.toUpperCase()} ভিডিও লিঙ্ক (URL)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="https://..."
+                        value={newVideoUrl}
+                        onChange={(e) => setNewVideoUrl(e.target.value)}
+                        className="w-full border rounded-xl px-3 py-2 text-xs focus:outline-none"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="submit"
+                    className="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center gap-1.5"
+                  >
+                    <Plus className="w-4 h-4 text-emerald-400" />
+                    <span>{lang === 'bn' ? 'ফ্রি ক্লাস প্রকাশ করুন' : 'Publish Video Class'}</span>
+                  </button>
+                </div>
               </form>
             </div>
 
-            {/* Existing Results Table */}
-            <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-4">
-              <h3 className="font-bold text-base text-slate-900">
-                {lang === 'bn' ? 'সকল সংরক্ষিত ফলাফল' : 'Published Results Database'} ({results.length})
-              </h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs text-left">
-                  <thead className="bg-slate-50 text-slate-600 border-b border-slate-200 font-bold uppercase">
-                    <tr>
-                      <th className="p-3">Roll</th>
-                      <th className="p-3">Total Marks</th>
-                      <th className="p-3">Percentage</th>
-                      <th className="p-3">GPA (5.00)</th>
-                      <th className="p-3">Grade</th>
-                      <th className="p-3 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {results.map((res: StudentResult) => (
-                      <tr key={res.id} className="hover:bg-slate-50">
-                        <td className="p-3 font-mono font-bold text-emerald-700">{res.studentRoll}</td>
-                        <td className="p-3 font-mono font-bold">{res.totalMarks} / {res.totalFullMarks}</td>
-                        <td className="p-3 font-mono">{res.percentage.toFixed(1)}%</td>
-                        <td className="p-3 font-mono font-bold text-emerald-700">{res.gpa.toFixed(2)}</td>
-                        <td className="p-3 font-bold text-slate-900">{res.grade}</td>
-                        <td className="p-3 text-right">
-                          <button
-                            onClick={() => deleteResult(res.id)}
-                            className="text-rose-500 hover:text-rose-700 p-1"
-                            title="Delete"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+            {/* Video List */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {videoClasses.map((v) => (
+                <div key={v.id} className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs space-y-3 flex flex-col justify-between">
+                  <div className="space-y-2">
+                    <div className="aspect-video w-full rounded-xl overflow-hidden border border-slate-100 bg-slate-900 flex items-center justify-center relative">
+                      <img src={v.thumbnailUrl} alt={v.titleBn} className="w-full h-full object-cover" />
+                      <span className="absolute bottom-2 right-2 bg-black/70 text-white text-[10px] px-1.5 py-0.5 rounded font-mono">
+                        {v.duration}
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700">{v.category}</span>
+                    <h4 className="font-bold text-slate-900 text-sm leading-snug">{v.titleBn}</h4>
+                  </div>
+
+                  <div className="flex items-center justify-between border-t border-slate-100 pt-3">
+                    <span className="text-[10px] text-slate-400">{v.videoPlatform || 'YouTube'}</span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => {
+                          const newTitle = prompt('নতুন শিরোনাম লিখুন:', v.titleBn);
+                          if (newTitle) updateVideoClass({ ...v, titleBn: newTitle });
+                        }}
+                        className="px-2.5 py-1 rounded bg-slate-100 text-slate-700 text-xs font-semibold"
+                      >
+                        {lang === 'bn' ? 'এডিট' : 'Edit'}
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (confirm('মুছে ফেলতে চান?')) deleteVideoClass(v.id);
+                        }}
+                        className="px-2.5 py-1 rounded bg-red-50 text-red-600 text-xs font-semibold"
+                      >
+                        {lang === 'bn' ? 'ডিলিট' : 'Delete'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
 
-        {/* TAB 6: Teacher Management & Seals */}
-        {activeTab === 'teachers' && (
+        {/* ==================== TAB 7: NOTES & SHEETS (REQUIREMENT #7) ==================== */}
+        {activeTab === 'notes' && (
           <div className="space-y-6">
-            <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-6">
+            <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xs space-y-4">
               <div className="border-b border-slate-100 pb-3">
-                <h3 className="text-lg font-bold text-slate-900">
-                  {lang === 'bn' ? 'প্রধান শিক্ষকের স্বাক্ষর ও অফিশিয়াল সিল' : 'Principal Signature & Official Seal Setup'}
+                <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider">SECTION 7</span>
+                <h3 className="text-xl font-bold text-slate-900 mt-0.5">
+                  {lang === 'bn' ? 'নোটস ও শিট (ছবি ও পিডিএফ সরাসরি আপলোড)' : 'Notes & PDFs Management'}
                 </h3>
                 <p className="text-xs text-slate-500">
-                  {lang === 'bn' ? 'এখানে আপলোডকৃত স্বাক্ষর ও সিল স্বয়ংক্রিয়ভাবে মার্কশিট এবং শিক্ষক আইডি কার্ডে প্রিন্ট হবে।' : 'These signatures and institutional stamps are automatically embossed onto marksheets and ID cards.'}
+                  {lang === 'bn' ? 'হ্যান্ডনোট ও গ্রামার শিটের ক্ষেত্রে সরাসরি ছবি ও পিডিএফ (PDF) আপলোড করুন।' : 'Upload direct Image and PDF documents, edit and delete resources.'}
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3 text-xs">
-                  <label className="block font-bold text-slate-800">Headmaster Signature URL</label>
-                  <input
-                    type="text"
-                    value={settingsForm.headmasterSignatureUrl}
-                    onChange={(e) => setSettingsForm({ ...settingsForm, headmasterSignatureUrl: e.target.value })}
-                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs"
-                  />
-                  <div className="h-16 flex items-center justify-center bg-white rounded-xl border border-slate-200 p-2">
-                    <img src={settingsForm.headmasterSignatureUrl} alt="Signature Preview" className="h-full object-contain" />
+              <form onSubmit={handleAddNote} className="space-y-4 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="sm:col-span-2">
+                    <label className="block font-bold text-slate-700 mb-1">নোটের নাম (বাংলা)</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="যেমন: ২৫০টি প্রয়োজনীয় প্রিপরিশন হ্যান্ডনোট"
+                      value={newNoteTitleBn}
+                      onChange={(e) => setNewNoteTitleBn(e.target.value)}
+                      className="w-full border rounded-xl px-3 py-2 text-xs focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">ক্যাটাগরি</label>
+                    <select
+                      value={newNoteCategory}
+                      onChange={(e) => setNewNoteCategory(e.target.value as any)}
+                      className="w-full border rounded-xl px-3 py-2 text-xs bg-white focus:outline-none"
+                    >
+                      <option value="Handwritten Notes">Handwritten Notes</option>
+                      <option value="Grammar Sheets">Grammar Sheets</option>
+                      <option value="HSC English">HSC English</option>
+                      <option value="Vocabulary Booster">Vocabulary Booster</option>
+                    </select>
                   </div>
                 </div>
 
-                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3 text-xs">
-                  <label className="block font-bold text-slate-800">Official Seal / Stamp URL</label>
-                  <input
-                    type="text"
-                    value={settingsForm.officialSealUrl}
-                    onChange={(e) => setSettingsForm({ ...settingsForm, officialSealUrl: e.target.value })}
-                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs"
-                  />
-                  <div className="h-16 flex items-center justify-center bg-white rounded-xl border border-slate-200 p-2">
-                    <img src={settingsForm.officialSealUrl} alt="Seal Preview" className="h-full object-contain" />
-                  </div>
-                </div>
-              </div>
+                {/* DIRECT PDF OR IMAGE FILE UPLOAD (REQUIREMENT #7) */}
+                <div className="p-4 bg-emerald-50/50 border border-emerald-200 rounded-2xl space-y-2">
+                  <label className="block font-bold text-emerald-950">
+                    {lang === 'bn' ? 'নোটের পিডিএফ (PDF) বা ছবি সরাসরি আপলোড করুন' : 'Direct PDF or Image File Upload'}
+                  </label>
+                  <div className="flex flex-col sm:flex-row items-center gap-4">
+                    <label className="cursor-pointer px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-colors shrink-0">
+                      <Upload className="w-4 h-4" />
+                      <span>{lang === 'bn' ? 'পিডিএফ বা ছবি বেছে নিন' : 'Choose PDF / Image File'}</span>
+                      <input 
+                        type="file" 
+                        accept=".pdf,image/*" 
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) {
+                            setNewNoteFileType(f.type.includes('pdf') ? 'pdf' : 'image');
+                            handleFileChange(e, setNewNoteFileUrl, 'ফাইল সফলভাবে আপলোড হয়েছে!');
+                          }
+                        }} 
+                        className="hidden" 
+                      />
+                    </label>
 
-              <button
-                onClick={handleSaveSettings}
-                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5"
-              >
-                <Save className="w-4 h-4" /> Save Seal & Signature
-              </button>
-            </div>
-
-            {/* Teachers list */}
-            <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-4">
-              <h3 className="font-bold text-base text-slate-900">
-                {lang === 'bn' ? 'নিযুক্ত শিক্ষক তালিকা' : 'Faculty Roster'} ({teachers.length})
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {teachers.map((tch: Teacher) => (
-                  <div key={tch.id} className="p-4 rounded-2xl border border-slate-200 bg-slate-50 flex items-center justify-between gap-3 text-xs">
-                    <div className="flex items-center gap-3">
-                      <img src={tch.photoUrl} alt={tch.nameEn} className="w-12 h-12 rounded-xl object-cover" />
-                      <div>
-                        <strong className="block text-slate-900">{tch.nameEn}</strong>
-                        <span className="text-[11px] text-emerald-700 font-medium">{tch.designationEn}</span>
-                      </div>
-                    </div>
-                    {!tch.isHeadmaster && (
-                      <button onClick={() => deleteTeacher(tch.id)} className="text-rose-500 hover:text-rose-700">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                    {newNoteFileUrl ? (
+                      <span className="text-xs text-emerald-800 font-semibold">
+                        ✓ {newNoteFileType.toUpperCase()} ফাইল আপলোড সম্পন্ন
+                      </span>
+                    ) : (
+                      <span className="text-xs text-slate-400 italic">কোনো ফাইল নির্বাচন করা হয়নি</span>
                     )}
                   </div>
-                ))}
-              </div>
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="submit"
+                    className="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center gap-1.5"
+                  >
+                    <Plus className="w-4 h-4 text-emerald-400" />
+                    <span>{lang === 'bn' ? 'নোটস প্রকাশ করুন' : 'Publish Note Resource'}</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            {/* Notes List */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {notes.map((n) => (
+                <div key={n.id} className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs space-y-3 flex flex-col justify-between">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700">{n.category}</span>
+                      <span className="text-[10px] font-bold uppercase text-slate-400">{n.fileType || 'PDF'}</span>
+                    </div>
+                    <h4 className="font-bold text-slate-900 text-sm">{n.titleBn}</h4>
+                    <p className="text-xs text-slate-500">{n.pages} পৃষ্ঠা • {n.subject}</p>
+                  </div>
+
+                  <div className="flex items-center justify-between border-t border-slate-100 pt-3">
+                    <span className="text-[10px] text-slate-400">{n.date}</span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => {
+                          const newTitle = prompt('নতুন শিরোনাম দিন:', n.titleBn);
+                          if (newTitle) updateNote({ ...n, titleBn: newTitle });
+                        }}
+                        className="px-2.5 py-1 rounded bg-slate-100 text-slate-700 text-xs font-semibold"
+                      >
+                        {lang === 'bn' ? 'এডিট' : 'Edit'}
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (confirm('মুছে ফেলতে চান?')) deleteNote(n.id);
+                        }}
+                        className="px-2.5 py-1 rounded bg-red-50 text-red-600 text-xs font-semibold"
+                      >
+                        {lang === 'bn' ? 'ডিলিট' : 'Delete'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
 
-        {/* TAB 7: Security (Change Credentials) */}
+        {/* ==================== TAB 7: NOTICE BOARD (REQUIREMENT #7) ==================== */}
+        {activeTab === 'notices' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xs space-y-4">
+              <div className="border-b border-slate-100 pb-3">
+                <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider">SECTION 7</span>
+                <h3 className="text-xl font-bold text-slate-900 mt-0.5">
+                  {lang === 'bn' ? 'নোটিশ বোর্ড (ছবি ও পিডিএফ সরাসরি আপলোড)' : 'Notice Board Management'}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  {lang === 'bn' ? 'নোটিশের সাথে সরাসরি ছবি ও পিডিএফ ফাইল আপলোড করুন, এডিট ও ডিলিট করুন।' : 'Attach photos and PDFs to notices, full edit and delete controls.'}
+                </p>
+              </div>
+
+              <form onSubmit={handleAddNotice} className="space-y-4 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="sm:col-span-2">
+                    <label className="block font-bold text-slate-700 mb-1">নোটিশের শিরোনাম (বাংলা)</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="যেমন: এইচএসসি ২০২৬ স্পেশাল ইন্টেনসিভ ইংলিশ ব্যাচে ভর্তি চলছে"
+                      value={newNoticeTitleBn}
+                      onChange={(e) => setNewNoticeTitleBn(e.target.value)}
+                      className="w-full border rounded-xl px-3 py-2 text-xs focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">ক্যাটাগরি</label>
+                    <select
+                      value={newNoticeCategory}
+                      onChange={(e) => setNewNoticeCategory(e.target.value as any)}
+                      className="w-full border rounded-xl px-3 py-2 text-xs bg-white focus:outline-none"
+                    >
+                      <option value="Admission">Admission</option>
+                      <option value="Routine">Routine</option>
+                      <option value="Exam">Exam</option>
+                      <option value="General">General</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">নোটিশের বিস্তারিত বিবরণ</label>
+                  <textarea
+                    rows={3}
+                    required
+                    placeholder="নোটিশের বিস্তারিত তথ্য লিখুন..."
+                    value={newNoticeContentBn}
+                    onChange={(e) => setNewNoticeContentBn(e.target.value)}
+                    className="w-full border rounded-xl p-3 text-xs focus:outline-none"
+                  />
+                </div>
+
+                {/* DIRECT PHOTO & PDF ATTACHMENTS (REQUIREMENT #7) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                    <label className="block font-bold text-slate-700">
+                      {lang === 'bn' ? 'নোটিশের ছবি সরাসরি আপলোড' : 'Notice Image Upload'}
+                    </label>
+                    <div className="flex items-center gap-3">
+                      <label className="cursor-pointer px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold flex items-center gap-1.5 transition-colors">
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>{lang === 'bn' ? 'ছবি নির্বাচন' : 'Select Image'}</span>
+                        <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, setNewNoticeImageUrl)} className="hidden" />
+                      </label>
+                      {newNoticeImageUrl && (
+                        <img src={newNoticeImageUrl} alt="preview" className="w-12 h-12 object-cover rounded-xl border border-emerald-400" />
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                    <label className="block font-bold text-slate-700">
+                      {lang === 'bn' ? 'নোটিশের পিডিএফ (PDF) সরাসরি আপলোড' : 'Notice PDF Upload'}
+                    </label>
+                    <div className="flex items-center gap-3">
+                      <label className="cursor-pointer px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-bold flex items-center gap-1.5 transition-colors">
+                        <Upload className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>{lang === 'bn' ? 'পিডিএফ নির্বাচন' : 'Select PDF'}</span>
+                        <input type="file" accept=".pdf" onChange={(e) => handleFileChange(e, setNewNoticePdfUrl, 'নোটিশ পিডিএফ আপলোড হয়েছে!')} className="hidden" />
+                      </label>
+                      {newNoticePdfUrl && (
+                        <span className="text-xs text-emerald-700 font-bold">✓ PDF Ready</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-2">
+                  <label className="flex items-center gap-2 cursor-pointer font-bold text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={newNoticeIsPinned}
+                      onChange={(e) => setNewNoticeIsPinned(e.target.checked)}
+                      className="rounded text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <span>{lang === 'bn' ? 'নোটিশ বোর্ডে উপরে পিন করে রাখুন' : 'Pin to top of board'}</span>
+                  </label>
+
+                  <button
+                    type="submit"
+                    className="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center gap-1.5"
+                  >
+                    <Plus className="w-4 h-4 text-emerald-400" />
+                    <span>{lang === 'bn' ? 'নোটিশ প্রকাশ করুন' : 'Publish Notice'}</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            {/* Notices List */}
+            <div className="space-y-3">
+              {notices.map((nt) => (
+                <div key={nt.id} className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700">{nt.category}</span>
+                    <span className="text-[11px] text-slate-400">{nt.date}</span>
+                  </div>
+                  <h4 className="font-bold text-slate-900 text-sm">{nt.titleBn}</h4>
+                  <p className="text-xs text-slate-600 line-clamp-2">{nt.contentBn}</p>
+                  <div className="flex items-center justify-between border-t border-slate-100 pt-2 text-xs">
+                    <span className="text-slate-400">{nt.imageUrl ? 'ছবি সংযুক্ত' : ''} {nt.pdfUrl ? '• পিডিএফ সংযুক্ত' : ''}</span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => {
+                          const newTitle = prompt('নতুন শিরোনাম লিখুন:', nt.titleBn);
+                          if (newTitle) updateNotice({ ...nt, titleBn: newTitle });
+                        }}
+                        className="px-2.5 py-1 rounded bg-slate-100 text-slate-700 font-semibold"
+                      >
+                        {lang === 'bn' ? 'এডিট' : 'Edit'}
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (confirm('মুছে ফেলতে চান?')) deleteNotice(nt.id);
+                        }}
+                        className="px-2.5 py-1 rounded bg-red-50 text-red-600 font-semibold"
+                      >
+                        {lang === 'bn' ? 'ডিলিট' : 'Delete'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ==================== TAB 8: CHATBOT TRAINING (REQUIREMENT #8) ==================== */}
+        {activeTab === 'chatbot_training' && (
+          <ChatbotTrainingTab
+            chatbotTraining={chatbotTraining}
+            addChatbotTraining={addChatbotTraining}
+            updateChatbotTraining={updateChatbotTraining}
+            deleteChatbotTraining={deleteChatbotTraining}
+            lang={lang}
+            showToast={showToast}
+          />
+        )}
+
+        {/* ==================== TAB 9: DICTIONARY CONTROL (REQUIREMENT #9) ==================== */}
+        {activeTab === 'dictionary' && (
+          <DictionaryManagementTab
+            lang={lang}
+            showToast={showToast}
+          />
+        )}
+
+        {/* ==================== TAB 10: ROUTINE SECTION (REQUIREMENT #10) ==================== */}
+        {activeTab === 'routines' && (
+          <RoutineManagementTab
+            routines={routines}
+            courses={courses}
+            addRoutine={addRoutine}
+            updateRoutine={updateRoutine}
+            deleteRoutine={deleteRoutine}
+            lang={lang}
+            showToast={showToast}
+          />
+        )}
+
+        {/* ==================== TAB: QUIZ MANAGEMENT (BONUS REQUIREMENT) ==================== */}
+        {activeTab === 'quizzes' && (
+          <QuizManagementTab
+            modelTests={modelTests}
+            addModelTest={addModelTest}
+            updateModelTest={updateModelTest}
+            deleteModelTest={deleteModelTest}
+            lang={lang}
+            showToast={showToast}
+          />
+        )}
+
+        {/* ==================== TAB 11: GOOGLE CLOUD DB & REAL-TIME (REQUIREMENT #11) ==================== */}
+        {activeTab === 'google_cloud' && (
+          <GoogleCloudTab
+            config={googleCloudConfig}
+            updateConfig={updateGoogleCloudConfig}
+            isSyncing={isCloudSyncing}
+            triggerSync={triggerCloudSync}
+            lang={lang}
+            showToast={showToast}
+          />
+        )}
+
+        {/* ==================== TAB: SECURITY & CREDENTIALS ==================== */}
         {activeTab === 'security' && (
           <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xs max-w-xl mx-auto space-y-6">
-            <div className="text-center space-y-1">
-              <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto">
-                <Lock className="w-6 h-6" />
-              </div>
+            <div className="border-b border-slate-100 pb-3">
               <h3 className="text-xl font-bold text-slate-900">
-                {lang === 'bn' ? 'অ্যাডমিন আইডি ও পাসওয়ার্ড পরিবর্তন' : 'Change Admin Credentials'}
+                {lang === 'bn' ? 'অ্যাডমিন সিকিউরিটি ও পাসওয়ার্ড পরিবর্তন' : 'Admin Security & Password'}
               </h3>
               <p className="text-xs text-slate-500">
-                {lang === 'bn' ? 'যেকোনো সময় আপনার লগইন ইমেইল এবং পাসওয়ার্ড নিরাপদে পরিবর্তন করতে পারেন।' : 'Update your administrator email / ID and secret password.'}
+                {lang === 'bn' ? 'পাসওয়ার্ড সবসময় এনক্রিপ্টেড এবং মাস্কড থাকবে।' : 'Credentials are fully masked.'}
               </p>
             </div>
 
-            <form onSubmit={handleChangeCredentials} className="space-y-4 text-xs">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (newPassword !== confirmPassword) {
+                  showToast(lang === 'bn' ? 'পাসওয়ার্ড দুটি মেলেনি!' : 'Passwords do not match!');
+                  return;
+                }
+                updateAdminCredentials(newEmail || adminCredentials.email, newPassword);
+                setNewPassword('');
+                setConfirmPassword('');
+                showToast(lang === 'bn' ? 'পাসওয়ার্ড সফলভাবে পরিবর্তিত হয়েছে!' : 'Credentials updated!');
+              }}
+              className="space-y-4 text-xs"
+            >
               <div>
-                <label className="block font-bold text-slate-700 mb-1">
-                  {lang === 'bn' ? 'নতুন অ্যাডমিন ইমেইল / ইউজার আইডি' : 'New Admin Email / ID *'}
-                </label>
+                <label className="block font-bold text-slate-700 mb-1">অ্যাডমিন ইমেইল / ইউজার আইডি</label>
                 <input
                   type="email"
-                  required
-                  placeholder="newadmin@gmail.com"
-                  value={newEmail}
+                  defaultValue={adminCredentials.email}
                   onChange={(e) => setNewEmail(e.target.value)}
-                  className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs focus:border-emerald-500 focus:outline-none"
+                  className="w-full border rounded-xl px-3 py-2 text-xs focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 mb-1">
-                  {lang === 'bn' ? 'নতুন পাসওয়ার্ড (মাস্কড)' : 'New Password *'}
-                </label>
+                <label className="block font-bold text-slate-700 mb-1">নতুন পাসওয়ার্ড</label>
                 <input
                   type="password"
                   required
                   placeholder="••••••••••••"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs focus:border-emerald-500 focus:outline-none tracking-widest"
+                  className="w-full border rounded-xl px-3 py-2 text-xs font-mono focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 mb-1">
-                  {lang === 'bn' ? 'পাসওয়ার্ড নিশ্চিত করুন' : 'Confirm New Password *'}
-                </label>
+                <label className="block font-bold text-slate-700 mb-1">নতুন পাসওয়ার্ড নিশ্চিত করুন</label>
                 <input
                   type="password"
                   required
                   placeholder="••••••••••••"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs focus:border-emerald-500 focus:outline-none tracking-widest"
+                  className="w-full border rounded-xl px-3 py-2 text-xs font-mono focus:outline-none"
                 />
               </div>
 
-              <button
-                type="submit"
-                className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl transition-colors shadow-xs"
-              >
-                {lang === 'bn' ? 'ক্রডেনশিয়াল আপডেট করুন' : 'Save New Credentials'}
-              </button>
+              <div className="flex justify-end pt-2">
+                <button
+                  type="submit"
+                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5"
+                >
+                  <Lock className="w-4 h-4" />
+                  <span>{lang === 'bn' ? 'পাসওয়ার্ড আপডেট করুন' : 'Update Password'}</span>
+                </button>
+              </div>
             </form>
-          </div>
-        )}
-
-        {/* TAB 8: Free Classes, Notes & Notices Quick Panels */}
-        {(activeTab === 'classes' || activeTab === 'notes' || activeTab === 'notices' || activeTab === 'courses') && (
-          <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-4 text-xs">
-            <h3 className="font-bold text-base text-slate-900 capitalize">
-              {activeTab} Management Desk
-            </h3>
-            <p className="text-slate-500">
-              Active items are dynamically connected to state and render with instant bilingual translation on public pages.
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {activeTab === 'classes' && videoClasses.map((v: VideoClass) => (
-                <div key={v.id} className="p-3 border border-slate-200 rounded-xl flex justify-between items-center">
-                  <div>
-                    <strong className="block text-slate-900">{v.titleEn}</strong>
-                    <span className="text-slate-400">{v.duration} • {v.category}</span>
-                  </div>
-                  <button onClick={() => deleteVideoClass(v.id)} className="text-rose-500 hover:text-rose-700">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-              {activeTab === 'notes' && notes.map((n: NoteResource) => (
-                <div key={n.id} className="p-3 border border-slate-200 rounded-xl flex justify-between items-center">
-                  <div>
-                    <strong className="block text-slate-900">{n.titleEn}</strong>
-                    <span className="text-slate-400">{n.subject} • {n.fileSize}</span>
-                  </div>
-                  <button onClick={() => deleteNote(n.id)} className="text-rose-500 hover:text-rose-700">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-              {activeTab === 'notices' && notices.map((nt: Notice) => (
-                <div key={nt.id} className="p-3 border border-slate-200 rounded-xl flex justify-between items-center">
-                  <div>
-                    <strong className="block text-slate-900">{nt.titleEn}</strong>
-                    <span className="text-slate-400">{nt.date} • {nt.category}</span>
-                  </div>
-                  <button onClick={() => deleteNotice(nt.id)} className="text-rose-500 hover:text-rose-700">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-              {activeTab === 'courses' && courses.map((c: Course) => (
-                <div key={c.id} className="p-3 border border-slate-200 rounded-xl flex justify-between items-center">
-                  <div>
-                    <strong className="block text-slate-900">{c.titleEn}</strong>
-                    <span className="text-slate-400">৳{c.price} • {c.durationEn}</span>
-                  </div>
-                  <button onClick={() => deleteCourse(c.id)} className="text-rose-500 hover:text-rose-700">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
           </div>
         )}
       </div>

@@ -13,7 +13,10 @@ import {
   Suggestion, 
   ModelTest, 
   Notice, 
-  StudentReview 
+  StudentReview,
+  ClassRoutine,
+  ChatbotTrainingItem,
+  GoogleCloudConfig
 } from '../types';
 
 export const DEFAULT_SCHOOL_SETTINGS: SchoolSettings = {
@@ -557,3 +560,67 @@ export const STUDENT_REVIEWS: StudentReview[] = [
 ];
 
 export const TEACHER_PROFILE = INITIAL_TEACHERS[0];
+
+export const INITIAL_ROUTINES: ClassRoutine[] = [
+  {
+    id: 'rtn-1',
+    titleEn: 'HSC 2026 Live Master Class Routine',
+    titleBn: 'এইচএসসি ২০২৬ লাইভ মাস্টার ক্লাস রুটিন',
+    academicYear: '2026',
+    category: 'Class Routine',
+    imageUrl: 'https://images.unsplash.com/photo-1506784983877-45594efa4cbe?q=80&w=1200&auto=format&fit=crop',
+    uploadedDate: '2026-10-18',
+    notes: 'শনি, সোম ও বুধবার রাত ৮:৩০ মিনিটে লাইভ ক্লাস অনুষ্ঠিত হয়।'
+  },
+  {
+    id: 'rtn-2',
+    titleEn: 'Monthly Model Test & Assessment Exam Routine',
+    titleBn: 'মাসিক মডেল টেস্ট ও মূল্যায়ন পরীক্ষা রুটিন',
+    academicYear: '2026',
+    category: 'Exam Routine',
+    imageUrl: 'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?q=80&w=1200&auto=format&fit=crop',
+    uploadedDate: '2026-10-15',
+    notes: 'পরীক্ষার্থীদের নির্ধারিত সময়ের ১০ মিনিট পূর্বে ক্লাসরুমে উপস্থিত হতে হবে।'
+  }
+];
+
+export const INITIAL_CHATBOT_TRAINING: ChatbotTrainingItem[] = [
+  {
+    id: 'train-1',
+    year: '2026',
+    topic: 'এইচএসসি ২০২৬ ও স্পোকেন ব্যাচ ভর্তি নির্দেশিকা',
+    content: `আই হ্যাভ এ স্কুল (I Have A School) প্ল্যাটফর্মে এমডি তৌহিদুল হক তুহিন স্যারের বিশেষ নির্দেশনায় ভর্তি কার্যক্রম পরিচালিত হয়।
+কোর্স ফি ও ভর্তি নিয়মাবলী:
+১. কমপ্লিট ইংলিশ গ্রামার ফাউন্ডেশন: ১৫০০ টাকা।
+২. স্পোকেন ইংলিশ ও ফ্লুয়েন্সি বুস্টার: ১২০০ টাকা।
+৩. এইচএসসি ২০২৬ ১ম ও ২য় পত্র পূর্ণাঙ্গ একাডেমিক ব্যাচ: ১৮০০ টাকা।
+ভর্তির মাধ্যম: বিকাশ ও নগদ পার্সোনাল নাম্বারে পেমেন্ট করে ট্রানজেকশন আইডি সহ হোয়াটসঅ্যাপ হেল্পলাইনে কনফার্ম করতে হবে।
+লাইভ ক্লাস শিডিউল: প্রতি শনি, সোম ও বুধবার রাত ৮:৩০ মিনিটে অনুষ্ঠিত হয়।
+লেকচার শিট: প্রতিটি ক্লাসের পর হাতে লেখা পিডিএফ শিট ওয়েবসাইট থেকে ফ্রিতে ডাউনলোড করা যাবে।`,
+    wordCount: 88,
+    createdAt: '2026-10-18'
+  },
+  {
+    id: 'train-2',
+    year: '2026',
+    topic: 'এইচএসসি ইংরেজি ২য় পত্র গোল্ডেন গ্রামার রুলস',
+    content: `রাইট ফর্ম অফ ভার্বস এবং মডিফায়ার সংক্রান্ত স্পেশাল টেকনিক:
+১. বাক্যে "It is high time" বা "It is time" থাকলে এবং পরে Subject আসলে সবসময় Past Indefinite (V2) বসে।
+২. With a view to, look forward to, be used to, get used to, cannot help, would you mind ইত্যাদির পর verb+ing যুক্ত হয়।
+৩. As well as, along with, together with, accompanied by দ্বারা দুটি subject যুক্ত হলে প্রথম subject অনুযায়ী verb নির্ধারণ করা হয়।
+৪. কোনো বাক্যে lest থাকলে পরবর্তী clause-এ should/might বসে।
+৫. Modifiers করার সময় লক্ষ্য রাখতে হবে Noun-এর পূর্বে সাধারণত Adjective বা Noun-adjective বসে pre-modifier হিসেবে কাজ করে।`,
+    wordCount: 96,
+    createdAt: '2026-10-18'
+  }
+];
+
+export const DEFAULT_GOOGLE_CLOUD_CONFIG: GoogleCloudConfig = {
+  projectId: 'ihas-gcp-education-platform',
+  bucketName: 'ihas-assets-storage-bucket',
+  apiEndpoint: 'https://storage.googleapis.com/ihas-assets-storage-bucket',
+  apiKey: 'AIzaSyGoogleCloudStorageProductionSyncKey',
+  isRealtimeSyncEnabled: true,
+  oxfordApiCode: 'OXFORD_ACADEMIC_PRO_2026',
+  lastSyncedAt: new Date().toISOString()
+};

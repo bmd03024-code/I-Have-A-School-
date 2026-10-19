@@ -42,6 +42,7 @@ export const Navbar: React.FC = () => {
     { nameEn: 'Results & Marksheet', nameBn: 'ফলাফল ও মার্কশিট', path: '/results' },
     { nameEn: 'Dictionary (1M)', nameBn: 'ডিকশনারি', path: '/dictionary' },
     { nameEn: 'Teachers', nameBn: 'শিক্ষকমণ্ডলী', path: '/teachers' },
+    { nameEn: 'Routines', nameBn: 'ক্লাস রুটিন', path: '/routines' },
     { nameEn: 'Notices', nameBn: 'নোটিশ বোর্ড', path: '/notices' },
     { nameEn: 'Admin Panel', nameBn: 'অ্যাডমিন', path: '/admin' },
   ];

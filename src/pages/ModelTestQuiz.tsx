@@ -5,11 +5,12 @@ import { ModelTest } from '../types';
 import { useApp } from '../context/AppContext';
 
 export const ModelTestQuiz: React.FC = () => {
-  const { saveTestScore, showToast } = useApp();
-  const [activeTest, setActiveTest] = useState<ModelTest>(MODEL_TESTS[0]);
+  const { saveTestScore, showToast, modelTests } = useApp();
+  const availableTests = modelTests && modelTests.length > 0 ? modelTests : MODEL_TESTS;
+  const [activeTest, setActiveTest] = useState<ModelTest>(availableTests[0]);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number>>({});
   const [isSubmitted, setIsSubmitted] = useState<boolean>(false);
-  const [timeLeft, setTimeLeft] = useState<number>(MODEL_TESTS[0].durationMinutes * 60);
+  const [timeLeft, setTimeLeft] = useState<number>((availableTests[0]?.durationMinutes || 10) * 60);
   const [timerRunning, setTimerRunning] = useState<boolean>(true);
 
   const handleSubmitTest = useCallback(() => {
@@ -101,7 +102,7 @@ export const ModelTestQuiz: React.FC = () => {
 
       {/* Select Test Tabs */}
       <div className="flex flex-wrap items-center justify-center gap-2">
-        {MODEL_TESTS.map((t) => (
+        {availableTests.map((t) => (
           <button
             key={t.id}
             onClick={() => handleSwitchTest(t)}

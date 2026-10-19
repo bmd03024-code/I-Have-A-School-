@@ -48,14 +48,31 @@ export const VideoPlayerModal: React.FC<VideoPlayerModalProps> = ({ video, onClo
         </div>
 
         {/* Video Player Frame */}
-        <div className="relative aspect-video bg-black w-full overflow-hidden">
-          <iframe
-            src={`https://www.youtube-nocookie.com/embed/${video.youtubeId}?autoplay=1&rel=0`}
-            title={title}
-            className="w-full h-full border-0"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-          />
+        <div className="relative aspect-video bg-black w-full overflow-hidden flex items-center justify-center">
+          {video.videoFileUrl || (video.videoUrl && (video.videoUrl.startsWith('data:video') || video.videoUrl.endsWith('.mp4') || video.videoUrl.endsWith('.webm'))) ? (
+            <video
+              src={video.videoFileUrl || video.videoUrl}
+              controls
+              autoPlay
+              className="w-full h-full object-contain"
+            />
+          ) : video.videoUrl && video.videoUrl.includes('facebook.com') ? (
+            <iframe
+              src={`https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(video.videoUrl)}&show_text=false`}
+              title={title}
+              className="w-full h-full border-0"
+              allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+              allowFullScreen
+            />
+          ) : (
+            <iframe
+              src={`https://www.youtube-nocookie.com/embed/${video.youtubeId || 'dQw4w9WgXcQ'}?autoplay=1&rel=0`}
+              title={title}
+              className="w-full h-full border-0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
+          )}
         </div>
 
         {/* Actions & Details Bar */}

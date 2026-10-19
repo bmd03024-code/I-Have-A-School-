@@ -10,7 +10,7 @@ interface ChatMessage {
 }
 
 export const AIChatbot: React.FC = () => {
-  const { lang, courses, schoolSettings } = useApp();
+  const { lang, schoolSettings, chatbotTraining } = useApp();
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [input, setInput] = useState('');
@@ -91,7 +91,21 @@ export const AIChatbot: React.FC = () => {
         : `HSC 2026 High-Yield Items:\n• 1st Paper: Nelson Mandela, Traditional Folk Music, Environmental Pollution.\n• 2nd Paper: Modifiers, Connectors, Right Forms of Verbs.\nVisit the "Suggestions" page to view the full breakdown and download the printable PDF sheet!`;
     }
 
-    // 6. Default Fallback
+    // 6. Year-Based Admin Chatbot Training Knowledge Base (up to 1,000,000 words)
+    if (chatbotTraining && chatbotTraining.length > 0) {
+      const match = chatbotTraining.find((item) => {
+        const words = q.split(/\s+/).filter((w) => w.length > 2);
+        const topicMatch = item.topic.toLowerCase().includes(q) || (item.year && q.includes(item.year));
+        const contentMatch = words.some((w) => item.content.toLowerCase().includes(w));
+        return topicMatch || contentMatch;
+      });
+
+      if (match) {
+        return `[${match.topic} - শিক্ষাবর্ষ ${match.year}]\n\n${match.content}`;
+      }
+    }
+
+    // 7. Default Fallback
     return lang === 'bn'
       ? `আপনার প্রশ্নের জন্য ধন্যবাদ! তুহিন স্যারের তৈরি "আই হ্যাভ এ স্কুল" প্ল্যাটফর্মে আপনি ফ্রি ভিডিও ক্লাস, হ্যান্ডনোট এবং পূর্ণাঙ্গ কোর্স পাবেন। আপনার প্রয়োজনটি আরও একটু বিস্তারিত লিখলে আমি সঠিকভাবে বুঝিয়ে বলতে পারব। আপনি চাইলে সরাসরি হোয়াটসঅ্যাপে (${schoolSettings.phone}) কথা বলতে পারেন।`
       : `Thank you for your question! On "I Have A School", you can access free video classes, lecture notes, and premium batches guided by Tuhin Sir. Feel free to provide more details or message our WhatsApp desk at ${schoolSettings.phone}.`;

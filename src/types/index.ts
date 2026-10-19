@@ -75,6 +75,7 @@ export interface Student {
   address: string;
   phone: string;
   admissionDate: string;
+  photoUrl?: string;
 }
 
 export interface CourseSubject {
@@ -121,6 +122,7 @@ export interface Teacher {
   isHeadmaster?: boolean;
   joiningDate?: string;
   signatureUrl?: string;
+  address?: string;
 }
 
 export interface VideoClass {
@@ -139,6 +141,8 @@ export interface VideoClass {
   level: string;
   chapters?: { time: string; title: string }[];
   keyNotes?: string[];
+  videoPlatform?: 'youtube' | 'facebook' | 'tiktok' | 'uploaded';
+  videoFileUrl?: string;
 }
 
 export interface NoteResource {
@@ -154,6 +158,7 @@ export interface NoteResource {
   descriptionEn: string;
   descriptionBn: string;
   fileUrl?: string;
+  fileType?: 'pdf' | 'image' | 'link';
   tags: string[];
   sampleContent: string[];
 }
@@ -228,4 +233,49 @@ export interface StudentReview {
   rating: number;
   comment: string;
   avatar: string;
+}
+
+export interface ChatbotTrainingItem {
+  id: string;
+  year: string;
+  topic: string;
+  content: string; // up to 5000 words
+  wordCount: number;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface DictionaryCustomEntry {
+  id: string;
+  word: string;
+  phonetic?: string;
+  partOfSpeech: string;
+  meaningBn: string;
+  definitionEn: string;
+  exampleEn?: string;
+  synonyms?: string[];
+  blockName?: string;
+  source?: 'oxford' | 'manual' | 'bulk';
+}
+
+export interface ClassRoutine {
+  id: string;
+  titleEn: string;
+  titleBn: string;
+  academicYear: string;
+  courseId?: string;
+  category: 'Class Routine' | 'Exam Routine' | 'Batch Routine';
+  imageUrl: string;
+  uploadedDate: string;
+  notes?: string;
+}
+
+export interface GoogleCloudConfig {
+  projectId: string;
+  bucketName: string;
+  apiEndpoint?: string;
+  apiKey?: string;
+  isRealtimeSyncEnabled: boolean;
+  oxfordApiCode?: string;
+  lastSyncedAt?: string;
 }

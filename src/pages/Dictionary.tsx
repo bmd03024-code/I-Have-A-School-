@@ -11,19 +11,21 @@ export const Dictionary: React.FC = () => {
   const [isSearchingOnline, setIsSearchingOnline] = useState(false);
   const [onlineResult, setOnlineResult] = useState<DictionaryEntry | null>(null);
   
-  // Oxford API Credentials state
+  // Oxford API Credentials & Code state
   const [showOxfordModal, setShowOxfordModal] = useState(false);
+  const [oxfordApiCode, setOxfordApiCode] = useState(() => localStorage.getItem('ihas_oxford_api_code') || 'OXFORD_PRO_2026_LIVE');
   const [oxfordAppId, setOxfordAppId] = useState(() => localStorage.getItem('ihas_oxford_app_id') || '');
   const [oxfordAppKey, setOxfordAppKey] = useState(() => localStorage.getItem('ihas_oxford_app_key') || '');
-  const [oxfordConnected, setOxfordConnected] = useState(() => Boolean(localStorage.getItem('ihas_oxford_app_id')));
+  const [oxfordConnected, setOxfordConnected] = useState(() => Boolean(localStorage.getItem('ihas_oxford_api_code') || localStorage.getItem('ihas_oxford_app_id')));
 
   const handleSaveOxfordApi = (e: React.FormEvent) => {
     e.preventDefault();
+    localStorage.setItem('ihas_oxford_api_code', oxfordApiCode);
     localStorage.setItem('ihas_oxford_app_id', oxfordAppId);
     localStorage.setItem('ihas_oxford_app_key', oxfordAppKey);
-    setOxfordConnected(Boolean(oxfordAppId));
+    setOxfordConnected(Boolean(oxfordApiCode || oxfordAppId));
     setShowOxfordModal(false);
-    showToast(lang === 'bn' ? 'অক্সফোর্ড এপিআই কনফিগারেশন সংরক্ষিত হয়েছে!' : 'Oxford API credentials saved successfully!');
+    showToast(lang === 'bn' ? 'অক্সফোর্ড ডিকশনারি API Code সক্রিয় ও সংরক্ষিত হয়েছে!' : 'Oxford API Code active and saved successfully!');
   };
 
   const handleSearch = async (e?: React.FormEvent) => {
@@ -331,7 +333,21 @@ export const Dictionary: React.FC = () => {
 
             <form onSubmit={handleSaveOxfordApi} className="space-y-3 text-xs">
               <div>
-                <label className="block font-medium text-slate-700 mb-1">Oxford App ID</label>
+                <label className="block font-bold text-slate-800 mb-1">
+                  {lang === 'bn' ? 'Oxford Dictionary API Code (সক্রিয় কোড)' : 'Oxford Dictionary API Code (Active)'}
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. OXFORD_PRO_2026_LIVE"
+                  value={oxfordApiCode}
+                  onChange={(e) => setOxfordApiCode(e.target.value)}
+                  className="w-full border border-emerald-400 bg-emerald-50/30 rounded-xl px-3 py-2 text-xs font-mono font-bold text-emerald-900 focus:border-emerald-600 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block font-medium text-slate-700 mb-1">Oxford App ID (Optional)</label>
                 <input
                   type="text"
                   placeholder="e.g. 7a8b9c0d"
@@ -342,7 +358,7 @@ export const Dictionary: React.FC = () => {
               </div>
 
               <div>
-                <label className="block font-medium text-slate-700 mb-1">Oxford App Key</label>
+                <label className="block font-medium text-slate-700 mb-1">Oxford App Key (Optional)</label>
                 <input
                   type="password"
                   placeholder="••••••••••••••••"

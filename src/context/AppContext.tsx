@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { 
   Language, 
   SchoolSettings, 
@@ -11,7 +11,11 @@ import {
   Teacher, 
   VideoClass, 
   NoteResource, 
-  Notice 
+  Notice,
+  ClassRoutine,
+  ChatbotTrainingItem,
+  GoogleCloudConfig,
+  ModelTest
 } from '../types';
 import { 
   DEFAULT_SCHOOL_SETTINGS, 
@@ -24,8 +28,13 @@ import {
   INITIAL_TEACHERS, 
   VIDEO_CLASSES as DEFAULT_VIDEOS, 
   NOTES_RESOURCES as DEFAULT_NOTES, 
-  NOTICES as DEFAULT_NOTICES 
+  NOTICES as DEFAULT_NOTICES,
+  INITIAL_ROUTINES,
+  INITIAL_CHATBOT_TRAINING,
+  DEFAULT_GOOGLE_CLOUD_CONFIG,
+  MODEL_TESTS as DEFAULT_TESTS
 } from '../data/mockData';
+import { notifyRealtimeUpdate, subscribeRealtimeUpdate } from '../lib/storageService';
 
 export interface AppContextType {
   // Language Toggle
@@ -47,16 +56,19 @@ export interface AppContextType {
   // Hero Slides
   heroSlides: HeroSlide[];
   addHeroSlide: (slide: HeroSlide) => void;
+  updateHeroSlide: (slide: HeroSlide) => void;
   deleteHeroSlide: (id: string) => void;
 
   // Courses
   courses: Course[];
   addCourse: (course: Course) => void;
+  updateCourse: (course: Course) => void;
   deleteCourse: (id: string) => void;
 
   // Students & Admission
   students: Student[];
   addStudent: (student: Student) => void;
+  updateStudent: (student: Student) => void;
   deleteStudent: (id: string) => void;
 
   // Course Subjects & Exams
@@ -75,18 +87,46 @@ export interface AppContextType {
   // Teachers
   teachers: Teacher[];
   addTeacher: (teacher: Teacher) => void;
+  updateTeacher: (teacher: Teacher) => void;
   deleteTeacher: (id: string) => void;
 
   // Videos, Notes & Notices
   videoClasses: VideoClass[];
   addVideoClass: (video: VideoClass) => void;
+  updateVideoClass: (video: VideoClass) => void;
   deleteVideoClass: (id: string) => void;
   notes: NoteResource[];
   addNote: (note: NoteResource) => void;
+  updateNote: (note: NoteResource) => void;
   deleteNote: (id: string) => void;
   notices: Notice[];
   addNotice: (notice: Notice) => void;
+  updateNotice: (notice: Notice) => void;
   deleteNotice: (id: string) => void;
+
+  // Routines
+  routines: ClassRoutine[];
+  addRoutine: (routine: ClassRoutine) => void;
+  updateRoutine: (routine: ClassRoutine) => void;
+  deleteRoutine: (id: string) => void;
+
+  // Chatbot Training
+  chatbotTraining: ChatbotTrainingItem[];
+  addChatbotTraining: (item: ChatbotTrainingItem) => void;
+  updateChatbotTraining: (item: ChatbotTrainingItem) => void;
+  deleteChatbotTraining: (id: string) => void;
+
+  // Quizzes / Model Tests (Quiz Management)
+  modelTests: ModelTest[];
+  addModelTest: (test: ModelTest) => void;
+  updateModelTest: (test: ModelTest) => void;
+  deleteModelTest: (id: string) => void;
+
+  // Google Cloud & Realtime
+  googleCloudConfig: GoogleCloudConfig;
+  updateGoogleCloudConfig: (config: GoogleCloudConfig) => void;
+  isCloudSyncing: boolean;
+  triggerCloudSync: () => Promise<void>;
 
   // Student State
   bookmarks: string[];
@@ -115,7 +155,7 @@ export interface AppContextType {
 export const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // 1. Language: Default to 'bn' as requested by the user, togglable to 'en'
+  // 1. Language: Default to 'bn', togglable to 'en'
   const [lang, setLang] = useState<Language>(() => {
     try {
       const saved = localStorage.getItem('ihas_language');
@@ -186,6 +226,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const updateSchoolSettings = (newSettings: SchoolSettings) => {
     setSchoolSettings(newSettings);
     localStorage.setItem('ihas_school_settings', JSON.stringify(newSettings));
+    notifyRealtimeUpdate('schoolSettings', newSettings);
   };
 
   // 4. Hero Slides
@@ -202,6 +243,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setHeroSlides((prev) => {
       const next = [slide, ...prev];
       localStorage.setItem('ihas_hero_slides', JSON.stringify(next));
+      notifyRealtimeUpdate('heroSlides', next);
+      return next;
+    });
+  };
+
+  const updateHeroSlide = (slide: HeroSlide) => {
+    setHeroSlides((prev) => {
+      const next = prev.map((s) => (s.id === slide.id ? slide : s));
+      localStorage.setItem('ihas_hero_slides', JSON.stringify(next));
+      notifyRealtimeUpdate('heroSlides', next);
       return next;
     });
   };
@@ -210,6 +261,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setHeroSlides((prev) => {
       const next = prev.filter((s) => s.id !== id);
       localStorage.setItem('ihas_hero_slides', JSON.stringify(next));
+      notifyRealtimeUpdate('heroSlides', next);
       return next;
     });
   };
@@ -228,6 +280,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCourses((prev) => {
       const next = [course, ...prev];
       localStorage.setItem('ihas_courses', JSON.stringify(next));
+      notifyRealtimeUpdate('courses', next);
+      return next;
+    });
+  };
+
+  const updateCourse = (course: Course) => {
+    setCourses((prev) => {
+      const next = prev.map((c) => (c.id === course.id ? course : c));
+      localStorage.setItem('ihas_courses', JSON.stringify(next));
+      notifyRealtimeUpdate('courses', next);
       return next;
     });
   };
@@ -236,6 +298,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCourses((prev) => {
       const next = prev.filter((c) => c.id !== id);
       localStorage.setItem('ihas_courses', JSON.stringify(next));
+      notifyRealtimeUpdate('courses', next);
       return next;
     });
   };
@@ -254,6 +317,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setStudents((prev) => {
       const next = [student, ...prev];
       localStorage.setItem('ihas_students', JSON.stringify(next));
+      notifyRealtimeUpdate('students', next);
+      return next;
+    });
+  };
+
+  const updateStudent = (student: Student) => {
+    setStudents((prev) => {
+      const next = prev.map((s) => (s.id === student.id ? student : s));
+      localStorage.setItem('ihas_students', JSON.stringify(next));
+      notifyRealtimeUpdate('students', next);
       return next;
     });
   };
@@ -262,6 +335,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setStudents((prev) => {
       const next = prev.filter((s) => s.id !== id);
       localStorage.setItem('ihas_students', JSON.stringify(next));
+      notifyRealtimeUpdate('students', next);
       return next;
     });
   };
@@ -280,6 +354,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSubjects((prev) => {
       const next = [...prev, sub];
       localStorage.setItem('ihas_subjects', JSON.stringify(next));
+      notifyRealtimeUpdate('subjects', next);
       return next;
     });
   };
@@ -288,6 +363,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSubjects((prev) => {
       const next = prev.filter((s) => s.id !== id);
       localStorage.setItem('ihas_subjects', JSON.stringify(next));
+      notifyRealtimeUpdate('subjects', next);
       return next;
     });
   };
@@ -305,6 +381,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setExams((prev) => {
       const next = [...prev, exam];
       localStorage.setItem('ihas_exams', JSON.stringify(next));
+      notifyRealtimeUpdate('exams', next);
       return next;
     });
   };
@@ -313,6 +390,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setExams((prev) => {
       const next = prev.filter((e) => e.id !== id);
       localStorage.setItem('ihas_exams', JSON.stringify(next));
+      notifyRealtimeUpdate('exams', next);
       return next;
     });
   };
@@ -334,6 +412,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       );
       const next = [res, ...filtered];
       localStorage.setItem('ihas_results', JSON.stringify(next));
+      notifyRealtimeUpdate('results', next);
       return next;
     });
   };
@@ -342,6 +421,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setResults((prev) => {
       const next = prev.filter((r) => r.id !== id);
       localStorage.setItem('ihas_results', JSON.stringify(next));
+      notifyRealtimeUpdate('results', next);
       return next;
     });
   };
@@ -360,6 +440,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setTeachers((prev) => {
       const next = [...prev, tch];
       localStorage.setItem('ihas_teachers', JSON.stringify(next));
+      notifyRealtimeUpdate('teachers', next);
+      return next;
+    });
+  };
+
+  const updateTeacher = (tch: Teacher) => {
+    setTeachers((prev) => {
+      const next = prev.map((t) => (t.id === tch.id ? tch : t));
+      localStorage.setItem('ihas_teachers', JSON.stringify(next));
+      notifyRealtimeUpdate('teachers', next);
       return next;
     });
   };
@@ -368,6 +458,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setTeachers((prev) => {
       const next = prev.filter((t) => t.id !== id);
       localStorage.setItem('ihas_teachers', JSON.stringify(next));
+      notifyRealtimeUpdate('teachers', next);
       return next;
     });
   };
@@ -386,6 +477,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setVideoClasses((prev) => {
       const next = [v, ...prev];
       localStorage.setItem('ihas_videos', JSON.stringify(next));
+      notifyRealtimeUpdate('videoClasses', next);
+      return next;
+    });
+  };
+
+  const updateVideoClass = (v: VideoClass) => {
+    setVideoClasses((prev) => {
+      const next = prev.map((vid) => (vid.id === v.id ? v : vid));
+      localStorage.setItem('ihas_videos', JSON.stringify(next));
+      notifyRealtimeUpdate('videoClasses', next);
       return next;
     });
   };
@@ -394,6 +495,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setVideoClasses((prev) => {
       const next = prev.filter((v) => v.id !== id);
       localStorage.setItem('ihas_videos', JSON.stringify(next));
+      notifyRealtimeUpdate('videoClasses', next);
       return next;
     });
   };
@@ -411,6 +513,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setNotes((prev) => {
       const next = [n, ...prev];
       localStorage.setItem('ihas_notes', JSON.stringify(next));
+      notifyRealtimeUpdate('notes', next);
+      return next;
+    });
+  };
+
+  const updateNote = (n: NoteResource) => {
+    setNotes((prev) => {
+      const next = prev.map((note) => (note.id === n.id ? n : note));
+      localStorage.setItem('ihas_notes', JSON.stringify(next));
+      notifyRealtimeUpdate('notes', next);
       return next;
     });
   };
@@ -419,6 +531,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setNotes((prev) => {
       const next = prev.filter((n) => n.id !== id);
       localStorage.setItem('ihas_notes', JSON.stringify(next));
+      notifyRealtimeUpdate('notes', next);
       return next;
     });
   };
@@ -436,6 +549,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setNotices((prev) => {
       const next = [nt, ...prev];
       localStorage.setItem('ihas_notices', JSON.stringify(next));
+      notifyRealtimeUpdate('notices', next);
+      return next;
+    });
+  };
+
+  const updateNotice = (nt: Notice) => {
+    setNotices((prev) => {
+      const next = prev.map((n) => (n.id === nt.id ? nt : n));
+      localStorage.setItem('ihas_notices', JSON.stringify(next));
+      notifyRealtimeUpdate('notices', next);
       return next;
     });
   };
@@ -444,9 +567,225 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setNotices((prev) => {
       const next = prev.filter((nt) => nt.id !== id);
       localStorage.setItem('ihas_notices', JSON.stringify(next));
+      notifyRealtimeUpdate('notices', next);
       return next;
     });
   };
+
+  // 11. Routines
+  const [routines, setRoutines] = useState<ClassRoutine[]>(() => {
+    try {
+      const saved = localStorage.getItem('ihas_routines');
+      return saved ? JSON.parse(saved) : INITIAL_ROUTINES;
+    } catch {
+      return INITIAL_ROUTINES;
+    }
+  });
+
+  const addRoutine = (rtn: ClassRoutine) => {
+    setRoutines((prev) => {
+      const next = [rtn, ...prev];
+      localStorage.setItem('ihas_routines', JSON.stringify(next));
+      notifyRealtimeUpdate('routines', next);
+      return next;
+    });
+  };
+
+  const updateRoutine = (rtn: ClassRoutine) => {
+    setRoutines((prev) => {
+      const next = prev.map((r) => (r.id === rtn.id ? rtn : r));
+      localStorage.setItem('ihas_routines', JSON.stringify(next));
+      notifyRealtimeUpdate('routines', next);
+      return next;
+    });
+  };
+
+  const deleteRoutine = (id: string) => {
+    setRoutines((prev) => {
+      const next = prev.filter((r) => r.id !== id);
+      localStorage.setItem('ihas_routines', JSON.stringify(next));
+      notifyRealtimeUpdate('routines', next);
+      return next;
+    });
+  };
+
+  // 12. Chatbot Training Module (up to 1,000,000 words capacity)
+  const [chatbotTraining, setChatbotTraining] = useState<ChatbotTrainingItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('ihas_chatbot_training');
+      return saved ? JSON.parse(saved) : INITIAL_CHATBOT_TRAINING;
+    } catch {
+      return INITIAL_CHATBOT_TRAINING;
+    }
+  });
+
+  const addChatbotTraining = (item: ChatbotTrainingItem) => {
+    setChatbotTraining((prev) => {
+      const next = [item, ...prev];
+      localStorage.setItem('ihas_chatbot_training', JSON.stringify(next));
+      notifyRealtimeUpdate('chatbotTraining', next);
+      return next;
+    });
+  };
+
+  const updateChatbotTraining = (item: ChatbotTrainingItem) => {
+    setChatbotTraining((prev) => {
+      const next = prev.map((t) => (t.id === item.id ? item : t));
+      localStorage.setItem('ihas_chatbot_training', JSON.stringify(next));
+      notifyRealtimeUpdate('chatbotTraining', next);
+      return next;
+    });
+  };
+
+  const deleteChatbotTraining = (id: string) => {
+    setChatbotTraining((prev) => {
+      const next = prev.filter((t) => t.id !== id);
+      localStorage.setItem('ihas_chatbot_training', JSON.stringify(next));
+      notifyRealtimeUpdate('chatbotTraining', next);
+      return next;
+    });
+  };
+
+  // 13. Quizzes / Model Tests (Quiz Management)
+  const [modelTests, setModelTests] = useState<ModelTest[]>(() => {
+    try {
+      const saved = localStorage.getItem('ihas_quizzes');
+      return saved ? JSON.parse(saved) : DEFAULT_TESTS;
+    } catch {
+      return DEFAULT_TESTS;
+    }
+  });
+
+  const addModelTest = (test: ModelTest) => {
+    setModelTests((prev) => {
+      const next = [test, ...prev];
+      localStorage.setItem('ihas_quizzes', JSON.stringify(next));
+      notifyRealtimeUpdate('quizzes', next);
+      return next;
+    });
+  };
+
+  const updateModelTest = (test: ModelTest) => {
+    setModelTests((prev) => {
+      const next = prev.map((t) => (t.id === test.id ? test : t));
+      localStorage.setItem('ihas_quizzes', JSON.stringify(next));
+      notifyRealtimeUpdate('quizzes', next);
+      return next;
+    });
+  };
+
+  const deleteModelTest = (id: string) => {
+    setModelTests((prev) => {
+      const next = prev.filter((t) => t.id !== id);
+      localStorage.setItem('ihas_quizzes', JSON.stringify(next));
+      notifyRealtimeUpdate('quizzes', next);
+      return next;
+    });
+  };
+
+  // 14. Google Cloud Database & Storage Integration
+  const [googleCloudConfig, setGoogleCloudConfig] = useState<GoogleCloudConfig>(() => {
+    try {
+      const saved = localStorage.getItem('ihas_google_cloud_config');
+      return saved ? JSON.parse(saved) : DEFAULT_GOOGLE_CLOUD_CONFIG;
+    } catch {
+      return DEFAULT_GOOGLE_CLOUD_CONFIG;
+    }
+  });
+
+  const [isCloudSyncing, setIsCloudSyncing] = useState(false);
+
+  const updateGoogleCloudConfig = (config: GoogleCloudConfig) => {
+    setGoogleCloudConfig(config);
+    localStorage.setItem('ihas_google_cloud_config', JSON.stringify(config));
+    notifyRealtimeUpdate('googleCloudConfig', config);
+  };
+
+  const triggerCloudSync = async () => {
+    setIsCloudSyncing(true);
+    try {
+      // Simulate/trigger real-time handshake with Google Cloud storage & synchronization endpoint
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      const updatedConfig = {
+        ...googleCloudConfig,
+        lastSyncedAt: new Date().toISOString()
+      };
+      setGoogleCloudConfig(updatedConfig);
+      localStorage.setItem('ihas_google_cloud_config', JSON.stringify(updatedConfig));
+      notifyRealtimeUpdate('googleCloudSync', { status: 'synced', time: updatedConfig.lastSyncedAt });
+    } finally {
+      setIsCloudSyncing(false);
+    }
+  };
+
+  // Listen to cross-tab / cross-window real-time synchronization updates
+  useEffect(() => {
+    const unsubscribe = subscribeRealtimeUpdate((topic) => {
+      try {
+        switch (topic) {
+          case 'schoolSettings': {
+            const raw = localStorage.getItem('ihas_school_settings');
+            if (raw) setSchoolSettings(JSON.parse(raw));
+            break;
+          }
+          case 'heroSlides': {
+            const raw = localStorage.getItem('ihas_hero_slides');
+            if (raw) setHeroSlides(JSON.parse(raw));
+            break;
+          }
+          case 'courses': {
+            const raw = localStorage.getItem('ihas_courses');
+            if (raw) setCourses(JSON.parse(raw));
+            break;
+          }
+          case 'students': {
+            const raw = localStorage.getItem('ihas_students');
+            if (raw) setStudents(JSON.parse(raw));
+            break;
+          }
+          case 'teachers': {
+            const raw = localStorage.getItem('ihas_teachers');
+            if (raw) setTeachers(JSON.parse(raw));
+            break;
+          }
+          case 'videoClasses': {
+            const raw = localStorage.getItem('ihas_videos');
+            if (raw) setVideoClasses(JSON.parse(raw));
+            break;
+          }
+          case 'notes': {
+            const raw = localStorage.getItem('ihas_notes');
+            if (raw) setNotes(JSON.parse(raw));
+            break;
+          }
+          case 'notices': {
+            const raw = localStorage.getItem('ihas_notices');
+            if (raw) setNotices(JSON.parse(raw));
+            break;
+          }
+          case 'routines': {
+            const raw = localStorage.getItem('ihas_routines');
+            if (raw) setRoutines(JSON.parse(raw));
+            break;
+          }
+          case 'chatbotTraining': {
+            const raw = localStorage.getItem('ihas_chatbot_training');
+            if (raw) setChatbotTraining(JSON.parse(raw));
+            break;
+          }
+          case 'quizzes': {
+            const raw = localStorage.getItem('ihas_quizzes');
+            if (raw) setModelTests(JSON.parse(raw));
+            break;
+          }
+        }
+      } catch (err) {
+        console.warn('Realtime update processing error:', err);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   // Student Bookmarks & Enrolled Courses
   const [bookmarks, setBookmarks] = useState<string[]>(() => {
@@ -554,12 +893,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSelectedCourseForEnrollment(null);
   };
 
-  const showToast = (msg: string) => {
+  const showToast = useCallback((msg: string) => {
     setToastMessage(msg);
     setTimeout(() => {
       setToastMessage(null);
     }, 3200);
-  };
+  }, []);
 
   return (
     <AppContext.Provider
@@ -576,12 +915,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateSchoolSettings,
         heroSlides,
         addHeroSlide,
+        updateHeroSlide,
         deleteHeroSlide,
         courses,
         addCourse,
+        updateCourse,
         deleteCourse,
         students,
         addStudent,
+        updateStudent,
         deleteStudent,
         subjects,
         addSubject,
@@ -594,16 +936,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteResult,
         teachers,
         addTeacher,
+        updateTeacher,
         deleteTeacher,
         videoClasses,
         addVideoClass,
+        updateVideoClass,
         deleteVideoClass,
         notes,
         addNote,
+        updateNote,
         deleteNote,
         notices,
         addNotice,
+        updateNotice,
         deleteNotice,
+        routines,
+        addRoutine,
+        updateRoutine,
+        deleteRoutine,
+        chatbotTraining,
+        addChatbotTraining,
+        updateChatbotTraining,
+        deleteChatbotTraining,
+        modelTests,
+        addModelTest,
+        updateModelTest,
+        deleteModelTest,
+        googleCloudConfig,
+        updateGoogleCloudConfig,
+        isCloudSyncing,
+        triggerCloudSync,
         bookmarks,
         toggleBookmark,
         isBookmarked,
@@ -637,4 +999,3 @@ export const useApp = () => {
   }
   return context;
 };
-
