@@ -293,3 +293,18 @@ export interface GoogleCloudConfig {
   oxfordApiCode?: string;
   lastSyncedAt?: string;
 }
+
+export interface GitHubConfig {
+  enabled: boolean;
+  token: string;
+  owner: string;
+  repo: string;
+  branch: string;
+  filePath: string;
+  autoPushOnChange: boolean;
+  autoPollIntervalSec: number;
+  lastSyncedAt?: string;
+  lastCommitSha?: string;
+  lastCommitMessage?: string;
+}
+

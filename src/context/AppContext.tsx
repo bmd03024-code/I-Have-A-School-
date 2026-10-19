@@ -15,6 +15,7 @@ import {
   ClassRoutine,
   ChatbotTrainingItem,
   GoogleCloudConfig,
+  GitHubConfig,
   ModelTest
 } from '../types';
 import { 
@@ -32,9 +33,11 @@ import {
   INITIAL_ROUTINES,
   INITIAL_CHATBOT_TRAINING,
   DEFAULT_GOOGLE_CLOUD_CONFIG,
+  DEFAULT_GITHUB_CONFIG,
   MODEL_TESTS as DEFAULT_TESTS
 } from '../data/mockData';
 import { notifyRealtimeUpdate, subscribeRealtimeUpdate } from '../lib/storageService';
+import { pushDataToGitHub, fetchDataFromGitHub } from '../services/githubSyncService';
 
 export interface AppContextType {
   // Language Toggle
@@ -127,6 +130,19 @@ export interface AppContextType {
   updateGoogleCloudConfig: (config: GoogleCloudConfig) => void;
   isCloudSyncing: boolean;
   triggerCloudSync: () => Promise<void>;
+
+  // GitHub REST API Integration & Cross-Browser Live Sync
+  githubConfig: GitHubConfig;
+  updateGitHubConfig: (config: GitHubConfig) => void;
+  isGitHubSyncing: boolean;
+  gitHubSyncStatus: {
+    state: 'idle' | 'syncing' | 'synced' | 'error';
+    message: string;
+    lastSyncedAt?: string;
+    lastCommitSha?: string;
+  };
+  pushToGitHub: (customCommitMessage?: string) => Promise<{ success: boolean; sha?: string; error?: string }>;
+  pullFromGitHub: (force?: boolean) => Promise<{ success: boolean; data?: any; error?: string }>;
 
   // Student State
   bookmarks: string[];
@@ -720,6 +736,271 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  // 15. GitHub REST API Database Sync & Cross-Browser Live Update
+  const [githubConfig, setGithubConfig] = useState<GitHubConfig>(() => {
+    try {
+      const saved = localStorage.getItem('ihas_github_config');
+      return saved ? JSON.parse(saved) : DEFAULT_GITHUB_CONFIG;
+    } catch {
+      return DEFAULT_GITHUB_CONFIG;
+    }
+  });
+
+  const [isGitHubSyncing, setIsGitHubSyncing] = useState(false);
+  const [gitHubSyncStatus, setGitHubSyncStatus] = useState<{
+    state: 'idle' | 'syncing' | 'synced' | 'error';
+    message: string;
+    lastSyncedAt?: string;
+    lastCommitSha?: string;
+  }>({
+    state: 'idle',
+    message: 'প্রস্তুত',
+    lastSyncedAt: githubConfig.lastSyncedAt,
+    lastCommitSha: githubConfig.lastCommitSha
+  });
+
+  const updateGitHubConfig = (cfg: GitHubConfig) => {
+    setGithubConfig(cfg);
+    localStorage.setItem('ihas_github_config', JSON.stringify(cfg));
+    notifyRealtimeUpdate('githubConfig', cfg);
+  };
+
+  const applyDatabaseSnapshot = useCallback((data: any) => {
+    if (!data || typeof data !== 'object') return;
+    try {
+      if (data.schoolSettings) {
+        setSchoolSettings(data.schoolSettings);
+        localStorage.setItem('ihas_school_settings', JSON.stringify(data.schoolSettings));
+      }
+      if (Array.isArray(data.heroSlides)) {
+        setHeroSlides(data.heroSlides);
+        localStorage.setItem('ihas_hero_slides', JSON.stringify(data.heroSlides));
+      }
+      if (Array.isArray(data.courses)) {
+        setCourses(data.courses);
+        localStorage.setItem('ihas_courses', JSON.stringify(data.courses));
+      }
+      if (Array.isArray(data.students)) {
+        setStudents(data.students);
+        localStorage.setItem('ihas_students', JSON.stringify(data.students));
+      }
+      if (Array.isArray(data.subjects)) {
+        setSubjects(data.subjects);
+        localStorage.setItem('ihas_subjects', JSON.stringify(data.subjects));
+      }
+      if (Array.isArray(data.exams)) {
+        setExams(data.exams);
+        localStorage.setItem('ihas_exams', JSON.stringify(data.exams));
+      }
+      if (Array.isArray(data.results)) {
+        setResults(data.results);
+        localStorage.setItem('ihas_results', JSON.stringify(data.results));
+      }
+      if (Array.isArray(data.teachers)) {
+        setTeachers(data.teachers);
+        localStorage.setItem('ihas_teachers', JSON.stringify(data.teachers));
+      }
+      if (Array.isArray(data.videoClasses)) {
+        setVideoClasses(data.videoClasses);
+        localStorage.setItem('ihas_video_classes', JSON.stringify(data.videoClasses));
+      }
+      if (Array.isArray(data.notes)) {
+        setNotes(data.notes);
+        localStorage.setItem('ihas_notes', JSON.stringify(data.notes));
+      }
+      if (Array.isArray(data.notices)) {
+        setNotices(data.notices);
+        localStorage.setItem('ihas_notices', JSON.stringify(data.notices));
+      }
+      if (Array.isArray(data.routines)) {
+        setRoutines(data.routines);
+        localStorage.setItem('ihas_routines', JSON.stringify(data.routines));
+      }
+      if (Array.isArray(data.chatbotTraining)) {
+        setChatbotTraining(data.chatbotTraining);
+        localStorage.setItem('ihas_chatbot_training', JSON.stringify(data.chatbotTraining));
+      }
+      if (Array.isArray(data.modelTests)) {
+        setModelTests(data.modelTests);
+        localStorage.setItem('ihas_quizzes', JSON.stringify(data.modelTests));
+      }
+      if (data.adminCredentials?.email && data.adminCredentials?.password) {
+        setAdminCredentials(data.adminCredentials);
+        localStorage.setItem('ihas_admin_creds', JSON.stringify(data.adminCredentials));
+      }
+    } catch (e) {
+      console.warn('Error applying database snapshot:', e);
+    }
+  }, []);
+
+  const pushToGitHub = async (
+    customCommitMessage?: string
+  ): Promise<{ success: boolean; sha?: string; error?: string }> => {
+    setIsGitHubSyncing(true);
+    setGitHubSyncStatus((prev) => ({
+      ...prev,
+      state: 'syncing',
+      message: 'গিটহাবে রিয়েল-টাইম ডেটাবেজ পুশ করা হচ্ছে...'
+    }));
+
+    try {
+      const snapshot = {
+        schoolSettings,
+        heroSlides,
+        courses,
+        students,
+        subjects,
+        exams,
+        results,
+        teachers,
+        videoClasses,
+        notes,
+        notices,
+        routines,
+        chatbotTraining,
+        modelTests,
+        adminCredentials
+      };
+
+      const result = await pushDataToGitHub(githubConfig, snapshot, customCommitMessage);
+
+      if (result.success) {
+        const now = new Date().toISOString();
+        const updatedConfig: GitHubConfig = {
+          ...githubConfig,
+          lastSyncedAt: now,
+          lastCommitSha: result.sha || result.commitSha || '',
+          lastCommitMessage: customCommitMessage || 'Live update from Admin Panel'
+        };
+        setGithubConfig(updatedConfig);
+        localStorage.setItem('ihas_github_config', JSON.stringify(updatedConfig));
+        setGitHubSyncStatus({
+          state: 'synced',
+          message: 'সফলভাবে পুশ ও লাইভ সিঙ্ক সম্পন্ন হয়েছে',
+          lastSyncedAt: now,
+          lastCommitSha: updatedConfig.lastCommitSha
+        });
+        notifyRealtimeUpdate('github_sync', { snapshot, config: updatedConfig });
+        return { success: true, sha: updatedConfig.lastCommitSha };
+      } else {
+        setGitHubSyncStatus({
+          state: 'error',
+          message: result.message || 'পুশ ব্যর্থ হয়েছে',
+          lastSyncedAt: githubConfig.lastSyncedAt,
+          lastCommitSha: githubConfig.lastCommitSha
+        });
+        return { success: false, error: result.message };
+      }
+    } catch (err: any) {
+      const errMsg = err.message || 'অজানা ত্রুটি';
+      setGitHubSyncStatus({
+        state: 'error',
+        message: errMsg,
+        lastSyncedAt: githubConfig.lastSyncedAt,
+        lastCommitSha: githubConfig.lastCommitSha
+      });
+      return { success: false, error: errMsg };
+    } finally {
+      setIsGitHubSyncing(false);
+    }
+  };
+
+  const pullFromGitHub = async (
+    force: boolean = false
+  ): Promise<{ success: boolean; data?: any; error?: string }> => {
+    if (!githubConfig.owner || !githubConfig.repo) {
+      return { success: false, error: 'GitHub owner and repo not configured' };
+    }
+    setIsGitHubSyncing(true);
+    setGitHubSyncStatus((prev) => ({
+      ...prev,
+      state: 'syncing',
+      message: 'গিটহাব থেকে লাইভ ডেটা যাচাই ও লোড হচ্ছে...'
+    }));
+
+    try {
+      const res = await fetchDataFromGitHub(githubConfig);
+      if (res.success && res.data) {
+        const remoteTime = res.lastUpdated ? new Date(res.lastUpdated).getTime() : 0;
+        const localTime = githubConfig.lastSyncedAt ? new Date(githubConfig.lastSyncedAt).getTime() : 0;
+
+        if (force || remoteTime > localTime || !localTime) {
+          applyDatabaseSnapshot(res.data);
+          const now = new Date().toISOString();
+          const updatedConfig: GitHubConfig = {
+            ...githubConfig,
+            lastSyncedAt: res.lastUpdated || now,
+            lastCommitSha: res.sha || githubConfig.lastCommitSha
+          };
+          setGithubConfig(updatedConfig);
+          localStorage.setItem('ihas_github_config', JSON.stringify(updatedConfig));
+          setGitHubSyncStatus({
+            state: 'synced',
+            message: 'গিটহাব থেকে লাইভ ডেটা সকল ব্রাউজারে সফলভাবে সিঙ্ক হয়েছে',
+            lastSyncedAt: updatedConfig.lastSyncedAt,
+            lastCommitSha: updatedConfig.lastCommitSha
+          });
+          notifyRealtimeUpdate('github_sync', { snapshot: res.data, config: updatedConfig });
+        } else {
+          setGitHubSyncStatus({
+            state: 'synced',
+            message: 'ওয়েবসাইট ডেটা সর্বশেষ গিটহাব সংস্করণের সাথে আপডেট আছে',
+            lastSyncedAt: githubConfig.lastSyncedAt,
+            lastCommitSha: githubConfig.lastCommitSha
+          });
+        }
+        return { success: true, data: res.data };
+      } else {
+        setGitHubSyncStatus((prev) => ({
+          ...prev,
+          state: 'idle',
+          message: res.message || 'গিটহাবে কোনো নতুন পরিবর্তন পাওয়া যায়নি'
+        }));
+        return { success: false, error: res.message };
+      }
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    } finally {
+      setIsGitHubSyncing(false);
+    }
+  };
+
+  // Periodic background check against GitHub for live updates across all visitor browsers
+  useEffect(() => {
+    if (!githubConfig.enabled || !githubConfig.owner || !githubConfig.repo) return;
+
+    // Run initial pull check on mount
+    pullFromGitHub(false).catch(() => {});
+
+    // Polling interval for all visitor browsers
+    const intervalSec = Math.max(10, githubConfig.autoPollIntervalSec || 30);
+    const timer = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        pullFromGitHub(false).catch(() => {});
+      }
+    }, intervalSec * 1000);
+
+    // Also pull whenever browser window regains focus or reconnects to internet
+    const handleFocus = () => {
+      pullFromGitHub(false).catch(() => {});
+    };
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('online', handleFocus);
+
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('online', handleFocus);
+    };
+  }, [
+    githubConfig.enabled,
+    githubConfig.owner,
+    githubConfig.repo,
+    githubConfig.branch,
+    githubConfig.filePath,
+    githubConfig.autoPollIntervalSec
+  ]);
+
   // Listen to cross-tab / cross-window real-time synchronization updates
   useEffect(() => {
     const unsubscribe = subscribeRealtimeUpdate((topic, data) => {
@@ -855,6 +1136,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             else {
               const raw = localStorage.getItem('ihas_admin_creds');
               if (raw) setAdminCredentials(JSON.parse(raw));
+            }
+            break;
+          }
+          case 'github_sync': {
+            if (data?.snapshot) {
+              applyDatabaseSnapshot(data.snapshot);
+            }
+            if (data?.config) {
+              setGithubConfig(data.config);
+            }
+            break;
+          }
+          case 'githubConfig':
+          case 'github_config': {
+            if (data) setGithubConfig(data);
+            else {
+              const raw = localStorage.getItem('ihas_github_config');
+              if (raw) setGithubConfig(JSON.parse(raw));
             }
             break;
           }
@@ -1047,6 +1346,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateGoogleCloudConfig,
         isCloudSyncing,
         triggerCloudSync,
+        githubConfig,
+        updateGitHubConfig,
+        isGitHubSyncing,
+        gitHubSyncStatus,
+        pushToGitHub,
+        pullFromGitHub,
         bookmarks,
         toggleBookmark,
         isBookmarked,

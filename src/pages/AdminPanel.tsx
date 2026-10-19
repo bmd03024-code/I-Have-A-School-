@@ -39,7 +39,10 @@ import {
   Send,
   MessageCircle,
   ExternalLink,
-  RotateCcw
+  RotateCcw,
+  GitBranch,
+  Zap,
+  RefreshCw
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { DEFAULT_SCHOOL_SETTINGS } from '../data/mockData';
@@ -61,6 +64,7 @@ import { PrintableResultSheet } from '../components/admin/PrintableResultSheet';
 import { QuizManagementTab } from '../components/admin/QuizManagementTab';
 import { ChatbotTrainingTab } from '../components/admin/ChatbotTrainingTab';
 import { GoogleCloudTab } from '../components/admin/GoogleCloudTab';
+import { GitHubSyncTab } from '../components/admin/GitHubSyncTab';
 import { RoutineManagementTab } from '../components/admin/RoutineManagementTab';
 import { DictionaryManagementTab } from '../components/admin/DictionaryManagementTab';
 import { 
@@ -133,6 +137,12 @@ export const AdminPanel: React.FC = () => {
     updateGoogleCloudConfig,
     isCloudSyncing,
     triggerCloudSync,
+    githubConfig,
+    updateGitHubConfig,
+    isGitHubSyncing,
+    gitHubSyncStatus,
+    pushToGitHub,
+    pullFromGitHub,
     showToast
   } = useApp();
 
@@ -159,6 +169,7 @@ export const AdminPanel: React.FC = () => {
     | 'dictionary' 
     | 'quizzes' 
     | 'google_cloud' 
+    | 'github_sync'
     | 'security'
   >('settings');
 
@@ -468,6 +479,9 @@ export const AdminPanel: React.FC = () => {
     e.preventDefault();
     updateSchoolSettings(settingsForm);
     showToast(lang === 'bn' ? 'প্রতিষ্ঠান সেটিংস ও সিল/স্বাক্ষর সংরক্ষিত হয়েছে!' : 'Settings updated successfully!');
+    if (githubConfig.enabled && githubConfig.autoPushOnChange && githubConfig.token) {
+      pushToGitHub('Updated institution branding, contacts & footer');
+    }
   };
 
   // Add Slide
@@ -962,6 +976,41 @@ export const AdminPanel: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3">
+            {/* GitHub Live Sync Quick Indicator */}
+            <div className="flex items-center gap-2 border-r border-slate-700 pr-3">
+              <button
+                type="button"
+                onClick={() => setActiveTab('github_sync')}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors ${
+                  githubConfig.token
+                    ? 'bg-slate-800 text-emerald-400 hover:bg-slate-750'
+                    : 'bg-slate-800 text-slate-400 hover:text-white'
+                }`}
+                title="GitHub Real-Time Live Sync"
+              >
+                <GitBranch className="w-3.5 h-3.5" />
+                <span className="hidden md:inline">
+                  {githubConfig.token
+                    ? (lang === 'bn' ? 'গিটহাব: লাইভ' : 'GitHub: Live')
+                    : (lang === 'bn' ? 'গিটহাব সেটআপ' : 'Setup GitHub')}
+                </span>
+                <span className={`w-2 h-2 rounded-full ${githubConfig.token ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`} />
+              </button>
+
+              {githubConfig.token && (
+                <button
+                  type="button"
+                  onClick={() => pushToGitHub()}
+                  disabled={isGitHubSyncing}
+                  className="px-2.5 py-1 bg-emerald-600/90 hover:bg-emerald-600 disabled:opacity-50 text-white text-xs font-bold rounded-lg flex items-center gap-1 transition-colors"
+                  title="Push Database to GitHub Now"
+                >
+                  <Zap className={`w-3 h-3 ${isGitHubSyncing ? 'animate-bounce' : ''}`} />
+                  <span className="hidden sm:inline">{isGitHubSyncing ? (lang === 'bn' ? 'পুশ...' : 'Pushing...') : (lang === 'bn' ? 'পুশ' : 'Push')}</span>
+                </button>
+              )}
+            </div>
+
             <button
               onClick={() => setActiveTab('security')}
               className="text-xs font-semibold text-slate-300 hover:text-white flex items-center gap-1.5 transition-colors"
@@ -999,6 +1048,7 @@ export const AdminPanel: React.FC = () => {
             { id: 'routines', label: lang === 'bn' ? '১০. রুটিন সেকশন' : '10. Routine', icon: Calendar },
             { id: 'quizzes', label: lang === 'bn' ? 'কুইজ মেনেজমেন্ট' : 'Quiz Management', icon: Layers },
             { id: 'google_cloud', label: lang === 'bn' ? '১১. গুগল ক্লাউড ডেটাবেজ' : '11. Google Cloud DB', icon: Cloud },
+            { id: 'github_sync', label: lang === 'bn' ? '১২. গিটহাব এপিআই ও লাইভ সিঙ্ক' : '12. GitHub Live Sync', icon: GitBranch },
             { id: 'security', label: lang === 'bn' ? 'সিকিউরিটি' : 'Security', icon: Lock }
           ].map((tab) => {
             const Icon = tab.icon;
@@ -1045,6 +1095,59 @@ export const AdminPanel: React.FC = () => {
                 <Save className="w-4 h-4" />
                 <span>{lang === 'bn' ? 'সকল পরিবর্তন সংরক্ষণ করুন' : 'Save All Changes'}</span>
               </button>
+            </div>
+
+            {/* Quick GitHub Live Sync Card */}
+            <div className="bg-gradient-to-r from-slate-900 to-slate-800 text-white p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
+              <div className="flex items-center gap-3.5">
+                <div className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-emerald-400 shrink-0">
+                  <GitBranch className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-sm text-white">
+                      {lang === 'bn' ? 'গিটহাব এপিআই ও লাইভ সিঙ্ক' : 'GitHub API & Live Sync'}
+                    </span>
+                    <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${
+                      githubConfig.token
+                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                        : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                    }`}>
+                      {githubConfig.token
+                        ? (lang === 'bn' ? 'লাইভ সিঙ্ক চালু' : 'Live Sync ON')
+                        : (lang === 'bn' ? 'টোকেন সেটআপ প্রয়োজন' : 'Setup Required')}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-300 mt-0.5">
+                    {lang === 'bn'
+                      ? 'অ্যাডমিনের পরিবর্তনসমূহ সরাসরি গিটহাবে পুশ করে সকল ব্রাউজারে রিয়েল-টাইম আপডেট সক্রিয় রাখুন।'
+                      : 'Sync all admin updates directly to GitHub to update all visitor browsers in real-time.'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('github_sync')}
+                  className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-bold rounded-xl border border-slate-700 text-slate-200 transition-colors flex items-center gap-1.5"
+                >
+                  <Settings className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>{lang === 'bn' ? 'গিটহাব এপিআই অপশন' : 'GitHub API Option'}</span>
+                </button>
+
+                {githubConfig.token && (
+                  <button
+                    type="button"
+                    onClick={() => pushToGitHub()}
+                    disabled={isGitHubSyncing}
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-xs font-bold rounded-xl text-white transition-colors flex items-center gap-1.5 shadow-xs"
+                  >
+                    <Zap className="w-3.5 h-3.5" />
+                    <span>{isGitHubSyncing ? (lang === 'bn' ? 'পুশ হচ্ছে...' : 'Pushing...') : (lang === 'bn' ? 'গিটহাবে পুশ' : 'Push Now')}</span>
+                  </button>
+                )}
+              </div>
             </div>
 
             <form onSubmit={handleSaveSettings} className="space-y-8 text-xs">
@@ -3045,6 +3148,20 @@ export const AdminPanel: React.FC = () => {
             updateConfig={updateGoogleCloudConfig}
             isSyncing={isCloudSyncing}
             triggerSync={triggerCloudSync}
+            lang={lang}
+            showToast={showToast}
+          />
+        )}
+
+        {/* ==================== TAB 12: GITHUB API & REAL-TIME SYNC ==================== */}
+        {activeTab === 'github_sync' && (
+          <GitHubSyncTab
+            config={githubConfig}
+            updateConfig={updateGitHubConfig}
+            isSyncing={isGitHubSyncing}
+            pushToGitHub={pushToGitHub}
+            pullFromGitHub={pullFromGitHub}
+            syncStatus={gitHubSyncStatus}
             lang={lang}
             showToast={showToast}
           />

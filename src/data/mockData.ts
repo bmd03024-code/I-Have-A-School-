@@ -16,7 +16,8 @@ import {
   StudentReview,
   ClassRoutine,
   ChatbotTrainingItem,
-  GoogleCloudConfig
+  GoogleCloudConfig,
+  GitHubConfig
 } from '../types';
 
 export const DEFAULT_SCHOOL_SETTINGS: SchoolSettings = {
@@ -643,3 +644,18 @@ export const DEFAULT_GOOGLE_CLOUD_CONFIG: GoogleCloudConfig = {
   oxfordApiCode: 'OXFORD_ACADEMIC_PRO_2026',
   lastSyncedAt: new Date().toISOString()
 };
+
+export const DEFAULT_GITHUB_CONFIG: GitHubConfig = {
+  enabled: true,
+  token: '',
+  owner: 'touhidul-hoque',
+  repo: 'ihaveaschool-live-database',
+  branch: 'main',
+  filePath: 'data/ihas_live_database.json',
+  autoPushOnChange: true,
+  autoPollIntervalSec: 30,
+  lastSyncedAt: new Date().toISOString(),
+  lastCommitSha: '',
+  lastCommitMessage: 'Initial GitHub sync setup'
+};
+
