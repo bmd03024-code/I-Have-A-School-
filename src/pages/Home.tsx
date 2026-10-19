@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   Sparkles, 
@@ -14,9 +14,11 @@ import {
   ChevronRight,
   MessageCircle,
   BookA,
-  Printer
+  Printer,
+  RefreshCw
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { subscribeRealtimeUpdate } from '../lib/storageService';
 import { HeroSlider } from '../components/HeroSlider';
 import { VideoPlayerModal } from '../components/VideoPlayerModal';
 import { NotePreviewModal } from '../components/NotePreviewModal';
@@ -31,15 +33,50 @@ export const Home: React.FC = () => {
     openEnrollmentModal, 
     isEnrolled,
     schoolSettings,
-    teachers 
+    teachers,
+    isInitialLoading,
+    reloadAllFromStorage
   } = useApp();
 
   const [selectedVideo, setSelectedVideo] = useState<VideoClass | null>(null);
   const [selectedNote, setSelectedNote] = useState<NoteResource | null>(null);
+  const [isHomeSyncing, setIsHomeSyncing] = useState(false);
   
   // Daily Grammar Challenge Mini-Quiz state
   const [quizAnswer, setQuizAnswer] = useState<number | null>(null);
   const [quizSubmitted, setQuizSubmitted] = useState(false);
+
+  // Direct Real-Time Fetch & Sync Logic:
+  // Subscribes to real-time database notifications from Admin updates.
+  // Any change made in Admin automatically saves and reflects instantly without page reload or manual code edit.
+  useEffect(() => {
+    let isMounted = true;
+    let syncTimer: any = null;
+
+    const unsubscribe = subscribeRealtimeUpdate((topic) => {
+      if (['courses', 'heroSlides', 'settings', 'schoolSettings', 'videoClasses', 'notes', 'teachers', 'all'].includes(topic)) {
+        if (isMounted) {
+          setIsHomeSyncing(true);
+          clearTimeout(syncTimer);
+          syncTimer = setTimeout(() => {
+            if (isMounted) setIsHomeSyncing(false);
+          }, 350);
+        }
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      clearTimeout(syncTimer);
+      unsubscribe();
+    };
+  }, []);
+
+  // Memoized data slices to guarantee stable component references and prevent layout flickering
+  const featuredCourses = useMemo(() => courses.slice(0, 6), [courses]);
+  const featuredVideos = useMemo(() => videoClasses.slice(0, 2), [videoClasses]);
+  const featuredNotes = useMemo(() => notes.slice(0, 3), [notes]);
+  const headTeacher = useMemo(() => teachers.find((t: Teacher) => t.isHeadmaster) || teachers[0], [teachers]);
 
   const dailyQuiz = {
     questionEn: 'Choose the correct preposition: "He has been absent _______ school since last Monday."',
@@ -55,11 +92,52 @@ export const Home: React.FC = () => {
     setQuizSubmitted(true);
   };
 
-  const headTeacher = teachers.find((t: Teacher) => t.isHeadmaster) || teachers[0];
+  // Loading skeleton state preventing white flash / content jump during initial hydration
+  if (isInitialLoading) {
+    return (
+      <div className="space-y-12 pb-16 animate-pulse">
+        {/* Hero Skeleton */}
+        <div className="w-full bg-slate-900 min-h-[440px] flex items-center justify-center p-8">
+          <div className="max-w-3xl w-full space-y-6">
+            <div className="h-6 w-36 bg-slate-800 rounded-full" />
+            <div className="h-12 w-3/4 bg-slate-800 rounded-2xl" />
+            <div className="h-4 w-full bg-slate-800 rounded" />
+            <div className="flex gap-4 pt-2">
+              <div className="h-11 w-40 bg-emerald-800/50 rounded-xl" />
+              <div className="h-11 w-40 bg-slate-800 rounded-xl" />
+            </div>
+          </div>
+        </div>
+
+        {/* Feature Grid Skeleton */}
+        <div className="max-w-7xl mx-auto px-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-24 bg-white rounded-2xl border border-slate-200 p-4 flex items-center gap-4">
+              <div className="w-12 h-12 bg-slate-200 rounded-xl" />
+              <div className="space-y-2 flex-1">
+                <div className="h-4 w-24 bg-slate-200 rounded" />
+                <div className="h-3 w-32 bg-slate-100 rounded" />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Courses Skeleton */}
+        <div className="max-w-7xl mx-auto px-4 space-y-6">
+          <div className="h-8 w-64 bg-slate-200 rounded-xl" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-80 bg-white rounded-3xl border border-slate-200 overflow-hidden" />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-16 pb-16">
-      {/* 1. Dynamic Hero Slider (3 Slides with auto-play and WhatsApp Admission) */}
+    <div className={`space-y-16 pb-16 transition-opacity duration-200 ${isHomeSyncing ? 'opacity-95' : 'opacity-100'}`}>
+      {/* 1. Dynamic Hero Slider (Directly reflects live admin slide changes) */}
       <HeroSlider />
 
       {/* Feature Highlights Grid */}

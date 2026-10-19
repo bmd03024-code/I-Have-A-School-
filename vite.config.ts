@@ -5,7 +5,7 @@ import tailwindcss from '@tailwindcss/vite'
 import fs from 'node:fs';
 import path from 'node:path';
 
-// Plugin to automatically sync and write admin changes directly into the codebase
+// Plugin to automatically sync and write admin changes directly into the codebase without triggering file watcher reload
 function codeSyncPlugin() {
   return {
     name: 'code-sync-plugin',
@@ -18,13 +18,34 @@ function codeSyncPlugin() {
           });
           req.on('end', async () => {
             try {
-              const data = JSON.parse(body);
+              const payload = JSON.parse(body);
               const dataFilePath = path.resolve(process.cwd(), 'src/data/liveData.json');
-              await fs.promises.writeFile(dataFilePath, JSON.stringify(data, null, 2), 'utf-8');
+
+              let existing: Record<string, any> = {};
+              if (fs.existsSync(dataFilePath)) {
+                try {
+                  const raw = await fs.promises.readFile(dataFilePath, 'utf-8');
+                  existing = JSON.parse(raw);
+                } catch {
+                  existing = {};
+                }
+              }
+
+              // Merge single key updates or full snapshots
+              if (payload.snapshot && typeof payload.snapshot === 'object') {
+                existing = { ...existing, ...payload.snapshot, _updatedAt: new Date().toISOString() };
+              } else if (payload.key) {
+                existing[payload.key] = payload.data;
+                existing._updatedAt = new Date().toISOString();
+              } else {
+                existing = { ...existing, ...payload, _updatedAt: new Date().toISOString() };
+              }
+
+              await fs.promises.writeFile(dataFilePath, JSON.stringify(existing, null, 2), 'utf-8');
 
               res.setHeader('Content-Type', 'application/json');
               res.statusCode = 200;
-              res.end(JSON.stringify({ success: true, message: 'Codebase updated successfully' }));
+              res.end(JSON.stringify({ success: true, message: 'Database updated successfully' }));
             } catch (err: any) {
               res.statusCode = 500;
               res.setHeader('Content-Type', 'application/json');
@@ -81,6 +102,9 @@ export default defineConfig(async ({ mode }): Promise<UserConfig> => {
       port: 3000,
       strictPort: true,
       allowedHosts: true,
+      watch: {
+        ignored: ['**/src/data/liveData.json', '**/liveData.json']
+      }
     },
     envPrefix: ['VITE_', 'NEXT_PUBLIC_'],
     define: processEnvDefines,

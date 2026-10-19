@@ -62,7 +62,8 @@ export const HeroSlider: React.FC = () => {
   const [currentIdx, setCurrentIdx] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
 
-  const activeSlides = heroSlides.filter((s: HeroSlide) => s.active);
+  const activeSlides = React.useMemo(() => heroSlides.filter((s: HeroSlide) => s.active), [heroSlides]);
+  const safeIdx = currentIdx < activeSlides.length ? currentIdx : 0;
 
   // Smooth auto-slide every 6 seconds unless hovered
   useEffect(() => {
@@ -77,7 +78,7 @@ export const HeroSlider: React.FC = () => {
 
   if (activeSlides.length === 0) return null;
 
-  const current = activeSlides[currentIdx] || activeSlides[0];
+  const current = activeSlides[safeIdx] || activeSlides[0];
 
   const handlePrev = () => {
     setCurrentIdx((prev) => (prev === 0 ? activeSlides.length - 1 : prev - 1));
@@ -106,7 +107,7 @@ export const HeroSlider: React.FC = () => {
             src={slide.imageUrl}
             alt={lang === 'bn' ? slide.titleBn : slide.titleEn}
             className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ease-in-out ${
-              idx === currentIdx ? 'opacity-25' : 'opacity-0 pointer-events-none'
+              idx === safeIdx ? 'opacity-25' : 'opacity-0 pointer-events-none'
             }`}
           />
         ))}

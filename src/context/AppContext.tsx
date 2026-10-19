@@ -170,6 +170,7 @@ export interface AppContextType {
   setIsFloatingDictOpen: (open: boolean) => void;
   isChatbotOpen: boolean;
   setIsChatbotOpen: (open: boolean) => void;
+  isInitialLoading: boolean;
   clearCacheAndSyncRealtime: () => void;
   reloadAllFromStorage: () => void;
 }
@@ -268,408 +269,398 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     persistItem('ihas_admin_creds', creds);
   };
 
+  // Helper for deep equality checking before state sets to avoid unnecessary re-renders
+  const isEqual = useCallback((a: any, b: any): boolean => {
+    if (a === b) return true;
+    if (!a || !b) return false;
+    try {
+      return JSON.stringify(a) === JSON.stringify(b);
+    } catch {
+      return false;
+    }
+  }, []);
+
+  // Safe setter that only triggers React render if data is genuinely different
+  const safeSetIfChanged = useCallback(<T,>(setter: React.Dispatch<React.SetStateAction<T>>, nextVal: T) => {
+    setter((prev) => {
+      if (isEqual(prev, nextVal)) return prev;
+      return nextVal;
+    });
+  }, [isEqual]);
+
+  // Post changes asynchronously after render, NEVER inside setState updater function
+  const commitEntityChange = useCallback((key: string, topic: string, data: any) => {
+    queueMicrotask(() => {
+      persistItem(key, data);
+      notifyRealtimeUpdate(topic, data);
+    });
+  }, []);
+
   // 3. School Settings & Branding
   const [schoolSettings, setSchoolSettings] = useState<SchoolSettings>(() => {
     return getPersistedItem('ihas_school_settings', DEFAULT_SCHOOL_SETTINGS);
   });
 
-  const updateSchoolSettings = (newSettings: SchoolSettings) => {
-    setSchoolSettings(newSettings);
-    persistItem('ihas_school_settings', newSettings);
-    notifyRealtimeUpdate('schoolSettings', newSettings);
-  };
+  const updateSchoolSettings = useCallback((newSettings: SchoolSettings) => {
+    setSchoolSettings((prev) => {
+      if (isEqual(prev, newSettings)) return prev;
+      commitEntityChange('ihas_school_settings', 'schoolSettings', newSettings);
+      return newSettings;
+    });
+  }, [commitEntityChange, isEqual]);
 
   // 4. Hero Slides (Safe with Quota Protection)
   const [heroSlides, setHeroSlides] = useState<HeroSlide[]>(() => {
     return getPersistedItem('ihas_hero_slides', INITIAL_HERO_SLIDES);
   });
 
-  const addHeroSlide = (slide: HeroSlide) => {
+  const addHeroSlide = useCallback((slide: HeroSlide) => {
     setHeroSlides((prev) => {
       const next = [slide, ...prev];
-      persistItem('ihas_hero_slides', next);
-      notifyRealtimeUpdate('heroSlides', next);
+      commitEntityChange('ihas_hero_slides', 'heroSlides', next);
       return next;
     });
-  };
+  }, [commitEntityChange]);
 
-  const updateHeroSlide = (slide: HeroSlide) => {
+  const updateHeroSlide = useCallback((slide: HeroSlide) => {
     setHeroSlides((prev) => {
       const next = prev.map((s) => (s.id === slide.id ? slide : s));
-      persistItem('ihas_hero_slides', next);
-      notifyRealtimeUpdate('heroSlides', next);
+      commitEntityChange('ihas_hero_slides', 'heroSlides', next);
       return next;
     });
-  };
+  }, [commitEntityChange]);
 
-  const deleteHeroSlide = (id: string) => {
+  const deleteHeroSlide = useCallback((id: string) => {
     setHeroSlides((prev) => {
       const next = prev.filter((s) => s.id !== id);
-      persistItem('ihas_hero_slides', next);
-      notifyRealtimeUpdate('heroSlides', next);
+      commitEntityChange('ihas_hero_slides', 'heroSlides', next);
       return next;
     });
-  };
+  }, [commitEntityChange]);
 
   // 5. Courses
   const [courses, setCourses] = useState<Course[]>(() => {
     return getPersistedItem('ihas_courses', DEFAULT_COURSES);
   });
 
-  const addCourse = (course: Course) => {
+  const addCourse = useCallback((course: Course) => {
     setCourses((prev) => {
       const next = [course, ...prev];
-      persistItem('ihas_courses', next);
-      notifyRealtimeUpdate('courses', next);
+      commitEntityChange('ihas_courses', 'courses', next);
       return next;
     });
-  };
+  }, [commitEntityChange]);
 
-  const updateCourse = (course: Course) => {
+  const updateCourse = useCallback((course: Course) => {
     setCourses((prev) => {
       const next = prev.map((c) => (c.id === course.id ? course : c));
-      persistItem('ihas_courses', next);
-      notifyRealtimeUpdate('courses', next);
+      commitEntityChange('ihas_courses', 'courses', next);
       return next;
     });
-  };
+  }, [commitEntityChange]);
 
-  const deleteCourse = (id: string) => {
+  const deleteCourse = useCallback((id: string) => {
     setCourses((prev) => {
       const next = prev.filter((c) => c.id !== id);
-      persistItem('ihas_courses', next);
-      notifyRealtimeUpdate('courses', next);
+      commitEntityChange('ihas_courses', 'courses', next);
       return next;
     });
-  };
+  }, [commitEntityChange]);
 
   // 6. Students
   const [students, setStudents] = useState<Student[]>(() => {
     return getPersistedItem('ihas_students', INITIAL_STUDENTS);
   });
 
-  const addStudent = (student: Student) => {
+  const addStudent = useCallback((student: Student) => {
     setStudents((prev) => {
       const next = [student, ...prev];
-      persistItem('ihas_students', next);
-      notifyRealtimeUpdate('students', next);
+      commitEntityChange('ihas_students', 'students', next);
       return next;
     });
-  };
+  }, [commitEntityChange]);
 
-  const updateStudent = (student: Student) => {
+  const updateStudent = useCallback((student: Student) => {
     setStudents((prev) => {
       const next = prev.map((s) => (s.id === student.id ? student : s));
-      persistItem('ihas_students', next);
-      notifyRealtimeUpdate('students', next);
+      commitEntityChange('ihas_students', 'students', next);
       return next;
     });
-  };
+  }, [commitEntityChange]);
 
-  const deleteStudent = (id: string) => {
+  const deleteStudent = useCallback((id: string) => {
     setStudents((prev) => {
       const next = prev.filter((s) => s.id !== id);
-      persistItem('ihas_students', next);
-      notifyRealtimeUpdate('students', next);
+      commitEntityChange('ihas_students', 'students', next);
       return next;
     });
-  };
+  }, [commitEntityChange]);
 
   // 7. Subjects & Exams
   const [subjects, setSubjects] = useState<CourseSubject[]>(() => {
     return getPersistedItem('ihas_subjects', INITIAL_SUBJECTS);
   });
 
-  const addSubject = (sub: CourseSubject) => {
+  const addSubject = useCallback((sub: CourseSubject) => {
     setSubjects((prev) => {
       const next = [...prev, sub];
-      persistItem('ihas_subjects', next);
-      notifyRealtimeUpdate('subjects', next);
+      commitEntityChange('ihas_subjects', 'subjects', next);
       return next;
     });
-  };
+  }, [commitEntityChange]);
 
-  const deleteSubject = (id: string) => {
+  const deleteSubject = useCallback((id: string) => {
     setSubjects((prev) => {
       const next = prev.filter((s) => s.id !== id);
-      persistItem('ihas_subjects', next);
-      notifyRealtimeUpdate('subjects', next);
+      commitEntityChange('ihas_subjects', 'subjects', next);
       return next;
     });
-  };
+  }, [commitEntityChange]);
 
   const [exams, setExams] = useState<CourseExam[]>(() => {
     return getPersistedItem('ihas_exams', INITIAL_EXAMS);
   });
 
-  const addExam = (exam: CourseExam) => {
+  const addExam = useCallback((exam: CourseExam) => {
     setExams((prev) => {
       const next = [...prev, exam];
-      persistItem('ihas_exams', next);
-      notifyRealtimeUpdate('exams', next);
+      commitEntityChange('ihas_exams', 'exams', next);
       return next;
     });
-  };
+  }, [commitEntityChange]);
 
-  const deleteExam = (id: string) => {
+  const deleteExam = useCallback((id: string) => {
     setExams((prev) => {
       const next = prev.filter((e) => e.id !== id);
-      persistItem('ihas_exams', next);
-      notifyRealtimeUpdate('exams', next);
+      commitEntityChange('ihas_exams', 'exams', next);
       return next;
     });
-  };
+  }, [commitEntityChange]);
 
   // 8. Results
   const [results, setResults] = useState<StudentResult[]>(() => {
     return getPersistedItem('ihas_results', INITIAL_RESULTS);
   });
 
-  const addResult = (res: StudentResult) => {
+  const addResult = useCallback((res: StudentResult) => {
     setResults((prev) => {
       const filtered = prev.filter(
         (r) => !(r.studentRoll === res.studentRoll && r.academicYear === res.academicYear && r.courseId === res.courseId && r.examId === res.examId)
       );
       const next = [res, ...filtered];
-      persistItem('ihas_results', next);
-      notifyRealtimeUpdate('results', next);
+      commitEntityChange('ihas_results', 'results', next);
       return next;
     });
-  };
+  }, [commitEntityChange]);
 
-  const deleteResult = (id: string) => {
+  const deleteResult = useCallback((id: string) => {
     setResults((prev) => {
       const next = prev.filter((r) => r.id !== id);
-      persistItem('ihas_results', next);
-      notifyRealtimeUpdate('results', next);
+      commitEntityChange('ihas_results', 'results', next);
       return next;
     });
-  };
+  }, [commitEntityChange]);
 
   // 9. Teachers
   const [teachers, setTeachers] = useState<Teacher[]>(() => {
     return getPersistedItem('ihas_teachers', INITIAL_TEACHERS);
   });
 
-  const addTeacher = (tch: Teacher) => {
+  const addTeacher = useCallback((tch: Teacher) => {
     setTeachers((prev) => {
       const next = [...prev, tch];
-      persistItem('ihas_teachers', next);
-      notifyRealtimeUpdate('teachers', next);
+      commitEntityChange('ihas_teachers', 'teachers', next);
       return next;
     });
-  };
+  }, [commitEntityChange]);
 
-  const updateTeacher = (tch: Teacher) => {
+  const updateTeacher = useCallback((tch: Teacher) => {
     setTeachers((prev) => {
       const next = prev.map((t) => (t.id === tch.id ? tch : t));
-      persistItem('ihas_teachers', next);
-      notifyRealtimeUpdate('teachers', next);
+      commitEntityChange('ihas_teachers', 'teachers', next);
       return next;
     });
-  };
+  }, [commitEntityChange]);
 
-  const deleteTeacher = (id: string) => {
+  const deleteTeacher = useCallback((id: string) => {
     setTeachers((prev) => {
       const next = prev.filter((t) => t.id !== id);
-      persistItem('ihas_teachers', next);
-      notifyRealtimeUpdate('teachers', next);
+      commitEntityChange('ihas_teachers', 'teachers', next);
       return next;
     });
-  };
+  }, [commitEntityChange]);
 
   // 10. Videos, Notes, Notices
   const [videoClasses, setVideoClasses] = useState<VideoClass[]>(() => {
     return getPersistedItem('ihas_videos', getPersistedItem('ihas_video_classes', DEFAULT_VIDEOS));
   });
 
-  const addVideoClass = (v: VideoClass) => {
+  const addVideoClass = useCallback((v: VideoClass) => {
     setVideoClasses((prev) => {
       const next = [v, ...prev];
-      persistItem('ihas_videos', next);
-      persistItem('ihas_video_classes', next);
-      notifyRealtimeUpdate('videoClasses', next);
+      commitEntityChange('ihas_video_classes', 'videoClasses', next);
       return next;
     });
-  };
+  }, [commitEntityChange]);
 
-  const updateVideoClass = (v: VideoClass) => {
+  const updateVideoClass = useCallback((v: VideoClass) => {
     setVideoClasses((prev) => {
       const next = prev.map((vid) => (vid.id === v.id ? v : vid));
-      persistItem('ihas_videos', next);
-      persistItem('ihas_video_classes', next);
-      notifyRealtimeUpdate('videoClasses', next);
+      commitEntityChange('ihas_video_classes', 'videoClasses', next);
       return next;
     });
-  };
+  }, [commitEntityChange]);
 
-  const deleteVideoClass = (id: string) => {
+  const deleteVideoClass = useCallback((id: string) => {
     setVideoClasses((prev) => {
       const next = prev.filter((v) => v.id !== id);
-      persistItem('ihas_videos', next);
-      persistItem('ihas_video_classes', next);
-      notifyRealtimeUpdate('videoClasses', next);
+      commitEntityChange('ihas_video_classes', 'videoClasses', next);
       return next;
     });
-  };
+  }, [commitEntityChange]);
 
   const [notes, setNotes] = useState<NoteResource[]>(() => {
     return getPersistedItem('ihas_notes', DEFAULT_NOTES);
   });
 
-  const addNote = (n: NoteResource) => {
+  const addNote = useCallback((n: NoteResource) => {
     setNotes((prev) => {
       const next = [n, ...prev];
-      persistItem('ihas_notes', next);
-      notifyRealtimeUpdate('notes', next);
+      commitEntityChange('ihas_notes', 'notes', next);
       return next;
     });
-  };
+  }, [commitEntityChange]);
 
-  const updateNote = (n: NoteResource) => {
+  const updateNote = useCallback((n: NoteResource) => {
     setNotes((prev) => {
       const next = prev.map((note) => (note.id === n.id ? n : note));
-      persistItem('ihas_notes', next);
-      notifyRealtimeUpdate('notes', next);
+      commitEntityChange('ihas_notes', 'notes', next);
       return next;
     });
-  };
+  }, [commitEntityChange]);
 
-  const deleteNote = (id: string) => {
+  const deleteNote = useCallback((id: string) => {
     setNotes((prev) => {
       const next = prev.filter((n) => n.id !== id);
-      persistItem('ihas_notes', next);
-      notifyRealtimeUpdate('notes', next);
+      commitEntityChange('ihas_notes', 'notes', next);
       return next;
     });
-  };
+  }, [commitEntityChange]);
 
   const [notices, setNotices] = useState<Notice[]>(() => {
     return getPersistedItem('ihas_notices', DEFAULT_NOTICES);
   });
 
-  const addNotice = (nt: Notice) => {
+  const addNotice = useCallback((nt: Notice) => {
     setNotices((prev) => {
       const next = [nt, ...prev];
-      persistItem('ihas_notices', next);
-      notifyRealtimeUpdate('notices', next);
+      commitEntityChange('ihas_notices', 'notices', next);
       return next;
     });
-  };
+  }, [commitEntityChange]);
 
-  const updateNotice = (nt: Notice) => {
+  const updateNotice = useCallback((nt: Notice) => {
     setNotices((prev) => {
       const next = prev.map((n) => (n.id === nt.id ? nt : n));
-      persistItem('ihas_notices', next);
-      notifyRealtimeUpdate('notices', next);
+      commitEntityChange('ihas_notices', 'notices', next);
       return next;
     });
-  };
+  }, [commitEntityChange]);
 
-  const deleteNotice = (id: string) => {
+  const deleteNotice = useCallback((id: string) => {
     setNotices((prev) => {
       const next = prev.filter((nt) => nt.id !== id);
-      persistItem('ihas_notices', next);
-      notifyRealtimeUpdate('notices', next);
+      commitEntityChange('ihas_notices', 'notices', next);
       return next;
     });
-  };
+  }, [commitEntityChange]);
 
   // 11. Routines
   const [routines, setRoutines] = useState<ClassRoutine[]>(() => {
     return getPersistedItem('ihas_routines', INITIAL_ROUTINES);
   });
 
-  const addRoutine = (rtn: ClassRoutine) => {
+  const addRoutine = useCallback((rtn: ClassRoutine) => {
     setRoutines((prev) => {
       const next = [rtn, ...prev];
-      persistItem('ihas_routines', next);
-      notifyRealtimeUpdate('routines', next);
+      commitEntityChange('ihas_routines', 'routines', next);
       return next;
     });
-  };
+  }, [commitEntityChange]);
 
-  const updateRoutine = (rtn: ClassRoutine) => {
+  const updateRoutine = useCallback((rtn: ClassRoutine) => {
     setRoutines((prev) => {
       const next = prev.map((r) => (r.id === rtn.id ? rtn : r));
-      persistItem('ihas_routines', next);
-      notifyRealtimeUpdate('routines', next);
+      commitEntityChange('ihas_routines', 'routines', next);
       return next;
     });
-  };
+  }, [commitEntityChange]);
 
-  const deleteRoutine = (id: string) => {
+  const deleteRoutine = useCallback((id: string) => {
     setRoutines((prev) => {
       const next = prev.filter((r) => r.id !== id);
-      persistItem('ihas_routines', next);
-      notifyRealtimeUpdate('routines', next);
+      commitEntityChange('ihas_routines', 'routines', next);
       return next;
     });
-  };
+  }, [commitEntityChange]);
 
   // 12. Chatbot Training Module (up to 1,000,000 words capacity)
   const [chatbotTraining, setChatbotTraining] = useState<ChatbotTrainingItem[]>(() => {
     return getPersistedItem('ihas_chatbot_training', INITIAL_CHATBOT_TRAINING);
   });
 
-  const addChatbotTraining = (item: ChatbotTrainingItem) => {
+  const addChatbotTraining = useCallback((item: ChatbotTrainingItem) => {
     setChatbotTraining((prev) => {
       const next = [item, ...prev];
-      persistItem('ihas_chatbot_training', next);
-      notifyRealtimeUpdate('chatbotTraining', next);
+      commitEntityChange('ihas_chatbot_training', 'chatbotTraining', next);
       return next;
     });
-  };
+  }, [commitEntityChange]);
 
-  const updateChatbotTraining = (item: ChatbotTrainingItem) => {
+  const updateChatbotTraining = useCallback((item: ChatbotTrainingItem) => {
     setChatbotTraining((prev) => {
       const next = prev.map((t) => (t.id === item.id ? item : t));
-      persistItem('ihas_chatbot_training', next);
-      notifyRealtimeUpdate('chatbotTraining', next);
+      commitEntityChange('ihas_chatbot_training', 'chatbotTraining', next);
       return next;
     });
-  };
+  }, [commitEntityChange]);
 
-  const deleteChatbotTraining = (id: string) => {
+  const deleteChatbotTraining = useCallback((id: string) => {
     setChatbotTraining((prev) => {
       const next = prev.filter((t) => t.id !== id);
-      persistItem('ihas_chatbot_training', next);
-      notifyRealtimeUpdate('chatbotTraining', next);
+      commitEntityChange('ihas_chatbot_training', 'chatbotTraining', next);
       return next;
     });
-  };
+  }, [commitEntityChange]);
 
   // 13. Quizzes / Model Tests (Quiz Management)
   const [modelTests, setModelTests] = useState<ModelTest[]>(() => {
     return getPersistedItem('ihas_quizzes', DEFAULT_TESTS);
   });
 
-  const addModelTest = (test: ModelTest) => {
+  const addModelTest = useCallback((test: ModelTest) => {
     setModelTests((prev) => {
       const next = [test, ...prev];
-      persistItem('ihas_quizzes', next);
-      notifyRealtimeUpdate('quizzes', next);
+      commitEntityChange('ihas_quizzes', 'quizzes', next);
       return next;
     });
-  };
+  }, [commitEntityChange]);
 
-  const updateModelTest = (test: ModelTest) => {
+  const updateModelTest = useCallback((test: ModelTest) => {
     setModelTests((prev) => {
       const next = prev.map((t) => (t.id === test.id ? test : t));
-      persistItem('ihas_quizzes', next);
-      notifyRealtimeUpdate('quizzes', next);
+      commitEntityChange('ihas_quizzes', 'quizzes', next);
       return next;
     });
-  };
+  }, [commitEntityChange]);
 
-  const deleteModelTest = (id: string) => {
+  const deleteModelTest = useCallback((id: string) => {
     setModelTests((prev) => {
       const next = prev.filter((t) => t.id !== id);
-      persistItem('ihas_quizzes', next);
-      notifyRealtimeUpdate('quizzes', next);
+      commitEntityChange('ihas_quizzes', 'quizzes', next);
       return next;
     });
-  };
+  }, [commitEntityChange]);
 
   // 14. Google Cloud Database & Storage Integration
   const [googleCloudConfig, setGoogleCloudConfig] = useState<GoogleCloudConfig>(() => {
@@ -738,66 +729,121 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         persistItem('ihas_school_settings', data.schoolSettings);
       }
       if (Array.isArray(data.heroSlides)) {
-        setHeroSlides(data.heroSlides);
+        safeSetIfChanged(setHeroSlides, data.heroSlides);
         persistItem('ihas_hero_slides', data.heroSlides);
       }
       if (Array.isArray(data.courses)) {
-        setCourses(data.courses);
+        safeSetIfChanged(setCourses, data.courses);
         persistItem('ihas_courses', data.courses);
       }
       if (Array.isArray(data.students)) {
-        setStudents(data.students);
+        safeSetIfChanged(setStudents, data.students);
         persistItem('ihas_students', data.students);
       }
       if (Array.isArray(data.subjects)) {
-        setSubjects(data.subjects);
+        safeSetIfChanged(setSubjects, data.subjects);
         persistItem('ihas_subjects', data.subjects);
       }
       if (Array.isArray(data.exams)) {
-        setExams(data.exams);
+        safeSetIfChanged(setExams, data.exams);
         persistItem('ihas_exams', data.exams);
       }
       if (Array.isArray(data.results)) {
-        setResults(data.results);
+        safeSetIfChanged(setResults, data.results);
         persistItem('ihas_results', data.results);
       }
       if (Array.isArray(data.teachers)) {
-        setTeachers(data.teachers);
+        safeSetIfChanged(setTeachers, data.teachers);
         persistItem('ihas_teachers', data.teachers);
       }
       if (Array.isArray(data.videoClasses)) {
-        setVideoClasses(data.videoClasses);
+        safeSetIfChanged(setVideoClasses, data.videoClasses);
         persistItem('ihas_videos', data.videoClasses);
         persistItem('ihas_video_classes', data.videoClasses);
       }
       if (Array.isArray(data.notes)) {
-        setNotes(data.notes);
+        safeSetIfChanged(setNotes, data.notes);
         persistItem('ihas_notes', data.notes);
       }
       if (Array.isArray(data.notices)) {
-        setNotices(data.notices);
+        safeSetIfChanged(setNotices, data.notices);
         persistItem('ihas_notices', data.notices);
       }
       if (Array.isArray(data.routines)) {
-        setRoutines(data.routines);
+        safeSetIfChanged(setRoutines, data.routines);
         persistItem('ihas_routines', data.routines);
       }
       if (Array.isArray(data.chatbotTraining)) {
-        setChatbotTraining(data.chatbotTraining);
+        safeSetIfChanged(setChatbotTraining, data.chatbotTraining);
         persistItem('ihas_chatbot_training', data.chatbotTraining);
       }
       if (Array.isArray(data.modelTests)) {
-        setModelTests(data.modelTests);
+        safeSetIfChanged(setModelTests, data.modelTests);
         persistItem('ihas_quizzes', data.modelTests);
       }
       if (data.adminCredentials?.email && data.adminCredentials?.password) {
-        setAdminCredentials(data.adminCredentials);
+        safeSetIfChanged(setAdminCredentials, data.adminCredentials);
         persistItem('ihas_admin_creds', data.adminCredentials);
       }
     } catch (e) {
       console.warn('Error applying database snapshot:', e);
     }
-  }, []);
+  }, [safeSetIfChanged]);
+
+  // Keep a fresh reference to state snapshot without triggering useCallback invalidation
+  const latestEntitiesRef = React.useRef({
+    schoolSettings,
+    heroSlides,
+    courses,
+    students,
+    subjects,
+    exams,
+    results,
+    teachers,
+    videoClasses,
+    notes,
+    notices,
+    routines,
+    chatbotTraining,
+    modelTests,
+    adminCredentials
+  });
+
+  useEffect(() => {
+    latestEntitiesRef.current = {
+      schoolSettings,
+      heroSlides,
+      courses,
+      students,
+      subjects,
+      exams,
+      results,
+      teachers,
+      videoClasses,
+      notes,
+      notices,
+      routines,
+      chatbotTraining,
+      modelTests,
+      adminCredentials
+    };
+  }, [
+    schoolSettings,
+    heroSlides,
+    courses,
+    students,
+    subjects,
+    exams,
+    results,
+    teachers,
+    videoClasses,
+    notes,
+    notices,
+    routines,
+    chatbotTraining,
+    modelTests,
+    adminCredentials
+  ]);
 
   const pushToGitHub = useCallback(async (
     customCommitMessage?: string
@@ -810,24 +856,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }));
 
     try {
-      const snapshot = {
-        schoolSettings,
-        heroSlides,
-        courses,
-        students,
-        subjects,
-        exams,
-        results,
-        teachers,
-        videoClasses,
-        notes,
-        notices,
-        routines,
-        chatbotTraining,
-        modelTests,
-        adminCredentials
-      };
-
+      const snapshot = latestEntitiesRef.current;
       const result = await pushDataToGitHub(githubConfig, snapshot, customCommitMessage);
 
       if (result.success) {
@@ -869,24 +898,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } finally {
       setIsGitHubSyncing(false);
     }
-  }, [
-    githubConfig,
-    schoolSettings,
-    heroSlides,
-    courses,
-    students,
-    subjects,
-    exams,
-    results,
-    teachers,
-    videoClasses,
-    notes,
-    notices,
-    routines,
-    chatbotTraining,
-    modelTests,
-    adminCredentials
-  ]);
+  }, [githubConfig]);
 
   const pullFromGitHub = useCallback(async (
     force: boolean = false
@@ -955,28 +967,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Run initial pull check on mount
     const initialTimer = setTimeout(() => {
       pullFromGitHub(false).catch(() => {});
-    }, 0);
+    }, 1200);
 
-    // Polling interval for all visitor browsers
-    const intervalSec = Math.max(10, githubConfig.autoPollIntervalSec || 30);
+    // Polling interval for all visitor browsers (min 30s)
+    const intervalSec = Math.max(30, githubConfig.autoPollIntervalSec || 60);
     const timer = setInterval(() => {
       if (document.visibilityState === 'visible') {
         pullFromGitHub(false).catch(() => {});
       }
     }, intervalSec * 1000);
 
-    // Also pull whenever browser window regains focus or reconnects to internet
-    const handleFocus = () => {
-      pullFromGitHub(false).catch(() => {});
-    };
-    window.addEventListener('focus', handleFocus);
-    window.addEventListener('online', handleFocus);
-
     return () => {
       clearTimeout(initialTimer);
       clearInterval(timer);
-      window.removeEventListener('focus', handleFocus);
-      window.removeEventListener('online', handleFocus);
     };
   }, [
     githubConfig.enabled,
@@ -986,75 +989,115 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     pullFromGitHub
   ]);
 
-  // Comprehensive state reload from storage to clear stale cache and synchronize in-memory state
+  // Comprehensive state reload from storage to synchronize in-memory state WITHOUT unnecessary re-renders
   const reloadAllFromStorage = useCallback(() => {
-    const safeParse = <T,>(key: string, fallback?: T): T | null => {
+    const safeParse = <T,>(key: string): T | null => {
       try {
-        const raw = localStorage.getItem(key);
-        if (!raw) return fallback ?? null;
+        const raw = safeStorage.getItem(key);
+        if (!raw) return null;
         return JSON.parse(raw);
       } catch {
-        return fallback ?? null;
+        return null;
       }
     };
 
     try {
       const s = safeParse<SchoolSettings>('ihas_school_settings');
-      if (s) setSchoolSettings(s);
+      if (s) safeSetIfChanged(setSchoolSettings, s);
 
       const slides = safeParse<HeroSlide[]>('ihas_hero_slides');
-      if (Array.isArray(slides)) setHeroSlides(slides);
+      if (Array.isArray(slides)) safeSetIfChanged(setHeroSlides, slides);
 
       const c = safeParse<Course[]>('ihas_courses');
-      if (Array.isArray(c)) setCourses(c);
+      if (Array.isArray(c)) safeSetIfChanged(setCourses, c);
 
       const std = safeParse<Student[]>('ihas_students');
-      if (Array.isArray(std)) setStudents(std);
+      if (Array.isArray(std)) safeSetIfChanged(setStudents, std);
 
       const sub = safeParse<CourseSubject[]>('ihas_subjects');
-      if (Array.isArray(sub)) setSubjects(sub);
+      if (Array.isArray(sub)) safeSetIfChanged(setSubjects, sub);
 
       const ex = safeParse<CourseExam[]>('ihas_exams');
-      if (Array.isArray(ex)) setExams(ex);
+      if (Array.isArray(ex)) safeSetIfChanged(setExams, ex);
 
       const res = safeParse<StudentResult[]>('ihas_results');
-      if (Array.isArray(res)) setResults(res);
+      if (Array.isArray(res)) safeSetIfChanged(setResults, res);
 
       const tch = safeParse<Teacher[]>('ihas_teachers');
-      if (Array.isArray(tch)) setTeachers(tch);
+      if (Array.isArray(tch)) safeSetIfChanged(setTeachers, tch);
 
       const vid = safeParse<VideoClass[]>('ihas_videos') || safeParse<VideoClass[]>('ihas_video_classes');
-      if (Array.isArray(vid)) setVideoClasses(vid);
+      if (Array.isArray(vid)) safeSetIfChanged(setVideoClasses, vid);
 
       const nts = safeParse<NoteResource[]>('ihas_notes');
-      if (Array.isArray(nts)) setNotes(nts);
+      if (Array.isArray(nts)) safeSetIfChanged(setNotes, nts);
 
       const nots = safeParse<Notice[]>('ihas_notices');
-      if (Array.isArray(nots)) setNotices(nots);
+      if (Array.isArray(nots)) safeSetIfChanged(setNotices, nots);
 
       const rts = safeParse<ClassRoutine[]>('ihas_routines');
-      if (Array.isArray(rts)) setRoutines(rts);
+      if (Array.isArray(rts)) safeSetIfChanged(setRoutines, rts);
 
       const bot = safeParse<ChatbotTrainingItem[]>('ihas_chatbot_training');
-      if (Array.isArray(bot)) setChatbotTraining(bot);
+      if (Array.isArray(bot)) safeSetIfChanged(setChatbotTraining, bot);
 
       const qz = safeParse<ModelTest[]>('ihas_quizzes');
-      if (Array.isArray(qz)) setModelTests(qz);
+      if (Array.isArray(qz)) safeSetIfChanged(setModelTests, qz);
 
       const g = safeParse<GoogleCloudConfig>('ihas_google_cloud_config');
-      if (g) setGoogleCloudConfig(g);
+      if (g) safeSetIfChanged(setGoogleCloudConfig, g);
 
       const gh = safeParse<GitHubConfig>('ihas_github_config');
-      if (gh) setGithubConfig(gh);
+      if (gh) safeSetIfChanged(setGithubConfig, gh);
 
       const cr = safeParse<{ email: string; password: string }>('ihas_admin_creds');
-      if (cr?.email && cr?.password) setAdminCredentials(cr);
+      if (cr?.email && cr?.password) safeSetIfChanged(setAdminCredentials, cr);
     } catch (e) {
       console.warn('Error reloading all data from storage:', e);
     }
-  }, []);
+  }, [safeSetIfChanged]);
 
-  // Listen to cross-tab / cross-window real-time synchronization updates
+  // Initial Database Hydration from server /api/sync-to-code
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchInitialData = async () => {
+      try {
+        const res = await fetch('/api/sync-to-code', { cache: 'no-store' });
+        if (res.ok) {
+          const liveData = await res.json();
+          if (isMounted && liveData && typeof liveData === 'object') {
+            if (liveData.ihas_school_settings) safeSetIfChanged(setSchoolSettings, liveData.ihas_school_settings);
+            if (Array.isArray(liveData.ihas_hero_slides)) safeSetIfChanged(setHeroSlides, liveData.ihas_hero_slides);
+            if (Array.isArray(liveData.ihas_courses)) safeSetIfChanged(setCourses, liveData.ihas_courses);
+            if (Array.isArray(liveData.ihas_students)) safeSetIfChanged(setStudents, liveData.ihas_students);
+            if (Array.isArray(liveData.ihas_subjects)) safeSetIfChanged(setSubjects, liveData.ihas_subjects);
+            if (Array.isArray(liveData.ihas_exams)) safeSetIfChanged(setExams, liveData.ihas_exams);
+            if (Array.isArray(liveData.ihas_results)) safeSetIfChanged(setResults, liveData.ihas_results);
+            if (Array.isArray(liveData.ihas_teachers)) safeSetIfChanged(setTeachers, liveData.ihas_teachers);
+            if (Array.isArray(liveData.ihas_video_classes) || Array.isArray(liveData.ihas_videos)) {
+              safeSetIfChanged(setVideoClasses, liveData.ihas_video_classes || liveData.ihas_videos);
+            }
+            if (Array.isArray(liveData.ihas_notes)) safeSetIfChanged(setNotes, liveData.ihas_notes);
+            if (Array.isArray(liveData.ihas_notices)) safeSetIfChanged(setNotices, liveData.ihas_notices);
+            if (Array.isArray(liveData.ihas_routines)) safeSetIfChanged(setRoutines, liveData.ihas_routines);
+            if (Array.isArray(liveData.ihas_chatbot_training)) safeSetIfChanged(setChatbotTraining, liveData.ihas_chatbot_training);
+            if (Array.isArray(liveData.ihas_quizzes)) safeSetIfChanged(setModelTests, liveData.ihas_quizzes);
+          }
+        }
+      } catch (err) {
+        console.warn('Initial live database sync failed, using local storage state', err);
+      } finally {
+        if (isMounted) setIsInitialLoading(false);
+      }
+    };
+
+    fetchInitialData();
+    return () => { isMounted = false; };
+  }, [safeSetIfChanged]);
+
+  // Listen to cross-tab / cross-window real-time synchronization updates with safeSetIfChanged
   useEffect(() => {
     const unsubscribe = subscribeRealtimeUpdate((topic, data) => {
       try {
@@ -1068,140 +1111,140 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           case 'schoolSettings':
           case 'settings':
           case 'school_settings': {
-            if (data) setSchoolSettings(data);
+            if (data) safeSetIfChanged(setSchoolSettings, data);
             else {
-              const raw = localStorage.getItem('ihas_school_settings');
-              if (raw) setSchoolSettings(JSON.parse(raw));
+              const raw = safeStorage.getItem('ihas_school_settings');
+              if (raw) safeSetIfChanged(setSchoolSettings, JSON.parse(raw));
             }
             break;
           }
           case 'heroSlides':
           case 'slides':
           case 'hero_slides': {
-            if (data) setHeroSlides(data);
+            if (data) safeSetIfChanged(setHeroSlides, data);
             else {
-              const raw = localStorage.getItem('ihas_hero_slides');
-              if (raw) setHeroSlides(JSON.parse(raw));
+              const raw = safeStorage.getItem('ihas_hero_slides');
+              if (raw) safeSetIfChanged(setHeroSlides, JSON.parse(raw));
             }
             break;
           }
           case 'courses': {
-            if (data) setCourses(data);
+            if (data) safeSetIfChanged(setCourses, data);
             else {
-              const raw = localStorage.getItem('ihas_courses');
-              if (raw) setCourses(JSON.parse(raw));
+              const raw = safeStorage.getItem('ihas_courses');
+              if (raw) safeSetIfChanged(setCourses, JSON.parse(raw));
             }
             break;
           }
           case 'students': {
-            if (data) setStudents(data);
+            if (data) safeSetIfChanged(setStudents, data);
             else {
-              const raw = localStorage.getItem('ihas_students');
-              if (raw) setStudents(JSON.parse(raw));
+              const raw = safeStorage.getItem('ihas_students');
+              if (raw) safeSetIfChanged(setStudents, JSON.parse(raw));
             }
             break;
           }
           case 'subjects': {
-            if (data) setSubjects(data);
+            if (data) safeSetIfChanged(setSubjects, data);
             else {
-              const raw = localStorage.getItem('ihas_subjects');
-              if (raw) setSubjects(JSON.parse(raw));
+              const raw = safeStorage.getItem('ihas_subjects');
+              if (raw) safeSetIfChanged(setSubjects, JSON.parse(raw));
             }
             break;
           }
           case 'exams': {
-            if (data) setExams(data);
+            if (data) safeSetIfChanged(setExams, data);
             else {
-              const raw = localStorage.getItem('ihas_exams');
-              if (raw) setExams(JSON.parse(raw));
+              const raw = safeStorage.getItem('ihas_exams');
+              if (raw) safeSetIfChanged(setExams, JSON.parse(raw));
             }
             break;
           }
           case 'results': {
-            if (data) setResults(data);
+            if (data) safeSetIfChanged(setResults, data);
             else {
-              const raw = localStorage.getItem('ihas_results');
-              if (raw) setResults(JSON.parse(raw));
+              const raw = safeStorage.getItem('ihas_results');
+              if (raw) safeSetIfChanged(setResults, JSON.parse(raw));
             }
             break;
           }
           case 'teachers': {
-            if (data) setTeachers(data);
+            if (data) safeSetIfChanged(setTeachers, data);
             else {
-              const raw = localStorage.getItem('ihas_teachers');
-              if (raw) setTeachers(JSON.parse(raw));
+              const raw = safeStorage.getItem('ihas_teachers');
+              if (raw) safeSetIfChanged(setTeachers, JSON.parse(raw));
             }
             break;
           }
           case 'videoClasses':
           case 'videos':
           case 'video_classes': {
-            if (data) setVideoClasses(data);
+            if (data) safeSetIfChanged(setVideoClasses, data);
             else {
-              const raw = localStorage.getItem('ihas_videos') || localStorage.getItem('ihas_video_classes');
-              if (raw) setVideoClasses(JSON.parse(raw));
+              const raw = safeStorage.getItem('ihas_videos') || safeStorage.getItem('ihas_video_classes');
+              if (raw) safeSetIfChanged(setVideoClasses, JSON.parse(raw));
             }
             break;
           }
           case 'notes': {
-            if (data) setNotes(data);
+            if (data) safeSetIfChanged(setNotes, data);
             else {
-              const raw = localStorage.getItem('ihas_notes');
-              if (raw) setNotes(JSON.parse(raw));
+              const raw = safeStorage.getItem('ihas_notes');
+              if (raw) safeSetIfChanged(setNotes, JSON.parse(raw));
             }
             break;
           }
           case 'notices': {
-            if (data) setNotices(data);
+            if (data) safeSetIfChanged(setNotices, data);
             else {
-              const raw = localStorage.getItem('ihas_notices');
-              if (raw) setNotices(JSON.parse(raw));
+              const raw = safeStorage.getItem('ihas_notices');
+              if (raw) safeSetIfChanged(setNotices, JSON.parse(raw));
             }
             break;
           }
           case 'routines': {
-            if (data) setRoutines(data);
+            if (data) safeSetIfChanged(setRoutines, data);
             else {
-              const raw = localStorage.getItem('ihas_routines');
-              if (raw) setRoutines(JSON.parse(raw));
+              const raw = safeStorage.getItem('ihas_routines');
+              if (raw) safeSetIfChanged(setRoutines, JSON.parse(raw));
             }
             break;
           }
           case 'chatbotTraining':
           case 'chatbot_training': {
-            if (data) setChatbotTraining(data);
+            if (data) safeSetIfChanged(setChatbotTraining, data);
             else {
-              const raw = localStorage.getItem('ihas_chatbot_training');
-              if (raw) setChatbotTraining(JSON.parse(raw));
+              const raw = safeStorage.getItem('ihas_chatbot_training');
+              if (raw) safeSetIfChanged(setChatbotTraining, JSON.parse(raw));
             }
             break;
           }
           case 'quizzes':
           case 'modelTests':
           case 'model_tests': {
-            if (data) setModelTests(data);
+            if (data) safeSetIfChanged(setModelTests, data);
             else {
-              const raw = localStorage.getItem('ihas_quizzes');
-              if (raw) setModelTests(JSON.parse(raw));
+              const raw = safeStorage.getItem('ihas_quizzes');
+              if (raw) safeSetIfChanged(setModelTests, JSON.parse(raw));
             }
             break;
           }
           case 'googleCloudConfig':
           case 'google_cloud':
           case 'google_cloud_config': {
-            if (data) setGoogleCloudConfig(data);
+            if (data) safeSetIfChanged(setGoogleCloudConfig, data);
             else {
-              const raw = localStorage.getItem('ihas_google_cloud_config');
-              if (raw) setGoogleCloudConfig(JSON.parse(raw));
+              const raw = safeStorage.getItem('ihas_google_cloud_config');
+              if (raw) safeSetIfChanged(setGoogleCloudConfig, JSON.parse(raw));
             }
             break;
           }
           case 'admin_creds':
           case 'adminCredentials': {
-            if (data) setAdminCredentials(data);
+            if (data) safeSetIfChanged(setAdminCredentials, data);
             else {
-              const raw = localStorage.getItem('ihas_admin_creds');
-              if (raw) setAdminCredentials(JSON.parse(raw));
+              const raw = safeStorage.getItem('ihas_admin_creds');
+              if (raw) safeSetIfChanged(setAdminCredentials, JSON.parse(raw));
             }
             break;
           }
@@ -1216,15 +1259,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
           case 'githubConfig':
           case 'github_config': {
-            if (data) setGithubConfig(data);
+            if (data) safeSetIfChanged(setGithubConfig, data);
             else {
-              const raw = localStorage.getItem('ihas_github_config');
-              if (raw) setGithubConfig(JSON.parse(raw));
+              const raw = safeStorage.getItem('ihas_github_config');
+              if (raw) safeSetIfChanged(setGithubConfig, JSON.parse(raw));
             }
             break;
           }
           default: {
-            // For any other entity ping, reload from storage
             reloadAllFromStorage();
           }
         }
@@ -1234,52 +1276,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     return () => unsubscribe();
-  }, [reloadAllFromStorage, applyDatabaseSnapshot]);
+  }, [reloadAllFromStorage, applyDatabaseSnapshot, safeSetIfChanged]);
 
-  // Automatic Website Visitor Cache-Busting & Synchronization:
-  // When visitors open the site, switch tabs, or return via back/forward cache,
-  // stale cache is immediately cleared and the admin's latest changes are shown.
+  // Clean Tab-visibility check: only reload when visitor returns to tab and version genuinely changed
+  const lastKnownVersionRef = React.useRef(typeof window !== 'undefined' ? localStorage.getItem('ihas_cache_version') || '0' : '0');
+
   useEffect(() => {
-    let lastKnownVersion = typeof window !== 'undefined' ? localStorage.getItem('ihas_cache_version') || '0' : '0';
-
-    const checkAndSyncFreshData = () => {
-      try {
-        const currentVersion = localStorage.getItem('ihas_cache_version') || '0';
-        if (currentVersion !== lastKnownVersion) {
-          lastKnownVersion = currentVersion;
-          reloadAllFromStorage();
-        }
-      } catch {
-        // ignore storage errors
-      }
-    };
-
-    // 1. Regular 800ms heartbeat
-    const interval = setInterval(checkAndSyncFreshData, 800);
-
-    // 2. Immediate fresh reload when visitor tab becomes visible or gains focus
     const handleVisibilityOrFocus = () => {
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
-        reloadAllFromStorage();
-      }
-    };
-
-    // 3. PageShow event for back/forward navigation cache (bfcache) busting
-    const handlePageShow = (e: PageTransitionEvent) => {
-      if (e.persisted) {
-        reloadAllFromStorage();
+        const currentVersion = localStorage.getItem('ihas_cache_version') || '0';
+        if (currentVersion !== lastKnownVersionRef.current) {
+          lastKnownVersionRef.current = currentVersion;
+          reloadAllFromStorage();
+        }
       }
     };
 
     window.addEventListener('visibilitychange', handleVisibilityOrFocus);
     window.addEventListener('focus', handleVisibilityOrFocus);
-    window.addEventListener('pageshow', handlePageShow as EventListener);
 
     return () => {
-      clearInterval(interval);
       window.removeEventListener('visibilitychange', handleVisibilityOrFocus);
       window.removeEventListener('focus', handleVisibilityOrFocus);
-      window.removeEventListener('pageshow', handlePageShow as EventListener);
     };
   }, [reloadAllFromStorage]);
 
@@ -1502,6 +1520,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsFloatingDictOpen,
         isChatbotOpen,
         setIsChatbotOpen,
+        isInitialLoading,
         clearCacheAndSyncRealtime,
         reloadAllFromStorage
       }}

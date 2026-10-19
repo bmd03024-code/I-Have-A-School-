@@ -107,6 +107,11 @@ export function installStorageQuotaShield(): void {
 // Auto-run shield immediately upon module load
 installStorageQuotaShield();
 
+// Unique Tab ID to differentiate this tab/window from others and prevent self-echo loops
+const TAB_ID = typeof window !== 'undefined' 
+  ? `tab_${Math.random().toString(36).substring(2, 9)}_${Date.now()}`
+  : 'server_tab';
+
 // BroadcastChannel for instant real-time sync across browser windows/tabs
 let broadcastChannel: BroadcastChannel | null = null;
 try {
@@ -120,26 +125,26 @@ try {
 export const notifyRealtimeUpdate = (topic: string, data?: any) => {
   try {
     const timestamp = Date.now();
-    const payload = { topic, timestamp, data };
+    const payload = { topic, timestamp, data, senderTabId: TAB_ID };
 
-    // BroadcastChannel transmits in-memory objects directly across tabs/windows with zero lag
+    // BroadcastChannel transmits directly to OTHER tabs/windows with zero lag (does not self-echo)
     if (broadcastChannel) {
       try {
         broadcastChannel.postMessage(payload);
       } catch {
         // Fallback for non-cloneable items
-        broadcastChannel.postMessage({ topic, timestamp });
+        broadcastChannel.postMessage({ topic, timestamp, senderTabId: TAB_ID });
       }
     }
 
-    // Trigger custom window event for same-tab/same-window subscribers
     if (typeof window !== 'undefined') {
+      // Dispatched with senderTabId so other listeners in the window can verify sender if needed
       window.dispatchEvent(new CustomEvent('ihas-realtime', { detail: payload }));
       
-      // Update atomic cache version and lightweight ping in localStorage so cross-window 'storage' events fire reliably without quota errors
+      // Update atomic cache version and lightweight ping in localStorage so cross-window 'storage' events fire reliably
       try {
         localStorage.setItem('ihas_cache_version', String(timestamp));
-        localStorage.setItem('ihas_realtime_ping', JSON.stringify({ topic, timestamp }));
+        localStorage.setItem('ihas_realtime_ping', JSON.stringify({ topic, timestamp, senderTabId: TAB_ID }));
       } catch {
         // ignore storage errors
       }
@@ -157,7 +162,7 @@ export const clearAllCachesAndBroadcast = () => {
     const timestamp = Date.now();
     if (typeof window !== 'undefined') {
       localStorage.setItem('ihas_cache_version', String(timestamp));
-      localStorage.setItem('ihas_realtime_ping', JSON.stringify({ topic: 'cache_clear', timestamp }));
+      localStorage.setItem('ihas_realtime_ping', JSON.stringify({ topic: 'cache_clear', timestamp, senderTabId: TAB_ID }));
     }
     notifyRealtimeUpdate('cache_clear', { timestamp, action: 'clear_cache' });
   } catch (err) {
@@ -169,14 +174,16 @@ export const subscribeRealtimeUpdate = (callback: (topic: string, data?: any) =>
   if (typeof window === 'undefined') return () => {};
 
   const handleMessage = (e: MessageEvent) => {
-    if (e.data?.topic) {
+    // BroadcastChannel never delivers to its own sender instance
+    if (e.data?.topic && e.data?.senderTabId !== TAB_ID) {
       callback(e.data.topic, e.data.data);
     }
   };
 
   const handleCustomEvent = (e: Event) => {
     const custom = e as CustomEvent;
-    if (custom.detail?.topic) {
+    // CRITICAL FIX FOR FLICKER: Ignore events dispatched by the same tab to prevent re-entrant state thrashing
+    if (custom.detail?.topic && custom.detail?.senderTabId !== TAB_ID) {
       callback(custom.detail.topic, custom.detail.data);
     }
   };
@@ -185,13 +192,13 @@ export const subscribeRealtimeUpdate = (callback: (topic: string, data?: any) =>
     if (e.key === 'ihas_realtime_ping' && e.newValue) {
       try {
         const ping = JSON.parse(e.newValue);
-        if (ping?.topic) {
+        if (ping?.topic && ping?.senderTabId !== TAB_ID) {
           callback(ping.topic, ping.data);
         }
       } catch {
         // ignore
       }
-    } else if (e.key && e.key.startsWith('ihas_')) {
+    } else if (e.key && e.key.startsWith('ihas_') && e.key !== 'ihas_cache_version' && e.key !== 'ihas_realtime_ping') {
       const topic = e.key.replace('ihas_', '');
       let parsed = null;
       try {

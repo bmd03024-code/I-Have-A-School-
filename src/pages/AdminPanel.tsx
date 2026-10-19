@@ -193,37 +193,40 @@ export const AdminPanel: React.FC = () => {
 
   // Settings form state with Auto-Save
   const [settingsForm, setSettingsForm] = useState(schoolSettings);
-  const [prevSettings, setPrevSettings] = useState(schoolSettings);
   const [autoSaveStatus, setAutoSaveStatus] = useState<string>('');
   const lastSavedSettingsRef = useRef<string>(JSON.stringify(schoolSettings));
+  const isEditingSettingsRef = useRef<boolean>(false);
 
-  // Sync settingsForm with external schoolSettings updates inside useEffect
+  // Sync settingsForm with external schoolSettings updates ONLY when not actively editing and values differ
   useEffect(() => {
-    if (schoolSettings !== prevSettings) {
-      setPrevSettings(schoolSettings);
+    const incomingJson = JSON.stringify(schoolSettings);
+    if (incomingJson !== lastSavedSettingsRef.current && !isEditingSettingsRef.current) {
+      lastSavedSettingsRef.current = incomingJson;
       setSettingsForm(schoolSettings);
-      lastSavedSettingsRef.current = JSON.stringify(schoolSettings);
     }
-  }, [schoolSettings, prevSettings]);
+  }, [schoolSettings]);
 
-  // Automatic Auto-Save for Settings Form (saves without manual submit)
+  // Automatic Auto-Save for Settings Form (saves directly without manual submit, debounced)
   useEffect(() => {
     const currentJson = JSON.stringify(settingsForm);
     if (currentJson === lastSavedSettingsRef.current) {
+      isEditingSettingsRef.current = false;
       return;
     }
+    isEditingSettingsRef.current = true;
     const timer = setTimeout(() => {
       lastSavedSettingsRef.current = currentJson;
       updateSchoolSettings(settingsForm);
+      isEditingSettingsRef.current = false;
       setAutoSaveStatus(lang === 'bn' ? 'অটো-সেভ সম্পন্ন' : 'Auto-Saved');
       setTimeout(() => setAutoSaveStatus(''), 2500);
       if (githubConfig.enabled && githubConfig.autoPushOnChange && githubConfig.token) {
         pushToGitHub('Auto-saved institution settings & footer').catch(() => {});
       }
-    }, 450);
+    }, 600);
 
     return () => clearTimeout(timer);
-  }, [settingsForm, updateSchoolSettings, githubConfig, lang, pushToGitHub]);
+  }, [settingsForm, updateSchoolSettings, githubConfig.enabled, githubConfig.autoPushOnChange, githubConfig.token, pushToGitHub, lang]);
 
   // Footer Learning Hub and Services Link Management States
   const [newLearningTitleBn, setNewLearningTitleBn] = useState('');
@@ -3327,6 +3330,102 @@ export const AdminPanel: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Direct Edit Slide Modal */}
+      {editingSlide && (
+        <EditSlideModal
+          slide={editingSlide}
+          lang={lang}
+          onSave={(updatedSlide) => {
+            updateHeroSlide(updatedSlide);
+            setEditingSlide(null);
+            showToast(lang === 'bn' ? 'স্লাইড সফলভাবে আপডেট হয়েছে!' : 'Hero slide updated!');
+            if (githubConfig.enabled && githubConfig.autoPushOnChange && githubConfig.token) {
+              pushToGitHub('Updated hero slide: ' + updatedSlide.titleBn).catch(() => {});
+            }
+          }}
+          onClose={() => setEditingSlide(null)}
+        />
+      )}
+
+      {/* Direct Edit Course Modal */}
+      {editingCourse && (
+        <EditCourseModal
+          course={editingCourse}
+          lang={lang}
+          onSave={(updatedCourse) => {
+            updateCourse(updatedCourse);
+            setEditingCourse(null);
+            showToast(lang === 'bn' ? 'কোর্স সফলভাবে আপডেট হয়েছে!' : 'Course updated!');
+            if (githubConfig.enabled && githubConfig.autoPushOnChange && githubConfig.token) {
+              pushToGitHub('Updated course: ' + updatedCourse.titleBn).catch(() => {});
+            }
+          }}
+          onClose={() => setEditingCourse(null)}
+        />
+      )}
+
+      {/* Direct Edit Student Modal */}
+      {editingStudent && (
+        <EditStudentModal
+          student={editingStudent}
+          courses={courses}
+          lang={lang}
+          onSave={(updatedStudent) => {
+            updateStudent(updatedStudent);
+            setEditingStudent(null);
+            showToast(lang === 'bn' ? 'শিক্ষার্থী তথ্য আপডেট হয়েছে!' : 'Student updated!');
+            if (githubConfig.enabled && githubConfig.autoPushOnChange && githubConfig.token) {
+              pushToGitHub('Updated student: ' + updatedStudent.nameBn).catch(() => {});
+            }
+          }}
+          onClose={() => setEditingStudent(null)}
+        />
+      )}
+
+      {/* Direct Edit Teacher Modal */}
+      {editingTeacher && (
+        <EditTeacherModal
+          teacher={editingTeacher}
+          lang={lang}
+          onSave={(updatedTeacher) => {
+            updateTeacher(updatedTeacher);
+            setEditingTeacher(null);
+            showToast(lang === 'bn' ? 'শিক্ষক প্রোফাইল আপডেট হয়েছে!' : 'Teacher updated!');
+            if (githubConfig.enabled && githubConfig.autoPushOnChange && githubConfig.token) {
+              pushToGitHub('Updated teacher: ' + updatedTeacher.nameBn).catch(() => {});
+            }
+          }}
+          onClose={() => setEditingTeacher(null)}
+        />
+      )}
+
+      {/* Teacher ID Card Modal */}
+      {idCardTeacher && (
+        <TeacherIdCardModal
+          teacher={idCardTeacher}
+          schoolSettings={schoolSettings}
+          lang={lang}
+          onClose={() => setIdCardTeacher(null)}
+        />
+      )}
+
+      {/* Printable Result Sheet Modal */}
+      {showPrintResultSheet && (
+        <PrintableResultSheet
+          results={results}
+          students={students}
+          courses={courses}
+          subjects={subjects}
+          exams={exams}
+          academicYear="2026"
+          selectedCourseId={courses[0]?.id || ''}
+          selectedExamId={exams[0]?.id || ''}
+          schoolSettings={schoolSettings}
+          lang={lang}
+          onClose={() => setShowPrintResultSheet(false)}
+        />
+      )}
     </div>
   );
 };
