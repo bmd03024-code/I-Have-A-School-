@@ -36,7 +36,7 @@ import {
   DEFAULT_GITHUB_CONFIG,
   MODEL_TESTS as DEFAULT_TESTS
 } from '../data/mockData';
-import { notifyRealtimeUpdate, subscribeRealtimeUpdate } from '../lib/storageService';
+import { notifyRealtimeUpdate, subscribeRealtimeUpdate, clearAllCachesAndBroadcast, safeStorage } from '../lib/storageService';
 import { pushDataToGitHub, fetchDataFromGitHub } from '../services/githubSyncService';
 
 export interface AppContextType {
@@ -168,15 +168,75 @@ export interface AppContextType {
   setIsCalcOpen: (open: boolean) => void;
   isFloatingDictOpen: boolean;
   setIsFloatingDictOpen: (open: boolean) => void;
+  isChatbotOpen: boolean;
+  setIsChatbotOpen: (open: boolean) => void;
+  clearCacheAndSyncRealtime: () => void;
+  reloadAllFromStorage: () => void;
 }
 
 export const AppContext = createContext<AppContextType | undefined>(undefined);
 
+const persistItem = (key: string, data: any) => {
+  try {
+    const val = typeof data === 'string' ? data : JSON.stringify(data);
+    safeStorage.setItem(key, val);
+  } catch (err) {
+    console.warn(`[AppContext] Error persisting ${key}:`, err);
+  }
+};
+
+const getPersistedItem = <T,>(key: string, fallback: T): T => {
+  try {
+    const raw = safeStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
+};
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // Safe storage initialization: clean legacy bloated data URLs that may choke browser quota
+  useEffect(() => {
+    try {
+      const keysToAudit = ['ihas_hero_slides', 'ihas_teachers', 'ihas_courses', 'ihas_notices', 'ihas_routines', 'ihas_notes'];
+      for (const k of keysToAudit) {
+        const val = safeStorage.getItem(k);
+        if (val && val.length > 250000) {
+          try {
+            const parsed = JSON.parse(val);
+            if (Array.isArray(parsed)) {
+              let modified = false;
+              const sanitized = parsed.map((item: any) => {
+                if (item && typeof item === 'object') {
+                  const clone = { ...item };
+                  ['imageUrl', 'photoUrl', 'bannerUrl', 'pdfUrl'].forEach((prop) => {
+                    if (typeof clone[prop] === 'string' && clone[prop].startsWith('data:image') && clone[prop].length > 60000) {
+                      clone[prop] = 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=800&auto=format&fit=crop&q=80';
+                      modified = true;
+                    }
+                  });
+                  return clone;
+                }
+                return item;
+              });
+              if (modified) {
+                safeStorage.setItem(k, JSON.stringify(sanitized));
+              }
+            }
+          } catch {
+            // ignore
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Initial storage cleanup error:', e);
+    }
+  }, []);
+
   // 1. Language: Default to 'bn', togglable to 'en'
   const [lang, setLang] = useState<Language>(() => {
     try {
-      const saved = localStorage.getItem('ihas_language');
+      const saved = safeStorage.getItem('ihas_language');
       return (saved === 'en' || saved === 'bn') ? saved : 'bn';
     } catch {
       return 'bn';
@@ -186,7 +246,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const toggleLang = () => {
     setLang((prev) => {
       const next = prev === 'bn' ? 'en' : 'bn';
-      localStorage.setItem('ihas_language', next);
+      persistItem('ihas_language', next);
       return next;
     });
   };
@@ -195,17 +255,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // 2. Admin Authentication & Default Credentials (tuhinsir@gmail.com / tuhinsir1234)
   const [adminCredentials, setAdminCredentials] = useState(() => {
-    try {
-      const saved = localStorage.getItem('ihas_admin_creds');
-      return saved ? JSON.parse(saved) : { email: 'tuhinsir@gmail.com', password: 'tuhinsir1234' };
-    } catch {
-      return { email: 'tuhinsir@gmail.com', password: 'tuhinsir1234' };
-    }
+    return getPersistedItem('ihas_admin_creds', { email: 'tuhinsir@gmail.com', password: 'tuhinsir1234' });
   });
 
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(() => {
     try {
-      return localStorage.getItem('ihas_admin_session') === 'true';
+      return safeStorage.getItem('ihas_admin_session') === 'true';
     } catch {
       return false;
     }
@@ -214,7 +269,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const loginAdmin = (email: string, pass: string): boolean => {
     if (email.toLowerCase() === adminCredentials.email.toLowerCase() && pass === adminCredentials.password) {
       setIsAdminLoggedIn(true);
-      localStorage.setItem('ihas_admin_session', 'true');
+      safeStorage.setItem('ihas_admin_session', 'true');
       return true;
     }
     return false;
@@ -222,45 +277,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const logoutAdmin = () => {
     setIsAdminLoggedIn(false);
-    localStorage.removeItem('ihas_admin_session');
+    safeStorage.removeItem('ihas_admin_session');
   };
 
   const updateAdminCredentials = (email: string, pass: string) => {
     const creds = { email, password: pass };
     setAdminCredentials(creds);
-    localStorage.setItem('ihas_admin_creds', JSON.stringify(creds));
+    persistItem('ihas_admin_creds', creds);
   };
 
   // 3. School Settings & Branding
   const [schoolSettings, setSchoolSettings] = useState<SchoolSettings>(() => {
-    try {
-      const saved = localStorage.getItem('ihas_school_settings');
-      return saved ? JSON.parse(saved) : DEFAULT_SCHOOL_SETTINGS;
-    } catch {
-      return DEFAULT_SCHOOL_SETTINGS;
-    }
+    return getPersistedItem('ihas_school_settings', DEFAULT_SCHOOL_SETTINGS);
   });
 
   const updateSchoolSettings = (newSettings: SchoolSettings) => {
     setSchoolSettings(newSettings);
-    localStorage.setItem('ihas_school_settings', JSON.stringify(newSettings));
+    persistItem('ihas_school_settings', newSettings);
     notifyRealtimeUpdate('schoolSettings', newSettings);
   };
 
-  // 4. Hero Slides
+  // 4. Hero Slides (Safe with Quota Protection)
   const [heroSlides, setHeroSlides] = useState<HeroSlide[]>(() => {
-    try {
-      const saved = localStorage.getItem('ihas_hero_slides');
-      return saved ? JSON.parse(saved) : INITIAL_HERO_SLIDES;
-    } catch {
-      return INITIAL_HERO_SLIDES;
-    }
+    return getPersistedItem('ihas_hero_slides', INITIAL_HERO_SLIDES);
   });
 
   const addHeroSlide = (slide: HeroSlide) => {
     setHeroSlides((prev) => {
       const next = [slide, ...prev];
-      localStorage.setItem('ihas_hero_slides', JSON.stringify(next));
+      persistItem('ihas_hero_slides', next);
       notifyRealtimeUpdate('heroSlides', next);
       return next;
     });
@@ -269,7 +314,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const updateHeroSlide = (slide: HeroSlide) => {
     setHeroSlides((prev) => {
       const next = prev.map((s) => (s.id === slide.id ? slide : s));
-      localStorage.setItem('ihas_hero_slides', JSON.stringify(next));
+      persistItem('ihas_hero_slides', next);
       notifyRealtimeUpdate('heroSlides', next);
       return next;
     });
@@ -278,7 +323,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteHeroSlide = (id: string) => {
     setHeroSlides((prev) => {
       const next = prev.filter((s) => s.id !== id);
-      localStorage.setItem('ihas_hero_slides', JSON.stringify(next));
+      persistItem('ihas_hero_slides', next);
       notifyRealtimeUpdate('heroSlides', next);
       return next;
     });
@@ -286,18 +331,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // 5. Courses
   const [courses, setCourses] = useState<Course[]>(() => {
-    try {
-      const saved = localStorage.getItem('ihas_courses');
-      return saved ? JSON.parse(saved) : DEFAULT_COURSES;
-    } catch {
-      return DEFAULT_COURSES;
-    }
+    return getPersistedItem('ihas_courses', DEFAULT_COURSES);
   });
 
   const addCourse = (course: Course) => {
     setCourses((prev) => {
       const next = [course, ...prev];
-      localStorage.setItem('ihas_courses', JSON.stringify(next));
+      persistItem('ihas_courses', next);
       notifyRealtimeUpdate('courses', next);
       return next;
     });
@@ -306,7 +346,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const updateCourse = (course: Course) => {
     setCourses((prev) => {
       const next = prev.map((c) => (c.id === course.id ? course : c));
-      localStorage.setItem('ihas_courses', JSON.stringify(next));
+      persistItem('ihas_courses', next);
       notifyRealtimeUpdate('courses', next);
       return next;
     });
@@ -315,7 +355,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteCourse = (id: string) => {
     setCourses((prev) => {
       const next = prev.filter((c) => c.id !== id);
-      localStorage.setItem('ihas_courses', JSON.stringify(next));
+      persistItem('ihas_courses', next);
       notifyRealtimeUpdate('courses', next);
       return next;
     });
@@ -323,18 +363,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // 6. Students
   const [students, setStudents] = useState<Student[]>(() => {
-    try {
-      const saved = localStorage.getItem('ihas_students');
-      return saved ? JSON.parse(saved) : INITIAL_STUDENTS;
-    } catch {
-      return INITIAL_STUDENTS;
-    }
+    return getPersistedItem('ihas_students', INITIAL_STUDENTS);
   });
 
   const addStudent = (student: Student) => {
     setStudents((prev) => {
       const next = [student, ...prev];
-      localStorage.setItem('ihas_students', JSON.stringify(next));
+      persistItem('ihas_students', next);
       notifyRealtimeUpdate('students', next);
       return next;
     });
@@ -343,7 +378,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const updateStudent = (student: Student) => {
     setStudents((prev) => {
       const next = prev.map((s) => (s.id === student.id ? student : s));
-      localStorage.setItem('ihas_students', JSON.stringify(next));
+      persistItem('ihas_students', next);
       notifyRealtimeUpdate('students', next);
       return next;
     });
@@ -352,7 +387,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteStudent = (id: string) => {
     setStudents((prev) => {
       const next = prev.filter((s) => s.id !== id);
-      localStorage.setItem('ihas_students', JSON.stringify(next));
+      persistItem('ihas_students', next);
       notifyRealtimeUpdate('students', next);
       return next;
     });
@@ -360,18 +395,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // 7. Subjects & Exams
   const [subjects, setSubjects] = useState<CourseSubject[]>(() => {
-    try {
-      const saved = localStorage.getItem('ihas_subjects');
-      return saved ? JSON.parse(saved) : INITIAL_SUBJECTS;
-    } catch {
-      return INITIAL_SUBJECTS;
-    }
+    return getPersistedItem('ihas_subjects', INITIAL_SUBJECTS);
   });
 
   const addSubject = (sub: CourseSubject) => {
     setSubjects((prev) => {
       const next = [...prev, sub];
-      localStorage.setItem('ihas_subjects', JSON.stringify(next));
+      persistItem('ihas_subjects', next);
       notifyRealtimeUpdate('subjects', next);
       return next;
     });
@@ -380,25 +410,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteSubject = (id: string) => {
     setSubjects((prev) => {
       const next = prev.filter((s) => s.id !== id);
-      localStorage.setItem('ihas_subjects', JSON.stringify(next));
+      persistItem('ihas_subjects', next);
       notifyRealtimeUpdate('subjects', next);
       return next;
     });
   };
 
   const [exams, setExams] = useState<CourseExam[]>(() => {
-    try {
-      const saved = localStorage.getItem('ihas_exams');
-      return saved ? JSON.parse(saved) : INITIAL_EXAMS;
-    } catch {
-      return INITIAL_EXAMS;
-    }
+    return getPersistedItem('ihas_exams', INITIAL_EXAMS);
   });
 
   const addExam = (exam: CourseExam) => {
     setExams((prev) => {
       const next = [...prev, exam];
-      localStorage.setItem('ihas_exams', JSON.stringify(next));
+      persistItem('ihas_exams', next);
       notifyRealtimeUpdate('exams', next);
       return next;
     });
@@ -407,7 +432,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteExam = (id: string) => {
     setExams((prev) => {
       const next = prev.filter((e) => e.id !== id);
-      localStorage.setItem('ihas_exams', JSON.stringify(next));
+      persistItem('ihas_exams', next);
       notifyRealtimeUpdate('exams', next);
       return next;
     });
@@ -415,12 +440,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // 8. Results
   const [results, setResults] = useState<StudentResult[]>(() => {
-    try {
-      const saved = localStorage.getItem('ihas_results');
-      return saved ? JSON.parse(saved) : INITIAL_RESULTS;
-    } catch {
-      return INITIAL_RESULTS;
-    }
+    return getPersistedItem('ihas_results', INITIAL_RESULTS);
   });
 
   const addResult = (res: StudentResult) => {
@@ -429,7 +449,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         (r) => !(r.studentRoll === res.studentRoll && r.academicYear === res.academicYear && r.courseId === res.courseId && r.examId === res.examId)
       );
       const next = [res, ...filtered];
-      localStorage.setItem('ihas_results', JSON.stringify(next));
+      persistItem('ihas_results', next);
       notifyRealtimeUpdate('results', next);
       return next;
     });
@@ -438,7 +458,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteResult = (id: string) => {
     setResults((prev) => {
       const next = prev.filter((r) => r.id !== id);
-      localStorage.setItem('ihas_results', JSON.stringify(next));
+      persistItem('ihas_results', next);
       notifyRealtimeUpdate('results', next);
       return next;
     });
@@ -446,18 +466,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // 9. Teachers
   const [teachers, setTeachers] = useState<Teacher[]>(() => {
-    try {
-      const saved = localStorage.getItem('ihas_teachers');
-      return saved ? JSON.parse(saved) : INITIAL_TEACHERS;
-    } catch {
-      return INITIAL_TEACHERS;
-    }
+    return getPersistedItem('ihas_teachers', INITIAL_TEACHERS);
   });
 
   const addTeacher = (tch: Teacher) => {
     setTeachers((prev) => {
       const next = [...prev, tch];
-      localStorage.setItem('ihas_teachers', JSON.stringify(next));
+      persistItem('ihas_teachers', next);
       notifyRealtimeUpdate('teachers', next);
       return next;
     });
@@ -466,7 +481,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const updateTeacher = (tch: Teacher) => {
     setTeachers((prev) => {
       const next = prev.map((t) => (t.id === tch.id ? tch : t));
-      localStorage.setItem('ihas_teachers', JSON.stringify(next));
+      persistItem('ihas_teachers', next);
       notifyRealtimeUpdate('teachers', next);
       return next;
     });
@@ -475,7 +490,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteTeacher = (id: string) => {
     setTeachers((prev) => {
       const next = prev.filter((t) => t.id !== id);
-      localStorage.setItem('ihas_teachers', JSON.stringify(next));
+      persistItem('ihas_teachers', next);
       notifyRealtimeUpdate('teachers', next);
       return next;
     });
@@ -483,18 +498,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // 10. Videos, Notes, Notices
   const [videoClasses, setVideoClasses] = useState<VideoClass[]>(() => {
-    try {
-      const saved = localStorage.getItem('ihas_videos');
-      return saved ? JSON.parse(saved) : DEFAULT_VIDEOS;
-    } catch {
-      return DEFAULT_VIDEOS;
-    }
+    return getPersistedItem('ihas_videos', getPersistedItem('ihas_video_classes', DEFAULT_VIDEOS));
   });
 
   const addVideoClass = (v: VideoClass) => {
     setVideoClasses((prev) => {
       const next = [v, ...prev];
-      localStorage.setItem('ihas_videos', JSON.stringify(next));
+      persistItem('ihas_videos', next);
+      persistItem('ihas_video_classes', next);
       notifyRealtimeUpdate('videoClasses', next);
       return next;
     });
@@ -503,7 +514,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const updateVideoClass = (v: VideoClass) => {
     setVideoClasses((prev) => {
       const next = prev.map((vid) => (vid.id === v.id ? v : vid));
-      localStorage.setItem('ihas_videos', JSON.stringify(next));
+      persistItem('ihas_videos', next);
+      persistItem('ihas_video_classes', next);
       notifyRealtimeUpdate('videoClasses', next);
       return next;
     });
@@ -512,25 +524,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteVideoClass = (id: string) => {
     setVideoClasses((prev) => {
       const next = prev.filter((v) => v.id !== id);
-      localStorage.setItem('ihas_videos', JSON.stringify(next));
+      persistItem('ihas_videos', next);
+      persistItem('ihas_video_classes', next);
       notifyRealtimeUpdate('videoClasses', next);
       return next;
     });
   };
 
   const [notes, setNotes] = useState<NoteResource[]>(() => {
-    try {
-      const saved = localStorage.getItem('ihas_notes');
-      return saved ? JSON.parse(saved) : DEFAULT_NOTES;
-    } catch {
-      return DEFAULT_NOTES;
-    }
+    return getPersistedItem('ihas_notes', DEFAULT_NOTES);
   });
 
   const addNote = (n: NoteResource) => {
     setNotes((prev) => {
       const next = [n, ...prev];
-      localStorage.setItem('ihas_notes', JSON.stringify(next));
+      persistItem('ihas_notes', next);
       notifyRealtimeUpdate('notes', next);
       return next;
     });
@@ -539,7 +547,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const updateNote = (n: NoteResource) => {
     setNotes((prev) => {
       const next = prev.map((note) => (note.id === n.id ? n : note));
-      localStorage.setItem('ihas_notes', JSON.stringify(next));
+      persistItem('ihas_notes', next);
       notifyRealtimeUpdate('notes', next);
       return next;
     });
@@ -548,25 +556,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteNote = (id: string) => {
     setNotes((prev) => {
       const next = prev.filter((n) => n.id !== id);
-      localStorage.setItem('ihas_notes', JSON.stringify(next));
+      persistItem('ihas_notes', next);
       notifyRealtimeUpdate('notes', next);
       return next;
     });
   };
 
   const [notices, setNotices] = useState<Notice[]>(() => {
-    try {
-      const saved = localStorage.getItem('ihas_notices');
-      return saved ? JSON.parse(saved) : DEFAULT_NOTICES;
-    } catch {
-      return DEFAULT_NOTICES;
-    }
+    return getPersistedItem('ihas_notices', DEFAULT_NOTICES);
   });
 
   const addNotice = (nt: Notice) => {
     setNotices((prev) => {
       const next = [nt, ...prev];
-      localStorage.setItem('ihas_notices', JSON.stringify(next));
+      persistItem('ihas_notices', next);
       notifyRealtimeUpdate('notices', next);
       return next;
     });
@@ -575,7 +578,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const updateNotice = (nt: Notice) => {
     setNotices((prev) => {
       const next = prev.map((n) => (n.id === nt.id ? nt : n));
-      localStorage.setItem('ihas_notices', JSON.stringify(next));
+      persistItem('ihas_notices', next);
       notifyRealtimeUpdate('notices', next);
       return next;
     });
@@ -584,7 +587,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteNotice = (id: string) => {
     setNotices((prev) => {
       const next = prev.filter((nt) => nt.id !== id);
-      localStorage.setItem('ihas_notices', JSON.stringify(next));
+      persistItem('ihas_notices', next);
       notifyRealtimeUpdate('notices', next);
       return next;
     });
@@ -592,18 +595,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // 11. Routines
   const [routines, setRoutines] = useState<ClassRoutine[]>(() => {
-    try {
-      const saved = localStorage.getItem('ihas_routines');
-      return saved ? JSON.parse(saved) : INITIAL_ROUTINES;
-    } catch {
-      return INITIAL_ROUTINES;
-    }
+    return getPersistedItem('ihas_routines', INITIAL_ROUTINES);
   });
 
   const addRoutine = (rtn: ClassRoutine) => {
     setRoutines((prev) => {
       const next = [rtn, ...prev];
-      localStorage.setItem('ihas_routines', JSON.stringify(next));
+      persistItem('ihas_routines', next);
       notifyRealtimeUpdate('routines', next);
       return next;
     });
@@ -612,7 +610,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const updateRoutine = (rtn: ClassRoutine) => {
     setRoutines((prev) => {
       const next = prev.map((r) => (r.id === rtn.id ? rtn : r));
-      localStorage.setItem('ihas_routines', JSON.stringify(next));
+      persistItem('ihas_routines', next);
       notifyRealtimeUpdate('routines', next);
       return next;
     });
@@ -621,7 +619,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteRoutine = (id: string) => {
     setRoutines((prev) => {
       const next = prev.filter((r) => r.id !== id);
-      localStorage.setItem('ihas_routines', JSON.stringify(next));
+      persistItem('ihas_routines', next);
       notifyRealtimeUpdate('routines', next);
       return next;
     });
@@ -629,18 +627,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // 12. Chatbot Training Module (up to 1,000,000 words capacity)
   const [chatbotTraining, setChatbotTraining] = useState<ChatbotTrainingItem[]>(() => {
-    try {
-      const saved = localStorage.getItem('ihas_chatbot_training');
-      return saved ? JSON.parse(saved) : INITIAL_CHATBOT_TRAINING;
-    } catch {
-      return INITIAL_CHATBOT_TRAINING;
-    }
+    return getPersistedItem('ihas_chatbot_training', INITIAL_CHATBOT_TRAINING);
   });
 
   const addChatbotTraining = (item: ChatbotTrainingItem) => {
     setChatbotTraining((prev) => {
       const next = [item, ...prev];
-      localStorage.setItem('ihas_chatbot_training', JSON.stringify(next));
+      persistItem('ihas_chatbot_training', next);
       notifyRealtimeUpdate('chatbotTraining', next);
       return next;
     });
@@ -649,7 +642,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const updateChatbotTraining = (item: ChatbotTrainingItem) => {
     setChatbotTraining((prev) => {
       const next = prev.map((t) => (t.id === item.id ? item : t));
-      localStorage.setItem('ihas_chatbot_training', JSON.stringify(next));
+      persistItem('ihas_chatbot_training', next);
       notifyRealtimeUpdate('chatbotTraining', next);
       return next;
     });
@@ -658,7 +651,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteChatbotTraining = (id: string) => {
     setChatbotTraining((prev) => {
       const next = prev.filter((t) => t.id !== id);
-      localStorage.setItem('ihas_chatbot_training', JSON.stringify(next));
+      persistItem('ihas_chatbot_training', next);
       notifyRealtimeUpdate('chatbotTraining', next);
       return next;
     });
@@ -666,18 +659,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // 13. Quizzes / Model Tests (Quiz Management)
   const [modelTests, setModelTests] = useState<ModelTest[]>(() => {
-    try {
-      const saved = localStorage.getItem('ihas_quizzes');
-      return saved ? JSON.parse(saved) : DEFAULT_TESTS;
-    } catch {
-      return DEFAULT_TESTS;
-    }
+    return getPersistedItem('ihas_quizzes', DEFAULT_TESTS);
   });
 
   const addModelTest = (test: ModelTest) => {
     setModelTests((prev) => {
       const next = [test, ...prev];
-      localStorage.setItem('ihas_quizzes', JSON.stringify(next));
+      persistItem('ihas_quizzes', next);
       notifyRealtimeUpdate('quizzes', next);
       return next;
     });
@@ -686,7 +674,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const updateModelTest = (test: ModelTest) => {
     setModelTests((prev) => {
       const next = prev.map((t) => (t.id === test.id ? test : t));
-      localStorage.setItem('ihas_quizzes', JSON.stringify(next));
+      persistItem('ihas_quizzes', next);
       notifyRealtimeUpdate('quizzes', next);
       return next;
     });
@@ -695,7 +683,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteModelTest = (id: string) => {
     setModelTests((prev) => {
       const next = prev.filter((t) => t.id !== id);
-      localStorage.setItem('ihas_quizzes', JSON.stringify(next));
+      persistItem('ihas_quizzes', next);
       notifyRealtimeUpdate('quizzes', next);
       return next;
     });
@@ -703,19 +691,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // 14. Google Cloud Database & Storage Integration
   const [googleCloudConfig, setGoogleCloudConfig] = useState<GoogleCloudConfig>(() => {
-    try {
-      const saved = localStorage.getItem('ihas_google_cloud_config');
-      return saved ? JSON.parse(saved) : DEFAULT_GOOGLE_CLOUD_CONFIG;
-    } catch {
-      return DEFAULT_GOOGLE_CLOUD_CONFIG;
-    }
+    return getPersistedItem('ihas_google_cloud_config', DEFAULT_GOOGLE_CLOUD_CONFIG);
   });
 
   const [isCloudSyncing, setIsCloudSyncing] = useState(false);
 
   const updateGoogleCloudConfig = (config: GoogleCloudConfig) => {
     setGoogleCloudConfig(config);
-    localStorage.setItem('ihas_google_cloud_config', JSON.stringify(config));
+    persistItem('ihas_google_cloud_config', config);
     notifyRealtimeUpdate('googleCloudConfig', config);
   };
 
@@ -729,7 +712,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         lastSyncedAt: new Date().toISOString()
       };
       setGoogleCloudConfig(updatedConfig);
-      localStorage.setItem('ihas_google_cloud_config', JSON.stringify(updatedConfig));
+      persistItem('ihas_google_cloud_config', updatedConfig);
       notifyRealtimeUpdate('googleCloudSync', { status: 'synced', time: updatedConfig.lastSyncedAt });
     } finally {
       setIsCloudSyncing(false);
@@ -761,7 +744,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateGitHubConfig = (cfg: GitHubConfig) => {
     setGithubConfig(cfg);
-    localStorage.setItem('ihas_github_config', JSON.stringify(cfg));
+    persistItem('ihas_github_config', cfg);
     notifyRealtimeUpdate('githubConfig', cfg);
   };
 
@@ -770,63 +753,64 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       if (data.schoolSettings) {
         setSchoolSettings(data.schoolSettings);
-        localStorage.setItem('ihas_school_settings', JSON.stringify(data.schoolSettings));
+        persistItem('ihas_school_settings', data.schoolSettings);
       }
       if (Array.isArray(data.heroSlides)) {
         setHeroSlides(data.heroSlides);
-        localStorage.setItem('ihas_hero_slides', JSON.stringify(data.heroSlides));
+        persistItem('ihas_hero_slides', data.heroSlides);
       }
       if (Array.isArray(data.courses)) {
         setCourses(data.courses);
-        localStorage.setItem('ihas_courses', JSON.stringify(data.courses));
+        persistItem('ihas_courses', data.courses);
       }
       if (Array.isArray(data.students)) {
         setStudents(data.students);
-        localStorage.setItem('ihas_students', JSON.stringify(data.students));
+        persistItem('ihas_students', data.students);
       }
       if (Array.isArray(data.subjects)) {
         setSubjects(data.subjects);
-        localStorage.setItem('ihas_subjects', JSON.stringify(data.subjects));
+        persistItem('ihas_subjects', data.subjects);
       }
       if (Array.isArray(data.exams)) {
         setExams(data.exams);
-        localStorage.setItem('ihas_exams', JSON.stringify(data.exams));
+        persistItem('ihas_exams', data.exams);
       }
       if (Array.isArray(data.results)) {
         setResults(data.results);
-        localStorage.setItem('ihas_results', JSON.stringify(data.results));
+        persistItem('ihas_results', data.results);
       }
       if (Array.isArray(data.teachers)) {
         setTeachers(data.teachers);
-        localStorage.setItem('ihas_teachers', JSON.stringify(data.teachers));
+        persistItem('ihas_teachers', data.teachers);
       }
       if (Array.isArray(data.videoClasses)) {
         setVideoClasses(data.videoClasses);
-        localStorage.setItem('ihas_video_classes', JSON.stringify(data.videoClasses));
+        persistItem('ihas_videos', data.videoClasses);
+        persistItem('ihas_video_classes', data.videoClasses);
       }
       if (Array.isArray(data.notes)) {
         setNotes(data.notes);
-        localStorage.setItem('ihas_notes', JSON.stringify(data.notes));
+        persistItem('ihas_notes', data.notes);
       }
       if (Array.isArray(data.notices)) {
         setNotices(data.notices);
-        localStorage.setItem('ihas_notices', JSON.stringify(data.notices));
+        persistItem('ihas_notices', data.notices);
       }
       if (Array.isArray(data.routines)) {
         setRoutines(data.routines);
-        localStorage.setItem('ihas_routines', JSON.stringify(data.routines));
+        persistItem('ihas_routines', data.routines);
       }
       if (Array.isArray(data.chatbotTraining)) {
         setChatbotTraining(data.chatbotTraining);
-        localStorage.setItem('ihas_chatbot_training', JSON.stringify(data.chatbotTraining));
+        persistItem('ihas_chatbot_training', data.chatbotTraining);
       }
       if (Array.isArray(data.modelTests)) {
         setModelTests(data.modelTests);
-        localStorage.setItem('ihas_quizzes', JSON.stringify(data.modelTests));
+        persistItem('ihas_quizzes', data.modelTests);
       }
       if (data.adminCredentials?.email && data.adminCredentials?.password) {
         setAdminCredentials(data.adminCredentials);
-        localStorage.setItem('ihas_admin_creds', JSON.stringify(data.adminCredentials));
+        persistItem('ihas_admin_creds', data.adminCredentials);
       }
     } catch (e) {
       console.warn('Error applying database snapshot:', e);
@@ -873,7 +857,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           lastCommitMessage: customCommitMessage || 'Live update from Admin Panel'
         };
         setGithubConfig(updatedConfig);
-        localStorage.setItem('ihas_github_config', JSON.stringify(updatedConfig));
+        persistItem('ihas_github_config', updatedConfig);
         setGitHubSyncStatus({
           state: 'synced',
           message: 'সফলভাবে পুশ ও লাইভ সিঙ্ক সম্পন্ন হয়েছে',
@@ -933,7 +917,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             lastCommitSha: res.sha || githubConfig.lastCommitSha
           };
           setGithubConfig(updatedConfig);
-          localStorage.setItem('ihas_github_config', JSON.stringify(updatedConfig));
+          persistItem('ihas_github_config', updatedConfig);
           setGitHubSyncStatus({
             state: 'synced',
             message: 'গিটহাব থেকে লাইভ ডেটা সকল ব্রাউজারে সফলভাবে সিঙ্ক হয়েছে',
@@ -970,7 +954,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!githubConfig.enabled || !githubConfig.owner || !githubConfig.repo) return;
 
     // Run initial pull check on mount
-    pullFromGitHub(false).catch(() => {});
+    const initialTimer = setTimeout(() => {
+      pullFromGitHub(false).catch(() => {});
+    }, 0);
 
     // Polling interval for all visitor browsers
     const intervalSec = Math.max(10, githubConfig.autoPollIntervalSec || 30);
@@ -988,6 +974,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     window.addEventListener('online', handleFocus);
 
     return () => {
+      clearTimeout(initialTimer);
       clearInterval(timer);
       window.removeEventListener('focus', handleFocus);
       window.removeEventListener('online', handleFocus);
@@ -1001,13 +988,78 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     githubConfig.autoPollIntervalSec
   ]);
 
+  // Comprehensive state reload from storage to clear stale cache and synchronize in-memory state
+  const reloadAllFromStorage = useCallback(() => {
+    try {
+      const rawSettings = localStorage.getItem('ihas_school_settings');
+      if (rawSettings) setSchoolSettings(JSON.parse(rawSettings));
+
+      const rawSlides = localStorage.getItem('ihas_hero_slides');
+      if (rawSlides) setHeroSlides(JSON.parse(rawSlides));
+
+      const rawCourses = localStorage.getItem('ihas_courses');
+      if (rawCourses) setCourses(JSON.parse(rawCourses));
+
+      const rawStudents = localStorage.getItem('ihas_students');
+      if (rawStudents) setStudents(JSON.parse(rawStudents));
+
+      const rawSubjects = localStorage.getItem('ihas_subjects');
+      if (rawSubjects) setSubjects(JSON.parse(rawSubjects));
+
+      const rawExams = localStorage.getItem('ihas_exams');
+      if (rawExams) setExams(JSON.parse(rawExams));
+
+      const rawResults = localStorage.getItem('ihas_results');
+      if (rawResults) setResults(JSON.parse(rawResults));
+
+      const rawTeachers = localStorage.getItem('ihas_teachers');
+      if (rawTeachers) setTeachers(JSON.parse(rawTeachers));
+
+      const rawVideos = localStorage.getItem('ihas_videos') || localStorage.getItem('ihas_video_classes');
+      if (rawVideos) setVideoClasses(JSON.parse(rawVideos));
+
+      const rawNotes = localStorage.getItem('ihas_notes');
+      if (rawNotes) setNotes(JSON.parse(rawNotes));
+
+      const rawNotices = localStorage.getItem('ihas_notices');
+      if (rawNotices) setNotices(JSON.parse(rawNotices));
+
+      const rawRoutines = localStorage.getItem('ihas_routines');
+      if (rawRoutines) setRoutines(JSON.parse(rawRoutines));
+
+      const rawChatbot = localStorage.getItem('ihas_chatbot_training');
+      if (rawChatbot) setChatbotTraining(JSON.parse(rawChatbot));
+
+      const rawQuizzes = localStorage.getItem('ihas_quizzes');
+      if (rawQuizzes) setModelTests(JSON.parse(rawQuizzes));
+
+      const rawGoogle = localStorage.getItem('ihas_google_cloud_config');
+      if (rawGoogle) setGoogleCloudConfig(JSON.parse(rawGoogle));
+
+      const rawGithub = localStorage.getItem('ihas_github_config');
+      if (rawGithub) setGithubConfig(JSON.parse(rawGithub));
+
+      const rawCreds = localStorage.getItem('ihas_admin_creds');
+      if (rawCreds) setAdminCredentials(JSON.parse(rawCreds));
+    } catch (e) {
+      console.warn('Error reloading all data from storage:', e);
+    }
+  }, []);
+
   // Listen to cross-tab / cross-window real-time synchronization updates
   useEffect(() => {
     const unsubscribe = subscribeRealtimeUpdate((topic, data) => {
       try {
         switch (topic) {
+          case 'all':
+          case 'cache_clear':
+          case 'force_reload': {
+            reloadAllFromStorage();
+            break;
+          }
           case 'schoolSettings':
-          case 'settings': {
+          case 'settings':
+          case 'school_settings': {
             if (data) setSchoolSettings(data);
             else {
               const raw = localStorage.getItem('ihas_school_settings');
@@ -1016,7 +1068,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             break;
           }
           case 'heroSlides':
-          case 'slides': {
+          case 'slides':
+          case 'hero_slides': {
             if (data) setHeroSlides(data);
             else {
               const raw = localStorage.getItem('ihas_hero_slides');
@@ -1073,10 +1126,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             break;
           }
           case 'videoClasses':
-          case 'videos': {
+          case 'videos':
+          case 'video_classes': {
             if (data) setVideoClasses(data);
             else {
-              const raw = localStorage.getItem('ihas_videos');
+              const raw = localStorage.getItem('ihas_videos') || localStorage.getItem('ihas_video_classes');
               if (raw) setVideoClasses(JSON.parse(raw));
             }
             break;
@@ -1114,7 +1168,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
             break;
           }
-          case 'quizzes': {
+          case 'quizzes':
+          case 'modelTests':
+          case 'model_tests': {
             if (data) setModelTests(data);
             else {
               const raw = localStorage.getItem('ihas_quizzes');
@@ -1123,7 +1179,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             break;
           }
           case 'googleCloudConfig':
-          case 'google_cloud': {
+          case 'google_cloud':
+          case 'google_cloud_config': {
             if (data) setGoogleCloudConfig(data);
             else {
               const raw = localStorage.getItem('ihas_google_cloud_config');
@@ -1131,7 +1188,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
             break;
           }
-          case 'admin_creds': {
+          case 'admin_creds':
+          case 'adminCredentials': {
             if (data) setAdminCredentials(data);
             else {
               const raw = localStorage.getItem('ihas_admin_creds');
@@ -1157,6 +1215,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
             break;
           }
+          default: {
+            // For any other entity ping, reload from storage
+            reloadAllFromStorage();
+          }
         }
       } catch (err) {
         console.warn('Realtime update processing error:', err);
@@ -1164,7 +1226,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [reloadAllFromStorage, applyDatabaseSnapshot]);
+
+  // Active Cache-Busting Heartbeat: Polls every 1s to auto-detect any admin edits across windows or iframes without requiring manual page refresh
+  useEffect(() => {
+    let lastKnownVersion = typeof window !== 'undefined' ? localStorage.getItem('ihas_cache_version') || '0' : '0';
+
+    const checkHeartbeat = () => {
+      try {
+        const currentVersion = localStorage.getItem('ihas_cache_version') || '0';
+        if (currentVersion !== lastKnownVersion) {
+          lastKnownVersion = currentVersion;
+          reloadAllFromStorage();
+        }
+      } catch {
+        // ignore storage errors
+      }
+    };
+
+    const interval = setInterval(checkHeartbeat, 1000);
+    return () => clearInterval(interval);
+  }, [reloadAllFromStorage]);
 
   // Student Bookmarks & Enrolled Courses
   const [bookmarks, setBookmarks] = useState<string[]>(() => {
@@ -1208,21 +1290,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isCalcOpen, setIsCalcOpen] = useState(false);
   const [isFloatingDictOpen, setIsFloatingDictOpen] = useState(false);
+  const [isChatbotOpen, setIsChatbotOpen] = useState(false);
 
   useEffect(() => {
-    localStorage.setItem('ihas_bookmarks', JSON.stringify(bookmarks));
+    persistItem('ihas_bookmarks', bookmarks);
   }, [bookmarks]);
 
   useEffect(() => {
-    localStorage.setItem('ihas_enrolled_courses', JSON.stringify(enrolledCourseIds));
+    persistItem('ihas_enrolled_courses', enrolledCourseIds);
   }, [enrolledCourseIds]);
 
   useEffect(() => {
-    localStorage.setItem('ihas_watched_videos', JSON.stringify(watchedVideoIds));
+    persistItem('ihas_watched_videos', watchedVideoIds);
   }, [watchedVideoIds]);
 
   useEffect(() => {
-    localStorage.setItem('ihas_test_scores', JSON.stringify(testScores));
+    persistItem('ihas_test_scores', testScores);
   }, [testScores]);
 
   const toggleBookmark = (id: string) => {
@@ -1279,6 +1362,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setToastMessage(null);
     }, 3200);
   }, []);
+
+  const clearCacheAndSyncRealtime = useCallback(() => {
+    clearAllCachesAndBroadcast();
+    reloadAllFromStorage();
+    showToast(lang === 'bn' ? 'সকল ক্যাশ সফলভাবে ক্লিয়ার হয়েছে এবং সকল উইন্ডোতে রিয়েল-টাইমে আপডেট পাঠানো হয়েছে!' : 'All caches cleared & synced across all windows in real-time!');
+  }, [lang, reloadAllFromStorage, showToast]);
 
   return (
     <AppContext.Provider
@@ -1372,7 +1461,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isCalcOpen,
         setIsCalcOpen,
         isFloatingDictOpen,
-        setIsFloatingDictOpen
+        setIsFloatingDictOpen,
+        isChatbotOpen,
+        setIsChatbotOpen,
+        clearCacheAndSyncRealtime,
+        reloadAllFromStorage
       }}
     >
       {children}

@@ -294,9 +294,12 @@ export const CalculatorModal: React.FC = () => {
   else { gpaCalc = '0.00'; gradeCalc = 'F'; }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150">
+    <div 
+      className="!fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-150"
+      onClick={() => setIsCalcOpen(false)}
+    >
       <div
-        className="bg-slate-900 border border-slate-700/80 rounded-3xl max-w-lg w-full shadow-2xl overflow-hidden flex flex-col text-slate-100"
+        className="bg-slate-900 border border-slate-700/80 rounded-3xl max-w-lg w-full max-h-[92vh] overflow-y-auto shadow-2xl shadow-indigo-950/50 flex flex-col text-slate-100"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

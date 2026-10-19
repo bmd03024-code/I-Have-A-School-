@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { safeStorage } from './storageService';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
@@ -11,14 +12,14 @@ export const supabase = isSupabaseConfigured
   : {
       from: (table: string) => ({
         select: async () => {
-          const raw = localStorage.getItem(`ihas_${table}`);
+          const raw = safeStorage.getItem(`ihas_${table}`);
           return { data: raw ? JSON.parse(raw) : [], error: null };
         },
         insert: async (data: any) => {
-          const raw = localStorage.getItem(`ihas_${table}`);
+          const raw = safeStorage.getItem(`ihas_${table}`);
           const current = raw ? JSON.parse(raw) : [];
           const updated = [...current, ...(Array.isArray(data) ? data : [data])];
-          localStorage.setItem(`ihas_${table}`, JSON.stringify(updated));
+          safeStorage.setItem(`ihas_${table}`, JSON.stringify(updated));
           return { data, error: null };
         },
         update: async (data: any) => ({ data, error: null }),

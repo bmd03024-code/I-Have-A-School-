@@ -82,9 +82,12 @@ export const FloatingDictionary: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150">
+    <div 
+      className="!fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-150"
+      onClick={() => setIsFloatingDictOpen(false)}
+    >
       <div 
-        className="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]"
+        className="bg-white rounded-3xl max-w-lg w-full shadow-2xl shadow-emerald-950/40 border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

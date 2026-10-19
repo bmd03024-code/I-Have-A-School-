@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { BookA, Key, Upload, Database, CheckCircle2, Save, FileText, Plus, Sparkles } from 'lucide-react';
 import { Language } from '../../types';
-import { notifyRealtimeUpdate } from '../../lib/storageService';
+import { notifyRealtimeUpdate, safeStorage } from '../../lib/storageService';
 
 interface DictionaryManagementTabProps {
   lang: Language;
@@ -13,8 +13,8 @@ export const DictionaryManagementTab: React.FC<DictionaryManagementTabProps> = (
   showToast
 }) => {
   // Oxford API Code state
-  const [oxfordApiCode, setOxfordApiCode] = useState(() => localStorage.getItem('ihas_oxford_api_code') || 'OXFORD_PRO_2026_LIVE');
-  const [isOxfordActive, setIsOxfordActive] = useState(() => localStorage.getItem('ihas_oxford_active') !== 'false');
+  const [oxfordApiCode, setOxfordApiCode] = useState(() => safeStorage.getItem('ihas_oxford_api_code') || 'OXFORD_PRO_2026_LIVE');
+  const [isOxfordActive, setIsOxfordActive] = useState(() => safeStorage.getItem('ihas_oxford_active') !== 'false');
 
   // Bulk Words Import State
   const [bulkTextInput, setBulkTextInput] = useState('');
@@ -33,8 +33,8 @@ export const DictionaryManagementTab: React.FC<DictionaryManagementTabProps> = (
 
   const handleSaveApiCode = (e: React.FormEvent) => {
     e.preventDefault();
-    localStorage.setItem('ihas_oxford_api_code', oxfordApiCode);
-    localStorage.setItem('ihas_oxford_active', String(isOxfordActive));
+    safeStorage.setItem('ihas_oxford_api_code', oxfordApiCode);
+    safeStorage.setItem('ihas_oxford_active', String(isOxfordActive));
     notifyRealtimeUpdate('dictionary', { oxfordApiCode, isOxfordActive });
     showToast(lang === 'bn' ? 'অক্সফোর্ড ডিকশনারি API Code সংরক্ষিত হয়েছে!' : 'Oxford Dictionary API Code saved!');
   };
@@ -56,7 +56,7 @@ export const DictionaryManagementTab: React.FC<DictionaryManagementTabProps> = (
     setTimeout(() => {
       const newTotal = totalStoredWords + inputLineCount;
       setTotalStoredWords(newTotal);
-      localStorage.setItem('ihas_custom_words_count', String(newTotal));
+      safeStorage.setItem('ihas_custom_words_count', String(newTotal));
       setImportStatus(null);
       setBulkTextInput('');
       showToast(lang === 'bn' ? `সফলভাবে ${inputLineCount} টি শব্দ ডেটাবেজে সংরক্ষিত হয়েছে!` : `Successfully added ${inputLineCount} words to dictionary database!`);
@@ -68,7 +68,7 @@ export const DictionaryManagementTab: React.FC<DictionaryManagementTabProps> = (
     setTimeout(() => {
       const newTotal = totalStoredWords + 5000;
       setTotalStoredWords(newTotal);
-      localStorage.setItem('ihas_custom_words_count', String(newTotal));
+      safeStorage.setItem('ihas_custom_words_count', String(newTotal));
       setImportStatus(null);
       showToast(
         lang === 'bn' 

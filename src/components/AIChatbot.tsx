@@ -10,8 +10,7 @@ interface ChatMessage {
 }
 
 export const AIChatbot: React.FC = () => {
-  const { lang, schoolSettings, chatbotTraining } = useApp();
-  const [isOpen, setIsOpen] = useState(false);
+  const { lang, schoolSettings, chatbotTraining, isChatbotOpen, setIsChatbotOpen } = useApp();
   const [isMinimized, setIsMinimized] = useState(false);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -34,10 +33,10 @@ export const AIChatbot: React.FC = () => {
   };
 
   useEffect(() => {
-    if (isOpen && !isMinimized) {
+    if (isChatbotOpen && !isMinimized) {
       scrollToBottom();
     }
-  }, [messages, isOpen, isMinimized]);
+  }, [messages, isChatbotOpen, isMinimized]);
 
   const quickPrompts = lang === 'bn' 
     ? [
@@ -139,66 +138,53 @@ export const AIChatbot: React.FC = () => {
     }, 600);
   };
 
+  if (!isChatbotOpen) return null;
+
   return (
-    <>
-      {/* Floating Trigger Button */}
-      {!isOpen && (
-        <button
-          onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 right-6 z-40 bg-gradient-to-tr from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white p-4 rounded-full shadow-2xl flex items-center gap-2 group transition-all hover:scale-105 active:scale-95"
-          title={lang === 'bn' ? 'তুহিন স্যার এআই চ্যাটবট' : 'Tuhin Sir AI Chatbot'}
-        >
-          <div className="relative">
-            <Bot className="w-6 h-6" />
-            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-300 rounded-full animate-ping" />
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={lang === 'bn' ? 'এআই শিক্ষক চ্যাটবট' : 'AI Assistant Chat'}
+      className={`!fixed bottom-4 sm:bottom-6 right-3 sm:right-6 z-[9999] w-[calc(100vw-24px)] sm:w-96 max-w-sm bg-white rounded-3xl shadow-2xl shadow-slate-900/40 border border-slate-200 overflow-hidden flex flex-col transition-all duration-200 animate-in slide-in-from-bottom-5 ${
+        isMinimized ? 'h-16' : 'h-[520px] max-h-[82vh]'
+      }`}
+    >
+      {/* Header */}
+      <div className="bg-gradient-to-r from-emerald-700 via-teal-700 to-emerald-800 text-white p-3.5 sm:p-4 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-full bg-white/20 backdrop-blur-xs flex items-center justify-center text-white">
+            <Bot className="w-4 h-4" />
           </div>
-          <span className="text-xs font-bold hidden sm:inline">
-            {lang === 'bn' ? 'এআই শিক্ষক চ্যাটবট' : 'AI Study Assistant'}
-          </span>
-        </button>
-      )}
-
-      {/* Chat Window */}
-      {isOpen && (
-        <div className={`fixed bottom-4 right-4 z-50 w-full sm:w-96 bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col transition-all duration-200 ${
-          isMinimized ? 'h-16' : 'h-[540px] max-h-[85vh]'
-        }`}>
-          {/* Header */}
-          <div className="bg-gradient-to-r from-emerald-700 via-teal-700 to-emerald-800 text-white p-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-white/20 backdrop-blur-xs flex items-center justify-center text-white">
-                <Bot className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="font-bold text-sm flex items-center gap-1.5">
-                  <span>{lang === 'bn' ? 'আই হ্যাভ এ স্কুল এআই' : 'IHAS Study Assistant'}</span>
-                  <span className="w-2 h-2 rounded-full bg-emerald-300 animate-pulse" />
-                </h3>
-                <p className="text-[10px] text-emerald-200">
-                  {lang === 'bn' ? '২৪/৭ ইংরেজি ও ভর্তি সহকারী' : '24/7 English & Batch Guide'}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-1 text-emerald-100">
-              <button
-                onClick={() => setIsMinimized(!isMinimized)}
-                className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
-                title={isMinimized ? 'Expand' : 'Minimize'}
-              >
-                {isMinimized ? <Maximize2 className="w-4 h-4" /> : <Minimize2 className="w-4 h-4" />}
-              </button>
-              <button
-                onClick={() => setIsOpen(false)}
-                className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
-                title="Close"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+          <div>
+            <h3 className="font-bold text-xs sm:text-sm flex items-center gap-1.5">
+              <span>{lang === 'bn' ? 'আই হ্যাভ এ স্কুল এআই' : 'IHAS Study Assistant'}</span>
+              <span className="w-2 h-2 rounded-full bg-emerald-300 animate-pulse" />
+            </h3>
+            <p className="text-[10px] text-emerald-200">
+              {lang === 'bn' ? '২৪/৭ ইংরেজি ও ভর্তি সহকারী' : '24/7 English & Batch Guide'}
+            </p>
           </div>
+        </div>
 
-          {!isMinimized && (
+        <div className="flex items-center gap-1 text-emerald-100">
+          <button
+            onClick={() => setIsMinimized(!isMinimized)}
+            className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+            title={isMinimized ? 'Expand' : 'Minimize'}
+          >
+            {isMinimized ? <Maximize2 className="w-4 h-4" /> : <Minimize2 className="w-4 h-4" />}
+          </button>
+          <button
+            onClick={() => setIsChatbotOpen(false)}
+            className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+            title="Close"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {!isMinimized && (
             <>
               {/* Messages Body */}
               <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-slate-50 text-xs">
@@ -278,7 +264,5 @@ export const AIChatbot: React.FC = () => {
             </>
           )}
         </div>
-      )}
-    </>
   );
 };

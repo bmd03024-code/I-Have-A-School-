@@ -143,6 +143,7 @@ export const AdminPanel: React.FC = () => {
     gitHubSyncStatus,
     pushToGitHub,
     pullFromGitHub,
+    clearCacheAndSyncRealtime,
     showToast
   } = useApp();
 
@@ -1011,6 +1012,17 @@ export const AdminPanel: React.FC = () => {
               )}
             </div>
 
+            {/* Real-time Cache Clear & Sync Button */}
+            <button
+              type="button"
+              onClick={clearCacheAndSyncRealtime}
+              className="flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold rounded-lg shadow-sm transition-all active:scale-95"
+              title={lang === 'bn' ? 'সকল উইন্ডোর ক্যাশ ক্লিয়ার ও রিয়েল-টাইম সিঙ্ক' : 'Clear Cache & Sync All Windows'}
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">{lang === 'bn' ? 'ক্যাশ ক্লিয়ার ও সিঙ্ক' : 'Clear Cache & Sync'}</span>
+            </button>
+
             <button
               onClick={() => setActiveTab('security')}
               className="text-xs font-semibold text-slate-300 hover:text-white flex items-center gap-1.5 transition-colors"
@@ -1094,6 +1106,40 @@ export const AdminPanel: React.FC = () => {
               >
                 <Save className="w-4 h-4" />
                 <span>{lang === 'bn' ? 'সকল পরিবর্তন সংরক্ষণ করুন' : 'Save All Changes'}</span>
+              </button>
+            </div>
+
+            {/* Real-Time Cache Clearing & Instant Multi-Window Synchronization Card */}
+            <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-teal-950 border border-emerald-500/30 text-white p-5 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-lg">
+              <div className="flex items-start sm:items-center gap-3.5">
+                <div className="w-11 h-11 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-300 shrink-0 shadow-inner">
+                  <RefreshCw className="w-5 h-5 text-emerald-400" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-extrabold text-sm sm:text-base text-white">
+                      {lang === 'bn' ? 'রিয়েল-টাইম অটো-সিঙ্ক ও ইনস্ট্যান্ট ক্যাশ ক্লিয়ার' : 'Real-Time Auto-Sync & Instant Cache Clear'}
+                    </span>
+                    <span className="px-2.5 py-0.5 text-[10px] font-black rounded-full bg-emerald-400 text-slate-950 uppercase tracking-wider flex items-center gap-1 shadow-xs">
+                      <span className="w-1.5 h-1.5 rounded-full bg-slate-950 animate-pulse" />
+                      {lang === 'bn' ? 'লাইভ সক্রিয়' : 'LIVE ACTIVE'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] sm:text-xs text-emerald-100/80 mt-1 max-w-2xl leading-relaxed">
+                    {lang === 'bn'
+                      ? 'অ্যাডমিন যেকোনো তথ্য পরিবর্তন করলে ব্রাউজার ক্যাশ অটোমেটিক ক্লিয়ার হয়ে সকল ট্যাব, উইন্ডো ও মোবাইলে রিলোড/রিফ্রেশ ছাড়াই রিয়েল-টাইমে আপডেট হয়ে যাবে।'
+                      : 'Any admin edit automatically invalidates stale caches and instantly syncs across all open tabs, windows, and mobile devices without requiring page refresh.'}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={clearCacheAndSyncRealtime}
+                className="px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center gap-2 shrink-0 cursor-pointer"
+              >
+                <RefreshCw className="w-4 h-4 text-slate-950" />
+                <span>{lang === 'bn' ? 'ক্যাশ ক্লিয়ার ও ইনস্ট্যান্ট রি-সিঙ্ক' : 'Force Clear Cache & Sync'}</span>
               </button>
             </div>
 
