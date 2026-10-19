@@ -145,7 +145,7 @@ export const AIChatbot: React.FC = () => {
       role="dialog"
       aria-modal="true"
       aria-label={lang === 'bn' ? 'এআই শিক্ষক চ্যাটবট' : 'AI Assistant Chat'}
-      className={`!fixed bottom-4 sm:bottom-6 right-3 sm:right-6 z-[9999] w-[calc(100vw-24px)] sm:w-96 max-w-sm bg-white rounded-3xl shadow-2xl shadow-slate-900/40 border border-slate-200 overflow-hidden flex flex-col transition-all duration-200 animate-in slide-in-from-bottom-5 ${
+      className={`!fixed bottom-4 sm:bottom-6 right-3 sm:right-6 z-[9999] w-[calc(100vw-24px)] sm:w-96 max-w-sm bg-white rounded-3xl shadow-2xl shadow-slate-900/40 border border-slate-200 overflow-hidden flex flex-col ${
         isMinimized ? 'h-16' : 'h-[520px] max-h-[82vh]'
       }`}
     >
@@ -158,7 +158,7 @@ export const AIChatbot: React.FC = () => {
           <div>
             <h3 className="font-bold text-xs sm:text-sm flex items-center gap-1.5">
               <span>{lang === 'bn' ? 'আই হ্যাভ এ স্কুল এআই' : 'IHAS Study Assistant'}</span>
-              <span className="w-2 h-2 rounded-full bg-emerald-300 animate-pulse" />
+              <span className="w-2 h-2 rounded-full bg-emerald-300" />
             </h3>
             <p className="text-[10px] text-emerald-200">
               {lang === 'bn' ? '২৪/৭ ইংরেজি ও ভর্তি সহকারী' : '24/7 English & Batch Guide'}
@@ -222,9 +222,9 @@ export const AIChatbot: React.FC = () => {
 
                 {isTyping && (
                   <div className="flex items-center gap-2 text-slate-400 text-xs italic pl-9">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-bounce" />
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-bounce delay-100" />
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-bounce delay-200" />
+                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 opacity-70" />
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 opacity-40" />
                     <span>{lang === 'bn' ? 'উত্তর তৈরি হচ্ছে...' : 'Tuhin Sir AI is thinking...'}</span>
                   </div>
                 )}

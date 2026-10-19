@@ -83,7 +83,7 @@ export const FloatingDictionary: React.FC = () => {
 
   return (
     <div 
-      className="!fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-150"
+      className="!fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-md"
       onClick={() => setIsFloatingDictOpen(false)}
     >
       <div 
@@ -204,7 +204,7 @@ export const FloatingDictionary: React.FC = () => {
         {/* Word Detail Card */}
         <div className="flex-1 p-5 overflow-y-auto space-y-4">
           {activeWord ? (
-            <div className="space-y-4 animate-in fade-in duration-150">
+            <div className="space-y-4">
               <div className="flex items-start justify-between border-b border-slate-100 pb-4">
                 <div>
                   <div className="flex items-center gap-3">

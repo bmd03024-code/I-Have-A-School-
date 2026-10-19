@@ -176,10 +176,25 @@ export interface AppContextType {
 
 export const AppContext = createContext<AppContextType | undefined>(undefined);
 
+const syncToCodebase = (key: string, data: any) => {
+  try {
+    if (typeof window !== 'undefined' && typeof fetch === 'function') {
+      fetch('/api/sync-to-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key, data, updatedAt: new Date().toISOString() })
+      }).catch(() => {});
+    }
+  } catch {
+    // ignore
+  }
+};
+
 const persistItem = (key: string, data: any) => {
   try {
     const val = typeof data === 'string' ? data : JSON.stringify(data);
     safeStorage.setItem(key, val);
+    syncToCodebase(key, data);
   } catch (err) {
     console.warn(`[AppContext] Error persisting ${key}:`, err);
   }
@@ -195,44 +210,6 @@ const getPersistedItem = <T,>(key: string, fallback: T): T => {
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Safe storage initialization: clean legacy bloated data URLs that may choke browser quota
-  useEffect(() => {
-    try {
-      const keysToAudit = ['ihas_hero_slides', 'ihas_teachers', 'ihas_courses', 'ihas_notices', 'ihas_routines', 'ihas_notes'];
-      for (const k of keysToAudit) {
-        const val = safeStorage.getItem(k);
-        if (val && val.length > 250000) {
-          try {
-            const parsed = JSON.parse(val);
-            if (Array.isArray(parsed)) {
-              let modified = false;
-              const sanitized = parsed.map((item: any) => {
-                if (item && typeof item === 'object') {
-                  const clone = { ...item };
-                  ['imageUrl', 'photoUrl', 'bannerUrl', 'pdfUrl'].forEach((prop) => {
-                    if (typeof clone[prop] === 'string' && clone[prop].startsWith('data:image') && clone[prop].length > 60000) {
-                      clone[prop] = 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=800&auto=format&fit=crop&q=80';
-                      modified = true;
-                    }
-                  });
-                  return clone;
-                }
-                return item;
-              });
-              if (modified) {
-                safeStorage.setItem(k, JSON.stringify(sanitized));
-              }
-            }
-          } catch {
-            // ignore
-          }
-        }
-      }
-    } catch (e) {
-      console.warn('Initial storage cleanup error:', e);
-    }
-  }, []);
-
   // 1. Language: Default to 'bn', togglable to 'en'
   const [lang, setLang] = useState<Language>(() => {
     try {
@@ -1228,11 +1205,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => unsubscribe();
   }, [reloadAllFromStorage, applyDatabaseSnapshot]);
 
-  // Active Cache-Busting Heartbeat: Polls every 1s to auto-detect any admin edits across windows or iframes without requiring manual page refresh
+  // Automatic Website Visitor Cache-Busting & Synchronization:
+  // When visitors open the site, switch tabs, or return via back/forward cache,
+  // stale cache is immediately cleared and the admin's latest changes are shown.
   useEffect(() => {
     let lastKnownVersion = typeof window !== 'undefined' ? localStorage.getItem('ihas_cache_version') || '0' : '0';
 
-    const checkHeartbeat = () => {
+    const checkAndSyncFreshData = () => {
       try {
         const currentVersion = localStorage.getItem('ihas_cache_version') || '0';
         if (currentVersion !== lastKnownVersion) {
@@ -1244,8 +1223,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     };
 
-    const interval = setInterval(checkHeartbeat, 1000);
-    return () => clearInterval(interval);
+    // 1. Regular 800ms heartbeat
+    const interval = setInterval(checkAndSyncFreshData, 800);
+
+    // 2. Immediate fresh reload when visitor tab becomes visible or gains focus
+    const handleVisibilityOrFocus = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        reloadAllFromStorage();
+      }
+    };
+
+    // 3. PageShow event for back/forward navigation cache (bfcache) busting
+    const handlePageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) {
+        reloadAllFromStorage();
+      }
+    };
+
+    window.addEventListener('visibilitychange', handleVisibilityOrFocus);
+    window.addEventListener('focus', handleVisibilityOrFocus);
+    window.addEventListener('pageshow', handlePageShow as EventListener);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+      window.removeEventListener('pageshow', handlePageShow as EventListener);
+    };
   }, [reloadAllFromStorage]);
 
   // Student Bookmarks & Enrolled Courses

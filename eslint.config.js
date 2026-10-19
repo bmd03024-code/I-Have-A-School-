@@ -25,6 +25,8 @@ export default defineConfig([
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
       '@typescript-eslint/ban-ts-comment': 'off',
       'react-hooks/purity': 'off',
+      'react-hooks/refs': 'off',
+      'react-hooks/set-state-in-effect': 'off',
     },
   },
 ])

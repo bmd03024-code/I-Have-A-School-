@@ -92,7 +92,7 @@ export const TeachersDirectory: React.FC = () => {
 
       {/* ID Card Print Modal */}
       {selectedTeacherForId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
           <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 space-y-5">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 print:hidden">
               <h3 className="font-bold text-sm text-slate-900">

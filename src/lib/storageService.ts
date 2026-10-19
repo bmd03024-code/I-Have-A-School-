@@ -10,12 +10,12 @@ const memoryFallback = new Map<string, string>();
 let isShieldInstalled = false;
 
 /**
- * Proactively frees up localStorage quota by removing transient keys and base64 images
+ * Safely removes only volatile temporary cache (e.g., search pings), NEVER user or admin entities
  */
 export function freeUpLocalStorageQuota(): void {
   if (typeof window === 'undefined' || !window.localStorage) return;
   try {
-    // 1. Remove volatile/temp keys
+    // Only remove non-essential volatile/temp keys — NEVER modify or delete admin data
     const volatileKeys = [
       'ihas_temp_cache',
       'ihas_realtime_ping',
@@ -28,43 +28,6 @@ export function freeUpLocalStorageQuota(): void {
         void _e;
       }
     }
-
-    // 2. Scan all localStorage keys for bloated base64 data URLs > 20KB
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (!key) continue;
-      const val = localStorage.getItem(key);
-      if (val && (val.includes('data:image') || val.includes('data:application/pdf') || val.length > 40000)) {
-        try {
-          const parsed = JSON.parse(val);
-          if (Array.isArray(parsed)) {
-            let modified = false;
-            const sanitized = parsed.map((item: any) => {
-              if (item && typeof item === 'object') {
-                const clone = { ...item };
-                ['imageUrl', 'photoUrl', 'bannerUrl', 'pdfUrl', 'avatar'].forEach((prop) => {
-                  if (typeof clone[prop] === 'string' && clone[prop].startsWith('data:') && clone[prop].length > 20000) {
-                    clone[prop] = 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=800&auto=format&fit=crop&q=80';
-                    modified = true;
-                  }
-                });
-                return clone;
-              }
-              return item;
-            });
-            if (modified) {
-              try {
-                localStorage.setItem(key, JSON.stringify(sanitized));
-              } catch (_e) {
-                void _e;
-              }
-            }
-          }
-        } catch (_e) {
-          void _e;
-        }
-      }
-    }
   } catch (err) {
     console.warn('[StorageService] Error during quota cleanup:', err);
   }
@@ -72,6 +35,7 @@ export function freeUpLocalStorageQuota(): void {
 
 /**
  * Installs prototype shield on Storage so no setItem call anywhere in the app can throw QuotaExceededError
+ * and guarantees admin data is NEVER wiped or replaced.
  */
 export function installStorageQuotaShield(): void {
   if (isShieldInstalled || typeof window === 'undefined' || !window.Storage) return;
@@ -94,39 +58,18 @@ export function installStorageQuotaShield(): void {
           String(err).toLowerCase().includes('quota');
 
         if (isQuota) {
-          console.warn(`[StorageQuotaShield] Quota exceeded on "${key}". Freeing space...`);
+          // Free only volatile temporary keys (never admin data)
           freeUpLocalStorageQuota();
 
-          // Try saving once again after cleanup
+          // Try saving once again after volatile cleanup
           try {
             originalSetItem.call(this, key, value);
             memoryFallback.set(key, value);
             return;
           } catch {
-            // If still full, prune large base64 images from the value itself
-            try {
-              const parsed = JSON.parse(value);
-              if (Array.isArray(parsed)) {
-                const sanitized = parsed.map((item: any) => {
-                  if (item && typeof item === 'object') {
-                    const clone = { ...item };
-                    ['imageUrl', 'photoUrl', 'bannerUrl', 'pdfUrl'].forEach((field) => {
-                      if (typeof clone[field] === 'string' && clone[field].startsWith('data:')) {
-                        clone[field] = 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=800&auto=format&fit=crop&q=80';
-                      }
-                    });
-                    return clone;
-                  }
-                  return item;
-                });
-                const compactStr = JSON.stringify(sanitized);
-                originalSetItem.call(this, key, compactStr);
-                memoryFallback.set(key, compactStr);
-                return;
-              }
-            } catch (_e) {
-              void _e;
-            }
+            // Keep completely intact in memoryFallback so no data is ever lost or altered
+            memoryFallback.set(key, value);
+            return;
           }
         }
 

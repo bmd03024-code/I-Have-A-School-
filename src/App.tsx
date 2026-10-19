@@ -30,7 +30,7 @@ export const App: React.FC = () => {
   const { toastMessage } = useApp();
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 text-slate-800 antialiased font-sans">
+    <div className="min-h-screen flex flex-col bg-slate-50 text-slate-800 antialiased font-sans overflow-x-hidden w-full">
       <Navbar />
 
       <main className="flex-1">
@@ -74,9 +74,9 @@ export const App: React.FC = () => {
       {/* AI Educational Chatbot Module */}
       <AIChatbot />
 
-      {/* Toast Notification */}
+      {/* Toast Notification - completely static */}
       {toastMessage && (
-        <div className="fixed top-6 right-6 z-50 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-2xl border border-slate-700 flex items-center gap-2.5 text-xs font-semibold animate-in slide-in-from-top-5 duration-200">
+        <div className="fixed top-6 right-6 z-50 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-2xl border border-slate-700 flex items-center gap-2.5 text-xs font-semibold">
           <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
           <span>{toastMessage}</span>
         </div>

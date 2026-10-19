@@ -155,7 +155,7 @@ export const Courses: React.FC = () => {
                     </button>
 
                     {isSyllabusOpen && (
-                      <div className="mt-3 p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs space-y-3 animate-in fade-in">
+                      <div className="mt-3 p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs space-y-3">
                         <h5 className="font-bold text-slate-900 text-xs uppercase tracking-wider">
                           {lang === 'bn' ? 'সাপ্তাহিক রুটিন ও বিষয়সমূহ' : 'Curriculum Outline'}
                         </h5>

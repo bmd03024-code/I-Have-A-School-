@@ -299,7 +299,7 @@ export const Dictionary: React.FC = () => {
 
       {/* Oxford API Information & Admin-Only Notice Modal */}
       {showOxfordModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
           <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl p-6 border border-slate-200 space-y-5">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="font-bold text-base text-slate-900 flex items-center gap-2">

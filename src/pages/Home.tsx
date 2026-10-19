@@ -67,9 +67,9 @@ export const Home: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <Link
             to="/courses"
-            className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-4 hover:border-emerald-300 hover:shadow-md transition-all group"
+            className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-4 hover:border-emerald-300 hover:shadow-md transition-colors group"
           >
-            <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+            <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
               <BookOpen className="w-6 h-6" />
             </div>
             <div>
@@ -84,9 +84,9 @@ export const Home: React.FC = () => {
 
           <Link
             to="/classes"
-            className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-4 hover:border-emerald-300 hover:shadow-md transition-all group"
+            className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-4 hover:border-emerald-300 hover:shadow-md transition-colors group"
           >
-            <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+            <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
               <Video className="w-6 h-6" />
             </div>
             <div>
@@ -101,9 +101,9 @@ export const Home: React.FC = () => {
 
           <Link
             to="/results"
-            className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-4 hover:border-emerald-300 hover:shadow-md transition-all group"
+            className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-4 hover:border-emerald-300 hover:shadow-md transition-colors group"
           >
-            <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+            <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
               <Award className="w-6 h-6" />
             </div>
             <div>
@@ -118,9 +118,9 @@ export const Home: React.FC = () => {
 
           <Link
             to="/dictionary"
-            className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-4 hover:border-emerald-300 hover:shadow-md transition-all group"
+            className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-4 hover:border-emerald-300 hover:shadow-md transition-colors group"
           >
-            <div className="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+            <div className="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
               <BookA className="w-6 h-6" />
             </div>
             <div>
@@ -178,7 +178,7 @@ export const Home: React.FC = () => {
                     <img
                       src={course.bannerImage}
                       alt={courseTitle}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      className="w-full h-full object-cover"
                     />
                     <span className="absolute top-3 left-3 bg-slate-900/80 backdrop-blur-xs text-white text-[11px] font-semibold px-2.5 py-0.5 rounded-lg">
                       {course.category}
@@ -277,10 +277,10 @@ export const Home: React.FC = () => {
                     <img
                       src={video.thumbnailUrl}
                       alt={lang === 'bn' ? video.titleBn : video.titleEn}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 opacity-90"
+                      className="w-full h-full object-cover opacity-90"
                     />
                     <div className="absolute inset-0 bg-black/20 flex items-center justify-center group-hover:bg-black/40 transition-colors">
-                      <div className="w-12 h-12 rounded-full bg-emerald-600/90 text-white flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                      <div className="w-12 h-12 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-lg">
                         <Play className="w-5 h-5 fill-white ml-0.5" />
                       </div>
                     </div>
@@ -369,7 +369,7 @@ export const Home: React.FC = () => {
           </div>
 
           {quizSubmitted && (
-            <div className="p-3.5 rounded-xl bg-emerald-950/60 border border-emerald-800 text-xs text-emerald-200 animate-in fade-in space-y-1">
+            <div className="p-3.5 rounded-xl bg-emerald-950/60 border border-emerald-800 text-xs text-emerald-200 space-y-1">
               <span className="font-bold block">
                 {lang === 'bn' ? 'তুহিন স্যারের ব্যাকরণগত ব্যাখ্যা:' : "Tuhin Sir's Explanation:"}
               </span>

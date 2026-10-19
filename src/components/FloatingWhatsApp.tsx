@@ -30,16 +30,13 @@ export const FloatingWhatsApp: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsOpen(!isOpen)}
-            className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-tr from-[#128C7E] via-[#25D366] to-[#20bd5a] hover:from-[#075E54] hover:to-[#1ebd56] text-white shadow-2xl flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 group focus:outline-none focus:ring-2 focus:ring-emerald-400 border border-emerald-200/40 ${
-              isOpen ? 'ring-2 ring-emerald-400 ring-offset-2 ring-offset-slate-900 scale-105' : ''
+            className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-tr from-[#128C7E] via-[#25D366] to-[#20bd5a] hover:from-[#075E54] hover:to-[#1ebd56] text-white shadow-2xl flex items-center justify-center transition-colors group focus:outline-none focus:ring-2 focus:ring-emerald-400 border border-emerald-200/40 ${
+              isOpen ? 'ring-2 ring-emerald-400 ring-offset-2 ring-offset-slate-900' : ''
             }`}
             style={{ boxShadow: '0 8px 28px -4px rgba(37, 211, 102, 0.55)' }}
             title={lang === 'bn' ? 'হোয়াটসঅ্যাপে সরাসরি চ্যাট করুন' : 'Chat on WhatsApp'}
             aria-label={lang === 'bn' ? 'হোয়াটসঅ্যাপ হেল্পডেস্ক খুলুন' : 'Open WhatsApp Helpdesk'}
           >
-            {/* Pulsing ring indicator */}
-            <span className="absolute -inset-1 rounded-full bg-[#25D366]/40 animate-ping pointer-events-none" />
-            
             {/* WhatsApp Official SVG Icon */}
             <svg
               className="w-6 h-6 sm:w-7 sm:h-7 fill-current relative z-10"
@@ -53,20 +50,20 @@ export const FloatingWhatsApp: React.FC = () => {
           </button>
 
           {/* Tooltip on hover */}
-          <span className="hidden sm:inline-flex items-center gap-1.5 absolute left-16 top-1/2 -translate-y-1/2 bg-slate-900/95 backdrop-blur-md text-white text-[11px] font-semibold px-3 py-1.5 rounded-xl shadow-2xl border border-slate-700/80 whitespace-nowrap opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-all duration-200 pointer-events-none -translate-x-2 group-hover:translate-x-0">
+          <span className="hidden sm:inline-flex items-center gap-1.5 absolute left-16 top-1/2 -translate-y-1/2 bg-slate-900/95 backdrop-blur-md text-white text-[11px] font-semibold px-3 py-1.5 rounded-xl shadow-2xl border border-slate-700/80 whitespace-nowrap opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity pointer-events-none">
             <MessageCircle className="w-3.5 h-3.5 text-emerald-400" />
             <span>{lang === 'bn' ? 'হোয়াটসঅ্যাপ হেল্পডেস্ক' : 'WhatsApp Helpdesk'}</span>
           </span>
         </div>
       </aside>
 
-      {/* Mini WhatsApp Chat Card / Modal */}
+      {/* Mini WhatsApp Chat Card / Modal - completely static */}
       {isOpen && (
         <div
           role="dialog"
           aria-modal="true"
           aria-label={lang === 'bn' ? 'তুহিন স্যার হেল্পডেস্ক' : 'Tuhin Sir Helpdesk'}
-          className="!fixed bottom-18 sm:bottom-22 left-3 sm:left-6 z-[9999] w-[calc(100vw-24px)] sm:w-80 max-w-xs bg-white rounded-3xl shadow-2xl shadow-emerald-950/40 border border-slate-200 overflow-hidden animate-in slide-in-from-bottom-5 duration-200 text-slate-800"
+          className="!fixed bottom-18 sm:bottom-22 left-3 sm:left-6 z-[9999] w-[calc(100vw-24px)] sm:w-80 max-w-xs bg-white rounded-3xl shadow-2xl shadow-emerald-950/40 border border-slate-200 overflow-hidden text-slate-800"
         >
           {/* Card Header */}
           <div className="bg-[#075E54] text-white p-3.5 sm:p-4 flex items-center justify-between">
@@ -79,7 +76,7 @@ export const FloatingWhatsApp: React.FC = () => {
                   {lang === 'bn' ? 'তুহিন স্যার হেল্পডেস্ক' : 'Tuhin Sir Helpdesk'}
                 </h4>
                 <p className="text-[10px] text-emerald-200 flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-[#25D366] animate-pulse" />
+                  <span className="w-2 h-2 rounded-full bg-[#25D366]" />
                   {lang === 'bn' ? 'অনলাইন ও সক্রিয়' : 'Online & Active'}
                 </p>
               </div>

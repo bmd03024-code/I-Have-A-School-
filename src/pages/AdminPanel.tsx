@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   ShieldCheck, 
@@ -143,7 +143,6 @@ export const AdminPanel: React.FC = () => {
     gitHubSyncStatus,
     pushToGitHub,
     pullFromGitHub,
-    clearCacheAndSyncRealtime,
     showToast
   } = useApp();
 
@@ -192,14 +191,39 @@ export const AdminPanel: React.FC = () => {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  // Settings form state
+  // Settings form state with Auto-Save
   const [settingsForm, setSettingsForm] = useState(schoolSettings);
   const [prevSettings, setPrevSettings] = useState(schoolSettings);
+  const [autoSaveStatus, setAutoSaveStatus] = useState<string>('');
+  const lastSavedSettingsRef = useRef<string>(JSON.stringify(schoolSettings));
 
-  if (schoolSettings !== prevSettings) {
-    setPrevSettings(schoolSettings);
-    setSettingsForm(schoolSettings);
-  }
+  // Sync settingsForm with external schoolSettings updates inside useEffect
+  useEffect(() => {
+    if (schoolSettings !== prevSettings) {
+      setPrevSettings(schoolSettings);
+      setSettingsForm(schoolSettings);
+      lastSavedSettingsRef.current = JSON.stringify(schoolSettings);
+    }
+  }, [schoolSettings, prevSettings]);
+
+  // Automatic Auto-Save for Settings Form (saves without manual submit)
+  useEffect(() => {
+    const currentJson = JSON.stringify(settingsForm);
+    if (currentJson === lastSavedSettingsRef.current) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      lastSavedSettingsRef.current = currentJson;
+      updateSchoolSettings(settingsForm);
+      setAutoSaveStatus(lang === 'bn' ? 'অটো-সেভ সম্পন্ন' : 'Auto-Saved');
+      setTimeout(() => setAutoSaveStatus(''), 2500);
+      if (githubConfig.enabled && githubConfig.autoPushOnChange && githubConfig.token) {
+        pushToGitHub('Auto-saved institution settings & footer').catch(() => {});
+      }
+    }, 450);
+
+    return () => clearTimeout(timer);
+  }, [settingsForm, updateSchoolSettings, githubConfig, lang, pushToGitHub]);
 
   // Footer Learning Hub and Services Link Management States
   const [newLearningTitleBn, setNewLearningTitleBn] = useState('');
@@ -1012,16 +1036,22 @@ export const AdminPanel: React.FC = () => {
               )}
             </div>
 
-            {/* Real-time Cache Clear & Sync Button */}
-            <button
-              type="button"
-              onClick={clearCacheAndSyncRealtime}
-              className="flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold rounded-lg shadow-sm transition-all active:scale-95"
-              title={lang === 'bn' ? 'সকল উইন্ডোর ক্যাশ ক্লিয়ার ও রিয়েল-টাইম সিঙ্ক' : 'Clear Cache & Sync All Windows'}
+            {/* Auto-Save Active Indicator & View Website Button (No cache clearing in admin) */}
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 rounded-lg text-xs font-semibold shadow-xs">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span>{lang === 'bn' ? 'অটো সেভ সক্রিয়' : 'Auto-Save Active'}</span>
+            </div>
+
+            <Link
+              to="/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-800 hover:bg-slate-750 text-slate-200 hover:text-white text-xs font-bold rounded-lg border border-slate-700 transition-all shadow-xs"
+              title={lang === 'bn' ? 'ওয়েবসাইটে পরিবর্তনগুলো সরাসরি দেখুন' : 'View live website'}
             >
-              <RefreshCw className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">{lang === 'bn' ? 'ক্যাশ ক্লিয়ার ও সিঙ্ক' : 'Clear Cache & Sync'}</span>
-            </button>
+              <ExternalLink className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="hidden sm:inline">{lang === 'bn' ? 'লাইভ ওয়েবসাইট' : 'Live Website'}</span>
+            </Link>
 
             <button
               onClick={() => setActiveTab('security')}
@@ -1099,48 +1129,59 @@ export const AdminPanel: React.FC = () => {
                 </p>
               </div>
 
-              <button
-                type="button"
-                onClick={handleSaveSettings}
-                className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 shrink-0"
-              >
-                <Save className="w-4 h-4" />
-                <span>{lang === 'bn' ? 'সকল পরিবর্তন সংরক্ষণ করুন' : 'Save All Changes'}</span>
-              </button>
+              <div className="flex items-center gap-2.5">
+                {autoSaveStatus && (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold rounded-xl animate-in fade-in">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>{autoSaveStatus}</span>
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={handleSaveSettings}
+                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 shrink-0"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>{lang === 'bn' ? 'সকল পরিবর্তন সংরক্ষণ করুন' : 'Save All Changes'}</span>
+                </button>
+              </div>
             </div>
 
-            {/* Real-Time Cache Clearing & Instant Multi-Window Synchronization Card */}
-            <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-teal-950 border border-emerald-500/30 text-white p-5 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-lg">
+            {/* Auto-Save Active & Protected Data Card */}
+            <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-teal-950 border border-emerald-500/40 text-white p-5 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-lg">
               <div className="flex items-start sm:items-center gap-3.5">
                 <div className="w-11 h-11 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-300 shrink-0 shadow-inner">
-                  <RefreshCw className="w-5 h-5 text-emerald-400" />
+                  <ShieldCheck className="w-5 h-5 text-emerald-400" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-extrabold text-sm sm:text-base text-white">
-                      {lang === 'bn' ? 'রিয়েল-টাইম অটো-সিঙ্ক ও ইনস্ট্যান্ট ক্যাশ ক্লিয়ার' : 'Real-Time Auto-Sync & Instant Cache Clear'}
+                      {lang === 'bn' ? 'অ্যাডমিন প্যানেল অটো-সেভ সক্রিয় (ক্যাশ সংরক্ষিত)' : 'Admin Auto-Save Active (Zero Cache Reset)'}
                     </span>
                     <span className="px-2.5 py-0.5 text-[10px] font-black rounded-full bg-emerald-400 text-slate-950 uppercase tracking-wider flex items-center gap-1 shadow-xs">
                       <span className="w-1.5 h-1.5 rounded-full bg-slate-950 animate-pulse" />
-                      {lang === 'bn' ? 'লাইভ সক্রিয়' : 'LIVE ACTIVE'}
+                      {lang === 'bn' ? 'অটো-সেভ চালু' : 'AUTO-SAVED'}
                     </span>
                   </div>
-                  <p className="text-[11px] sm:text-xs text-emerald-100/80 mt-1 max-w-2xl leading-relaxed">
+                  <p className="text-[11px] sm:text-xs text-emerald-100/90 mt-1 max-w-2xl leading-relaxed">
                     {lang === 'bn'
-                      ? 'অ্যাডমিন যেকোনো তথ্য পরিবর্তন করলে ব্রাউজার ক্যাশ অটোমেটিক ক্লিয়ার হয়ে সকল ট্যাব, উইন্ডো ও মোবাইলে রিলোড/রিফ্রেশ ছাড়াই রিয়েল-টাইমে আপডেট হয়ে যাবে।'
-                      : 'Any admin edit automatically invalidates stale caches and instantly syncs across all open tabs, windows, and mobile devices without requiring page refresh.'}
+                      ? 'অ্যাডমিন প্যানেলে যেকোনো পরিবর্তন স্বয়ংক্রিয়ভাবে সেভ হয়ে যায় এবং কখনো ক্যাশ ক্লিয়ার হবে না। আর যে কেউ ওয়েবসাইট ওপেন করলে স্বয়ংক্রিয়ভাবে ওয়েবসাইটের ক্যাশ পরিবর্তন হয়ে অ্যাডমিনের নতুন পরিবর্তন দেখতে পাবে।'
+                      : 'Every admin edit is automatically saved and protected against cache wipe. Public visitors viewing the website will automatically bypass cache and view the fresh changes.'}
                   </p>
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={clearCacheAndSyncRealtime}
-                className="px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center gap-2 shrink-0 cursor-pointer"
-              >
-                <RefreshCw className="w-4 h-4 text-slate-950" />
-                <span>{lang === 'bn' ? 'ক্যাশ ক্লিয়ার ও ইনস্ট্যান্ট রি-সিঙ্ক' : 'Force Clear Cache & Sync'}</span>
-              </button>
+              <div className="flex items-center gap-2 shrink-0">
+                <Link
+                  to="/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <ExternalLink className="w-4 h-4 text-slate-950" />
+                  <span>{lang === 'bn' ? 'লাইভ ওয়েবসাইট দেখুন' : 'View on Website'}</span>
+                </Link>
+              </div>
             </div>
 
             {/* Quick GitHub Live Sync Card */}

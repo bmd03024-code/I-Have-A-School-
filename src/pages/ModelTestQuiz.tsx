@@ -154,7 +154,7 @@ export const ModelTestQuiz: React.FC = () => {
 
       {/* Score Summary Card if submitted */}
       {isSubmitted && (
-        <div className="bg-gradient-to-r from-emerald-900 to-teal-900 text-white p-6 rounded-3xl shadow-lg flex flex-col sm:flex-row items-center justify-between gap-6 animate-in zoom-in-95">
+        <div className="bg-gradient-to-r from-emerald-900 to-teal-900 text-white p-6 rounded-3xl shadow-lg flex flex-col sm:flex-row items-center justify-between gap-6">
           <div className="space-y-1 text-center sm:text-left">
             <span className="text-xs font-bold text-emerald-300 uppercase tracking-wider">
               Test Completed
