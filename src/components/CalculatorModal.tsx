@@ -295,11 +295,11 @@ export const CalculatorModal: React.FC = () => {
 
   return (
     <div 
-      className="!fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-md"
+      className="!fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-md animate-fade-in"
       onClick={() => setIsCalcOpen(false)}
     >
       <div
-        className="bg-slate-900 border border-slate-700/80 rounded-3xl max-w-lg w-full max-h-[92vh] overflow-y-auto shadow-2xl shadow-indigo-950/50 flex flex-col text-slate-100"
+        className="bg-slate-900 border border-slate-700/80 rounded-3xl max-w-lg w-full max-h-[92vh] overflow-y-auto shadow-2xl shadow-indigo-950/50 flex flex-col text-slate-100 animate-scale-in"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

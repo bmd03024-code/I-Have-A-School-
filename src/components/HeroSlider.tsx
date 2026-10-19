@@ -60,10 +60,21 @@ export const HeroSlider: React.FC = () => {
     isFloatingDictOpen 
   } = useApp();
   const [currentIdx, setCurrentIdx] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
 
   const activeSlides = heroSlides.filter((s: HeroSlide) => s.active);
 
-  // Keep hero static: no auto-slide interval (static layout as requested)
+  // Smooth auto-slide every 6 seconds unless hovered
+  useEffect(() => {
+    if (activeSlides.length <= 1 || isPaused) return;
+
+    const timer = setInterval(() => {
+      setCurrentIdx((prev) => (prev + 1) % activeSlides.length);
+    }, 6000);
+
+    return () => clearInterval(timer);
+  }, [activeSlides.length, isPaused]);
+
   if (activeSlides.length === 0) return null;
 
   const current = activeSlides[currentIdx] || activeSlides[0];
@@ -82,21 +93,30 @@ export const HeroSlider: React.FC = () => {
   const bDate = getBanglaCalendarInfo();
 
   return (
-    <div className="relative overflow-hidden bg-slate-950 text-white min-h-[420px] sm:min-h-[460px] lg:min-h-[480px] flex flex-col justify-between">
-      {/* Background image with overlay - completely static, no scale or transition shifts */}
+    <div 
+      className="relative overflow-hidden bg-slate-950 text-white min-h-[420px] sm:min-h-[460px] lg:min-h-[480px] flex flex-col justify-between"
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
+    >
+      {/* Background images with smooth crossfade */}
       <div className="absolute inset-0 z-0">
-        <img
-          src={current.imageUrl}
-          alt={title}
-          className="w-full h-full object-cover opacity-25"
-        />
+        {activeSlides.map((slide, idx) => (
+          <img
+            key={slide.id || idx}
+            src={slide.imageUrl}
+            alt={lang === 'bn' ? slide.titleBn : slide.titleEn}
+            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ease-in-out ${
+              idx === currentIdx ? 'opacity-25' : 'opacity-0 pointer-events-none'
+            }`}
+          />
+        ))}
         <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/85 to-transparent" />
         <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-black/25" />
       </div>
 
-      {/* Slide Content: Completely static layout without layout shifts or animations */}
+      {/* Slide Content: Smooth transition on slide change */}
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 sm:pt-12 pb-6 sm:pb-8 w-full flex-1 flex items-center">
-        <div className="max-w-2xl space-y-4 sm:space-y-5">
+        <div key={current.id || currentIdx} className="max-w-2xl space-y-4 sm:space-y-5 animate-fade-in">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/35 text-emerald-300 text-xs font-bold">
             <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
             <span>{schoolSettings.taglineBn && lang === 'bn' ? schoolSettings.taglineBn : schoolSettings.taglineEn}</span>
@@ -113,7 +133,7 @@ export const HeroSlider: React.FC = () => {
           <div className="flex flex-wrap items-center gap-2.5 pt-1">
             <Link
               to={current.buttonUrl}
-              className="px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs sm:text-sm shadow-xl shadow-emerald-950/40 transition-colors flex items-center gap-2 cursor-pointer"
+              className="px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs sm:text-sm shadow-xl shadow-emerald-950/40 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] flex items-center gap-2 cursor-pointer"
             >
               <span>{buttonText}</span>
               <ArrowRight className="w-4 h-4" />
@@ -127,7 +147,7 @@ export const HeroSlider: React.FC = () => {
               )}`}
               target="_blank"
               rel="noreferrer"
-              className="px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-emerald-700/60 hover:bg-emerald-600/80 text-white font-bold text-xs sm:text-sm border border-emerald-500/50 flex items-center gap-2 transition-colors cursor-pointer"
+              className="px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-emerald-700/60 hover:bg-emerald-600/80 text-white font-bold text-xs sm:text-sm border border-emerald-500/50 flex items-center gap-2 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
             >
               <MessageCircle className="w-4 h-4 text-emerald-300" />
               <span>{lang === 'bn' ? 'হোয়াটসঅ্যাপে সরাসরি ভর্তি' : 'WhatsApp Admission'}</span>
@@ -138,7 +158,7 @@ export const HeroSlider: React.FC = () => {
               onClick={() => {
                 if (courses.length > 0) openEnrollmentModal(courses[0]);
               }}
-              className="px-4 py-2.5 sm:py-3 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 hover:text-white font-bold text-xs sm:text-sm border border-slate-700/80 flex items-center gap-2 transition-colors cursor-pointer"
+              className="px-4 py-2.5 sm:py-3 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 hover:text-white font-bold text-xs sm:text-sm border border-slate-700/80 flex items-center gap-2 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
             >
               <FileText className="w-4 h-4 text-emerald-400" />
               <span>{lang === 'bn' ? 'ভর্তি পরিকল্পনা' : 'Admit Plan'}</span>

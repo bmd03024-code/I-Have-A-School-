@@ -24,9 +24,12 @@ export const VideoPlayerModal: React.FC<VideoPlayerModalProps> = ({ video, onClo
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/80 backdrop-blur-sm">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/80 backdrop-blur-sm animate-fade-in"
+      onClick={onClose}
+    >
       <div 
-        className="bg-slate-900 border border-slate-800 rounded-2xl max-w-4xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[92vh] text-slate-100"
+        className="bg-slate-900 border border-slate-800 rounded-2xl max-w-4xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[92vh] text-slate-100 animate-scale-in"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top Header */}

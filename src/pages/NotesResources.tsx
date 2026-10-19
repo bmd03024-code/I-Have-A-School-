@@ -79,7 +79,7 @@ export const NotesResources: React.FC = () => {
           return (
             <div
               key={note.id}
-              className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs hover:shadow-md hover:border-emerald-300 transition-all flex flex-col justify-between group p-5 space-y-4"
+              className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs hover:border-emerald-300 smooth-card flex flex-col justify-between group p-5 space-y-4"
             >
               <div className="space-y-3">
                 <div className="flex items-center justify-between">

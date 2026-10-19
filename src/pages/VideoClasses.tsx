@@ -107,7 +107,7 @@ export const VideoClasses: React.FC = () => {
             <div
               key={video.id}
               onClick={() => setActiveVideo(video)}
-              className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs hover:shadow-md hover:border-emerald-300 transition-all cursor-pointer group flex flex-col justify-between"
+              className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs hover:border-emerald-300 smooth-card cursor-pointer group flex flex-col justify-between"
             >
               <div>
                 {/* Thumbnail */}

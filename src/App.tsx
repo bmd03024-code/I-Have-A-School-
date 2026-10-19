@@ -23,6 +23,7 @@ import { NoticeBoard } from './pages/NoticeBoard';
 import { ClassRoutines } from './pages/ClassRoutines';
 import { MyLearning } from './pages/MyLearning';
 import { AdminPanel } from './pages/AdminPanel';
+import { ScrollToTop } from './components/ScrollToTop';
 import { useApp } from './context/AppContext';
 import { CheckCircle } from 'lucide-react';
 
@@ -31,6 +32,7 @@ export const App: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 text-slate-800 antialiased font-sans overflow-x-hidden w-full">
+      <ScrollToTop />
       <Navbar />
 
       <main className="flex-1">

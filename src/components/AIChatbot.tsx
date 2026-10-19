@@ -145,7 +145,7 @@ export const AIChatbot: React.FC = () => {
       role="dialog"
       aria-modal="true"
       aria-label={lang === 'bn' ? 'এআই শিক্ষক চ্যাটবট' : 'AI Assistant Chat'}
-      className={`!fixed bottom-4 sm:bottom-6 right-3 sm:right-6 z-[9999] w-[calc(100vw-24px)] sm:w-96 max-w-sm bg-white rounded-3xl shadow-2xl shadow-slate-900/40 border border-slate-200 overflow-hidden flex flex-col ${
+      className={`!fixed bottom-4 sm:bottom-6 right-3 sm:right-6 z-[9999] w-[calc(100vw-24px)] sm:w-96 max-w-sm bg-white rounded-3xl shadow-2xl shadow-slate-900/40 border border-slate-200 overflow-hidden flex flex-col transition-all duration-300 ease-out animate-scale-in ${
         isMinimized ? 'h-16' : 'h-[520px] max-h-[82vh]'
       }`}
     >

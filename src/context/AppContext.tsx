@@ -203,7 +203,12 @@ const persistItem = (key: string, data: any) => {
 const getPersistedItem = <T,>(key: string, fallback: T): T => {
   try {
     const raw = safeStorage.getItem(key);
-    return raw ? JSON.parse(raw) : fallback;
+    if (!raw) return fallback;
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(fallback) && !Array.isArray(parsed)) {
+      return fallback;
+    }
+    return parsed ?? fallback;
   } catch {
     return fallback;
   }
@@ -794,7 +799,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, []);
 
-  const pushToGitHub = async (
+  const pushToGitHub = useCallback(async (
     customCommitMessage?: string
   ): Promise<{ success: boolean; sha?: string; error?: string }> => {
     setIsGitHubSyncing(true);
@@ -864,9 +869,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } finally {
       setIsGitHubSyncing(false);
     }
-  };
+  }, [
+    githubConfig,
+    schoolSettings,
+    heroSlides,
+    courses,
+    students,
+    subjects,
+    exams,
+    results,
+    teachers,
+    videoClasses,
+    notes,
+    notices,
+    routines,
+    chatbotTraining,
+    modelTests,
+    adminCredentials
+  ]);
 
-  const pullFromGitHub = async (
+  const pullFromGitHub = useCallback(async (
     force: boolean = false
   ): Promise<{ success: boolean; data?: any; error?: string }> => {
     if (!githubConfig.owner || !githubConfig.repo) {
@@ -924,7 +946,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } finally {
       setIsGitHubSyncing(false);
     }
-  };
+  }, [githubConfig, applyDatabaseSnapshot]);
 
   // Periodic background check against GitHub for live updates across all visitor browsers
   useEffect(() => {
@@ -960,64 +982,73 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     githubConfig.enabled,
     githubConfig.owner,
     githubConfig.repo,
-    githubConfig.branch,
-    githubConfig.filePath,
-    githubConfig.autoPollIntervalSec
+    githubConfig.autoPollIntervalSec,
+    pullFromGitHub
   ]);
 
   // Comprehensive state reload from storage to clear stale cache and synchronize in-memory state
   const reloadAllFromStorage = useCallback(() => {
+    const safeParse = <T,>(key: string, fallback?: T): T | null => {
+      try {
+        const raw = localStorage.getItem(key);
+        if (!raw) return fallback ?? null;
+        return JSON.parse(raw);
+      } catch {
+        return fallback ?? null;
+      }
+    };
+
     try {
-      const rawSettings = localStorage.getItem('ihas_school_settings');
-      if (rawSettings) setSchoolSettings(JSON.parse(rawSettings));
+      const s = safeParse<SchoolSettings>('ihas_school_settings');
+      if (s) setSchoolSettings(s);
 
-      const rawSlides = localStorage.getItem('ihas_hero_slides');
-      if (rawSlides) setHeroSlides(JSON.parse(rawSlides));
+      const slides = safeParse<HeroSlide[]>('ihas_hero_slides');
+      if (Array.isArray(slides)) setHeroSlides(slides);
 
-      const rawCourses = localStorage.getItem('ihas_courses');
-      if (rawCourses) setCourses(JSON.parse(rawCourses));
+      const c = safeParse<Course[]>('ihas_courses');
+      if (Array.isArray(c)) setCourses(c);
 
-      const rawStudents = localStorage.getItem('ihas_students');
-      if (rawStudents) setStudents(JSON.parse(rawStudents));
+      const std = safeParse<Student[]>('ihas_students');
+      if (Array.isArray(std)) setStudents(std);
 
-      const rawSubjects = localStorage.getItem('ihas_subjects');
-      if (rawSubjects) setSubjects(JSON.parse(rawSubjects));
+      const sub = safeParse<CourseSubject[]>('ihas_subjects');
+      if (Array.isArray(sub)) setSubjects(sub);
 
-      const rawExams = localStorage.getItem('ihas_exams');
-      if (rawExams) setExams(JSON.parse(rawExams));
+      const ex = safeParse<CourseExam[]>('ihas_exams');
+      if (Array.isArray(ex)) setExams(ex);
 
-      const rawResults = localStorage.getItem('ihas_results');
-      if (rawResults) setResults(JSON.parse(rawResults));
+      const res = safeParse<StudentResult[]>('ihas_results');
+      if (Array.isArray(res)) setResults(res);
 
-      const rawTeachers = localStorage.getItem('ihas_teachers');
-      if (rawTeachers) setTeachers(JSON.parse(rawTeachers));
+      const tch = safeParse<Teacher[]>('ihas_teachers');
+      if (Array.isArray(tch)) setTeachers(tch);
 
-      const rawVideos = localStorage.getItem('ihas_videos') || localStorage.getItem('ihas_video_classes');
-      if (rawVideos) setVideoClasses(JSON.parse(rawVideos));
+      const vid = safeParse<VideoClass[]>('ihas_videos') || safeParse<VideoClass[]>('ihas_video_classes');
+      if (Array.isArray(vid)) setVideoClasses(vid);
 
-      const rawNotes = localStorage.getItem('ihas_notes');
-      if (rawNotes) setNotes(JSON.parse(rawNotes));
+      const nts = safeParse<NoteResource[]>('ihas_notes');
+      if (Array.isArray(nts)) setNotes(nts);
 
-      const rawNotices = localStorage.getItem('ihas_notices');
-      if (rawNotices) setNotices(JSON.parse(rawNotices));
+      const nots = safeParse<Notice[]>('ihas_notices');
+      if (Array.isArray(nots)) setNotices(nots);
 
-      const rawRoutines = localStorage.getItem('ihas_routines');
-      if (rawRoutines) setRoutines(JSON.parse(rawRoutines));
+      const rts = safeParse<ClassRoutine[]>('ihas_routines');
+      if (Array.isArray(rts)) setRoutines(rts);
 
-      const rawChatbot = localStorage.getItem('ihas_chatbot_training');
-      if (rawChatbot) setChatbotTraining(JSON.parse(rawChatbot));
+      const bot = safeParse<ChatbotTrainingItem[]>('ihas_chatbot_training');
+      if (Array.isArray(bot)) setChatbotTraining(bot);
 
-      const rawQuizzes = localStorage.getItem('ihas_quizzes');
-      if (rawQuizzes) setModelTests(JSON.parse(rawQuizzes));
+      const qz = safeParse<ModelTest[]>('ihas_quizzes');
+      if (Array.isArray(qz)) setModelTests(qz);
 
-      const rawGoogle = localStorage.getItem('ihas_google_cloud_config');
-      if (rawGoogle) setGoogleCloudConfig(JSON.parse(rawGoogle));
+      const g = safeParse<GoogleCloudConfig>('ihas_google_cloud_config');
+      if (g) setGoogleCloudConfig(g);
 
-      const rawGithub = localStorage.getItem('ihas_github_config');
-      if (rawGithub) setGithubConfig(JSON.parse(rawGithub));
+      const gh = safeParse<GitHubConfig>('ihas_github_config');
+      if (gh) setGithubConfig(gh);
 
-      const rawCreds = localStorage.getItem('ihas_admin_creds');
-      if (rawCreds) setAdminCredentials(JSON.parse(rawCreds));
+      const cr = safeParse<{ email: string; password: string }>('ihas_admin_creds');
+      if (cr?.email && cr?.password) setAdminCredentials(cr);
     } catch (e) {
       console.warn('Error reloading all data from storage:', e);
     }
@@ -1360,9 +1391,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSelectedCourseForEnrollment(null);
   };
 
+  const toastTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const showToast = useCallback((msg: string) => {
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
     setToastMessage(msg);
-    setTimeout(() => {
+    toastTimeoutRef.current = setTimeout(() => {
       setToastMessage(null);
     }, 3200);
   }, []);

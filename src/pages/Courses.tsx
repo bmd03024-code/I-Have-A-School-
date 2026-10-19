@@ -71,7 +71,7 @@ export const Courses: React.FC = () => {
           return (
             <div
               key={course.id}
-              className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-xs hover:border-emerald-300 transition-all flex flex-col justify-between"
+              className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-xs hover:border-emerald-300 smooth-card flex flex-col justify-between"
             >
               <div>
                 {/* Banner & Badges */}

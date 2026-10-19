@@ -67,7 +67,7 @@ export const Home: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <Link
             to="/courses"
-            className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-4 hover:border-emerald-300 hover:shadow-md transition-colors group"
+            className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-4 hover:border-emerald-300 smooth-card group"
           >
             <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
               <BookOpen className="w-6 h-6" />
@@ -84,7 +84,7 @@ export const Home: React.FC = () => {
 
           <Link
             to="/classes"
-            className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-4 hover:border-emerald-300 hover:shadow-md transition-colors group"
+            className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-4 hover:border-emerald-300 smooth-card group"
           >
             <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
               <Video className="w-6 h-6" />
@@ -101,7 +101,7 @@ export const Home: React.FC = () => {
 
           <Link
             to="/results"
-            className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-4 hover:border-emerald-300 hover:shadow-md transition-colors group"
+            className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-4 hover:border-emerald-300 smooth-card group"
           >
             <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
               <Award className="w-6 h-6" />
@@ -118,7 +118,7 @@ export const Home: React.FC = () => {
 
           <Link
             to="/dictionary"
-            className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-4 hover:border-emerald-300 hover:shadow-md transition-colors group"
+            className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-4 hover:border-emerald-300 smooth-card group"
           >
             <div className="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
               <BookA className="w-6 h-6" />
@@ -171,7 +171,7 @@ export const Home: React.FC = () => {
             return (
               <div
                 key={course.id}
-                className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-xs hover:shadow-md hover:border-emerald-300 transition-all flex flex-col justify-between group"
+                className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-xs hover:border-emerald-300 smooth-card flex flex-col justify-between group"
               >
                 <div>
                   <div className="relative aspect-video overflow-hidden">
@@ -270,7 +270,7 @@ export const Home: React.FC = () => {
               <div
                 key={video.id}
                 onClick={() => setSelectedVideo(video)}
-                className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-xs hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between"
+                className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-xs hover:border-emerald-300 smooth-card cursor-pointer group flex flex-col justify-between"
               >
                 <div>
                   <div className="relative aspect-video overflow-hidden bg-slate-900">

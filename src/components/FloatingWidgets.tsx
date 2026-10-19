@@ -27,7 +27,7 @@ export const FloatingWidgets: React.FC = () => {
         <button
           type="button"
           onClick={() => setIsFloatingDictOpen(!isFloatingDictOpen)}
-          className={`relative w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-gradient-to-tr from-amber-600 via-emerald-700 to-teal-800 hover:from-amber-500 hover:to-emerald-600 text-white shadow-xl shadow-emerald-950/30 flex items-center justify-center transition-colors border border-amber-300/40 focus:outline-none focus:ring-2 focus:ring-amber-400 ${
+          className={`relative w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-gradient-to-tr from-amber-600 via-emerald-700 to-teal-800 hover:from-amber-500 hover:to-emerald-600 text-white shadow-xl shadow-emerald-950/30 flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 border border-amber-300/40 focus:outline-none focus:ring-2 focus:ring-amber-400 ${
             isFloatingDictOpen ? 'ring-2 ring-amber-400 ring-offset-2 ring-offset-slate-900' : ''
           }`}
           title={lang === 'bn' ? 'ভাসমান ডিকশনারি (১০ লাখ শব্দ)' : 'Floating Dictionary (1M Words)'}
@@ -50,7 +50,7 @@ export const FloatingWidgets: React.FC = () => {
         <button
           type="button"
           onClick={() => setIsCalcOpen(!isCalcOpen)}
-          className={`relative w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-gradient-to-tr from-slate-900 via-indigo-950 to-slate-800 hover:from-slate-800 hover:to-indigo-900 text-white shadow-xl shadow-indigo-950/40 flex items-center justify-center transition-colors border border-indigo-400/40 focus:outline-none focus:ring-2 focus:ring-indigo-400 ${
+          className={`relative w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-gradient-to-tr from-slate-900 via-indigo-950 to-slate-800 hover:from-slate-800 hover:to-indigo-900 text-white shadow-xl shadow-indigo-950/40 flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 border border-indigo-400/40 focus:outline-none focus:ring-2 focus:ring-indigo-400 ${
             isCalcOpen ? 'ring-2 ring-indigo-400 ring-offset-2 ring-offset-slate-900' : ''
           }`}
           title={lang === 'bn' ? 'ভাসমান সায়েন্টিফিক ক্যালকুলেটর' : 'Floating Scientific Calculator'}
@@ -73,7 +73,7 @@ export const FloatingWidgets: React.FC = () => {
         <button
           type="button"
           onClick={() => setIsChatbotOpen(!isChatbotOpen)}
-          className={`relative h-12 px-3 sm:px-4 rounded-full bg-gradient-to-tr from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white shadow-2xl shadow-emerald-900/40 flex items-center gap-2 transition-colors border border-emerald-300/40 focus:outline-none focus:ring-2 focus:ring-emerald-400 ${
+          className={`relative h-12 px-3 sm:px-4 rounded-full bg-gradient-to-tr from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white shadow-2xl shadow-emerald-900/40 flex items-center gap-2 transition-all duration-200 hover:scale-105 active:scale-95 border border-emerald-300/40 focus:outline-none focus:ring-2 focus:ring-emerald-400 ${
             isChatbotOpen ? 'ring-2 ring-emerald-400 ring-offset-2 ring-offset-slate-900' : ''
           }`}
           title={lang === 'bn' ? 'ভাসমান এআই শিক্ষক চ্যাটবট' : 'Floating AI Teacher Chatbot'}

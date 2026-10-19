@@ -30,7 +30,7 @@ export const FloatingWhatsApp: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsOpen(!isOpen)}
-            className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-tr from-[#128C7E] via-[#25D366] to-[#20bd5a] hover:from-[#075E54] hover:to-[#1ebd56] text-white shadow-2xl flex items-center justify-center transition-colors group focus:outline-none focus:ring-2 focus:ring-emerald-400 border border-emerald-200/40 ${
+            className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-tr from-[#128C7E] via-[#25D366] to-[#20bd5a] hover:from-[#075E54] hover:to-[#1ebd56] text-white shadow-2xl flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 group focus:outline-none focus:ring-2 focus:ring-emerald-400 border border-emerald-200/40 ${
               isOpen ? 'ring-2 ring-emerald-400 ring-offset-2 ring-offset-slate-900' : ''
             }`}
             style={{ boxShadow: '0 8px 28px -4px rgba(37, 211, 102, 0.55)' }}
@@ -57,13 +57,13 @@ export const FloatingWhatsApp: React.FC = () => {
         </div>
       </aside>
 
-      {/* Mini WhatsApp Chat Card / Modal - completely static */}
+      {/* Mini WhatsApp Chat Card / Modal */}
       {isOpen && (
         <div
           role="dialog"
           aria-modal="true"
           aria-label={lang === 'bn' ? 'তুহিন স্যার হেল্পডেস্ক' : 'Tuhin Sir Helpdesk'}
-          className="!fixed bottom-18 sm:bottom-22 left-3 sm:left-6 z-[9999] w-[calc(100vw-24px)] sm:w-80 max-w-xs bg-white rounded-3xl shadow-2xl shadow-emerald-950/40 border border-slate-200 overflow-hidden text-slate-800"
+          className="!fixed bottom-18 sm:bottom-22 left-3 sm:left-6 z-[9999] w-[calc(100vw-24px)] sm:w-80 max-w-xs bg-white rounded-3xl shadow-2xl shadow-emerald-950/40 border border-slate-200 overflow-hidden text-slate-800 animate-scale-in"
         >
           {/* Card Header */}
           <div className="bg-[#075E54] text-white p-3.5 sm:p-4 flex items-center justify-between">
