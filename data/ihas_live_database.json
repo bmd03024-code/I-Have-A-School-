@@ -3,7 +3,7 @@
     "app": "I Have A School",
     "director": "MD Touhidul Hoque Tuhin",
     "schemaVersion": "2026.1",
-    "lastUpdated": "2026-10-20T12:08:11.176Z",
+    "lastUpdated": "2026-10-20T12:10:21.931Z",
     "pushedBy": "Admin Control Panel"
   },
   "schoolSettings": {
@@ -455,30 +455,6 @@
       "joiningDate": "2015-01-01",
       "signatureUrl": "https://upload.wikimedia.org/wikipedia/commons/3/3a/Jon_Kirsch%27s_signature.png",
       "address": "Hadi Fakir hat, Mireshrai, Chattogram "
-    },
-    {
-      "id": "tch-2",
-      "nameEn": "Prof. Mahfuzur Rahman",
-      "nameBn": "প্রফেসর মাহফুজুর রহমান",
-      "designationEn": "Senior Advisor & Spoken English Trainer",
-      "designationBn": "সিনিয়র উপদেষ্টা ও স্পোকেন ইংলিশ ট্রেইনার",
-      "qualification": "M.A. in ELT, British Council Certified",
-      "phone": "+880 1819-223344",
-      "email": "mahfuz.ihas@gmail.com",
-      "photoUrl": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=400&auto=format&fit=crop",
-      "joiningDate": "2018-05-10"
-    },
-    {
-      "id": "tch-3",
-      "nameEn": "Sharmin Sultana",
-      "nameBn": "শারমিন সুলতানা",
-      "designationEn": "Assistant Teacher (Grammar & Writing)",
-      "designationBn": "সহকারী শিক্ষক (গ্রামার ও রাইটিং)",
-      "qualification": "B.A. (Hons), M.A. in English (DU)",
-      "phone": "+880 1912-889900",
-      "email": "sharmin.ihas@gmail.com",
-      "photoUrl": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=400&auto=format&fit=crop",
-      "joiningDate": "2020-03-01"
     }
   ],
   "videoClasses": [
