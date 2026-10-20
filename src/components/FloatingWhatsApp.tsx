@@ -165,7 +165,11 @@ export const FloatingWhatsApp: React.FC = () => {
 
             <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-2.5 flex items-center gap-2 text-[11px] text-emerald-900">
               <PhoneCall className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
-              <span className="font-mono font-bold">+{schoolSettings.whatsapp || schoolSettings.phone}</span>
+              <span className="font-mono font-bold">
+                {(schoolSettings.phone || schoolSettings.whatsapp || '+880 1580-370062').startsWith('+')
+                  ? (schoolSettings.phone || schoolSettings.whatsapp)
+                  : `+${schoolSettings.phone || schoolSettings.whatsapp}`}
+              </span>
             </div>
           </div>
 

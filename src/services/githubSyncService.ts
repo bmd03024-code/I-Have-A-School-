@@ -13,6 +13,36 @@ export interface GitHubSyncResult {
   error?: string;
 }
 
+export const GITHUB_TOKEN_STORAGE_KEY = 'ihas_github_token';
+
+// Save token permanently to localStorage
+export function saveGitHubTokenPermanently(token: string): void {
+  try {
+    if (typeof window !== 'undefined') {
+      const clean = token.trim();
+      if (clean) {
+        localStorage.setItem(GITHUB_TOKEN_STORAGE_KEY, clean);
+      } else {
+        localStorage.removeItem(GITHUB_TOKEN_STORAGE_KEY);
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to save GitHub token:', e);
+  }
+}
+
+// Retrieve permanently saved token
+export function getPermanentlySavedGitHubToken(): string {
+  try {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem(GITHUB_TOKEN_STORAGE_KEY) || '';
+    }
+  } catch {
+    // ignore
+  }
+  return '';
+}
+
 // UTF-8 safe Base64 encoder (handles Bengali script and Unicode characters properly)
 export function encodeUtf8ToBase64(str: string): string {
   try {
@@ -186,25 +216,33 @@ export async function pushDataToGitHub(
     Authorization: `Bearer ${token.trim()}`
   };
 
-  try {
-    // Step 1: Check existing file SHA if already created
-    let existingSha: string | undefined = undefined;
+  const getFileSha = async (): Promise<string | undefined> => {
     try {
       const getRes = await fetch(
-        `https://api.github.com/repos/${cleanOwner}/${cleanRepo}/contents/${cleanPath}?ref=${cleanBranch}`,
+        `https://api.github.com/repos/${cleanOwner}/${cleanRepo}/contents/${cleanPath}?ref=${cleanBranch}&_bust=${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
         {
-          headers,
-          cache: 'no-cache'
+          headers: {
+            ...headers,
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            Pragma: 'no-cache'
+          },
+          cache: 'no-store'
         }
       );
 
       if (getRes.ok) {
         const fileInfo = await getRes.json();
-        existingSha = fileInfo.sha;
+        return fileInfo.sha;
       }
     } catch (e) {
-      console.warn('Could not check existing file SHA (might be brand new file):', e);
+      console.warn('Could not check existing file SHA:', e);
     }
+    return undefined;
+  };
+
+  try {
+    // Step 1: Check existing file SHA if already created
+    const existingSha: string | undefined = await getFileSha();
 
     // Step 2: Package JSON with metadata
     const fullSnapshot = {
@@ -236,7 +274,7 @@ export async function pushDataToGitHub(
     }
 
     // Step 3: Put/commit content to GitHub contents API
-    const putRes = await fetch(
+    let putRes = await fetch(
       `https://api.github.com/repos/${cleanOwner}/${cleanRepo}/contents/${cleanPath}`,
       {
         method: 'PUT',
@@ -244,6 +282,23 @@ export async function pushDataToGitHub(
         body: JSON.stringify(requestBody)
       }
     );
+
+    // Automatic Conflict Resolution (409 or 422 if SHA was stale or cached)
+    if (!putRes.ok && (putRes.status === 409 || putRes.status === 422)) {
+      console.warn('[GitHubSync] Stale SHA conflict (409/422). Re-fetching latest file SHA and retrying...');
+      const freshSha = await getFileSha();
+      if (freshSha) {
+        requestBody.sha = freshSha;
+        putRes = await fetch(
+          `https://api.github.com/repos/${cleanOwner}/${cleanRepo}/contents/${cleanPath}`,
+          {
+            method: 'PUT',
+            headers,
+            body: JSON.stringify(requestBody)
+          }
+        );
+      }
+    }
 
     if (!putRes.ok) {
       const errJson = await putRes.json().catch(() => null);

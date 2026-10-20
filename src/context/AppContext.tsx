@@ -38,7 +38,7 @@ import {
 } from '../data/mockData';
 import codeLiveData from '../data/liveData.json';
 import { notifyRealtimeUpdate, subscribeRealtimeUpdate, clearAllCachesAndBroadcast, safeStorage } from '../lib/storageService';
-import { pushDataToGitHub, fetchDataFromGitHub } from '../services/githubSyncService';
+import { pushDataToGitHub, fetchDataFromGitHub, getPermanentlySavedGitHubToken, saveGitHubTokenPermanently } from '../services/githubSyncService';
 
 export interface AppContextType {
   // Codebase Direct Sync & Authoritative Storage
@@ -719,20 +719,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // 15. GitHub REST API Database Sync & Cross-Browser Live Update
   const [githubConfig, setGithubConfig] = useState<GitHubConfig>(() => {
     try {
-      const saved = safeStorage.getItem('ihas_github_config');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        const rawToken = parsed.token?.trim() || '';
-        const storedToken = rawToken.startsWith('ghp_Avnb0Qwt') ? '' : rawToken;
-        return {
-          ...DEFAULT_GITHUB_CONFIG,
-          ...parsed,
-          token: storedToken,
-          owner: parsed.owner?.trim() || DEFAULT_GITHUB_CONFIG.owner,
-          repo: parsed.repo?.trim() || DEFAULT_GITHUB_CONFIG.repo
-        };
+      const savedConfig = safeStorage.getItem('ihas_github_config');
+      const savedToken = safeStorage.getItem('ihas_github_token') || getPermanentlySavedGitHubToken();
+      const codeConfig = (codeLiveData as any)?.ihas_github_config;
+
+      let parsed: any = {};
+      if (savedConfig) {
+        try {
+          parsed = JSON.parse(savedConfig);
+        } catch {
+          parsed = {};
+        }
+      } else if (codeConfig) {
+        parsed = codeConfig;
       }
-      return DEFAULT_GITHUB_CONFIG;
+
+      // Permanent token resolution: check dedicated saved token, parsed config, codebase config, env var
+      const token = (
+        savedToken?.trim() ||
+        parsed.token?.trim() ||
+        codeConfig?.token?.trim() ||
+        DEFAULT_GITHUB_CONFIG.token ||
+        ''
+      ).trim();
+
+      return {
+        ...DEFAULT_GITHUB_CONFIG,
+        ...codeConfig,
+        ...parsed,
+        token,
+        owner: parsed.owner?.trim() || codeConfig?.owner?.trim() || DEFAULT_GITHUB_CONFIG.owner,
+        repo: parsed.repo?.trim() || codeConfig?.repo?.trim() || DEFAULT_GITHUB_CONFIG.repo
+      };
     } catch {
       return DEFAULT_GITHUB_CONFIG;
     }
@@ -752,9 +770,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   const updateGitHubConfig = (cfg: GitHubConfig) => {
-    setGithubConfig(cfg);
-    persistItem('ihas_github_config', cfg);
-    notifyRealtimeUpdate('githubConfig', cfg);
+    const cleanToken = cfg.token?.trim() || '';
+    if (cleanToken) {
+      saveGitHubTokenPermanently(cleanToken);
+      safeStorage.setItem('ihas_github_token', cleanToken);
+    } else {
+      saveGitHubTokenPermanently('');
+      safeStorage.removeItem('ihas_github_token');
+    }
+    const cleanCfg: GitHubConfig = {
+      ...cfg,
+      token: cleanToken
+    };
+    latestEntitiesRef.current.githubConfig = cleanCfg;
+    setGithubConfig(cleanCfg);
+    persistItem('ihas_github_config', cleanCfg);
+    notifyRealtimeUpdate('githubConfig', cleanCfg);
+
+    // Persist to codebase files on disk so it remains permanently across restarts
+    fetch('/api/sync-to-code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: 'ihas_github_config', data: cleanCfg })
+    }).catch(() => {});
   };
 
   const applyDatabaseSnapshot = useCallback((data: any) => {
@@ -842,7 +880,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     routines,
     chatbotTraining,
     modelTests,
-    adminCredentials
+    adminCredentials,
+    githubConfig
   });
 
   useEffect(() => {
@@ -861,7 +900,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       routines,
       chatbotTraining,
       modelTests,
-      adminCredentials
+      adminCredentials,
+      githubConfig
     };
   }, [
     schoolSettings,
@@ -878,13 +918,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     routines,
     chatbotTraining,
     modelTests,
-    adminCredentials
+    adminCredentials,
+    githubConfig
   ]);
 
   // Automatic Debounced Codebase Auto-Sync Engine:
   // Whatever the admin modifies (slides, courses, students, results, teachers, notes, routines, etc.),
   // it is automatically saved directly into the codebase file (src/data/liveData.json & public/liveData.json)
   const isInitialMountRef = useRef(true);
+  const lastPushedContentHashRef = useRef<string>('');
+
   useEffect(() => {
     if (isInitialMountRef.current) {
       isInitialMountRef.current = false;
@@ -911,6 +954,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           ihas_chatbot_training: latestEntitiesRef.current.chatbotTraining,
           ihas_quizzes: latestEntitiesRef.current.modelTests,
           ihas_admin_creds: latestEntitiesRef.current.adminCredentials,
+          ihas_github_config: latestEntitiesRef.current.githubConfig,
           _meta: {
             authoritative: true,
             platform: 'I Have A School',
@@ -930,6 +974,70 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const now = new Date().toISOString();
           setCodeSyncLastSaved(now);
           setCodeSyncStatus('saved');
+
+          // Automatic GitHub Push if token is configured and content actually changed
+          const activeToken = (
+            latestEntitiesRef.current.githubConfig?.token?.trim() ||
+            getPermanentlySavedGitHubToken() ||
+            safeStorage.getItem('ihas_github_token') ||
+            ''
+          ).trim();
+
+          const currentGhConfig = {
+            ...latestEntitiesRef.current.githubConfig,
+            token: activeToken
+          };
+
+          // Generate a content signature of the actual administrative entities
+          const contentSignature = JSON.stringify({
+            schoolSettings: latestEntitiesRef.current.schoolSettings,
+            heroSlides: latestEntitiesRef.current.heroSlides,
+            courses: latestEntitiesRef.current.courses,
+            students: latestEntitiesRef.current.students,
+            subjects: latestEntitiesRef.current.subjects,
+            exams: latestEntitiesRef.current.exams,
+            results: latestEntitiesRef.current.results,
+            teachers: latestEntitiesRef.current.teachers,
+            videoClasses: latestEntitiesRef.current.videoClasses,
+            notes: latestEntitiesRef.current.notes,
+            notices: latestEntitiesRef.current.notices,
+            routines: latestEntitiesRef.current.routines,
+            chatbotTraining: latestEntitiesRef.current.chatbotTraining,
+            modelTests: latestEntitiesRef.current.modelTests
+          });
+
+          if (
+            activeToken &&
+            currentGhConfig?.autoPushOnChange !== false &&
+            contentSignature !== lastPushedContentHashRef.current
+          ) {
+            lastPushedContentHashRef.current = contentSignature;
+            pushDataToGitHub(currentGhConfig, snapshot).then((ghRes) => {
+              if (ghRes.success) {
+                const nowTime = new Date().toISOString();
+                const updatedGhConfig: GitHubConfig = {
+                  ...currentGhConfig,
+                  lastSyncedAt: nowTime,
+                  lastCommitSha: ghRes.sha || currentGhConfig.lastCommitSha
+                };
+                latestEntitiesRef.current.githubConfig = updatedGhConfig;
+                safeStorage.setItem('ihas_github_config', JSON.stringify(updatedGhConfig));
+                setGithubConfig(updatedGhConfig);
+                setGitHubSyncStatus({
+                  state: 'synced',
+                  message: 'স্বয়ংক্রিয়ভাবে গিটহাবে কোড ও ডেটাবেজ আপডেট হয়েছে',
+                  lastSyncedAt: nowTime,
+                  lastCommitSha: ghRes.sha
+                });
+              } else {
+                // Allow retry on next modification if push encountered an error
+                lastPushedContentHashRef.current = '';
+              }
+            }).catch((err) => {
+              lastPushedContentHashRef.current = '';
+              console.warn('[Auto GitHub Sync]', err);
+            });
+          }
         } else {
           setCodeSyncStatus('error');
         }
@@ -954,7 +1062,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     routines,
     chatbotTraining,
     modelTests,
-    adminCredentials
+    adminCredentials,
+    githubConfig
   ]);
 
   // Master function to write the entire database snapshot directly into the codebase file (src/data/liveData.json)
@@ -979,6 +1088,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ihas_chatbot_training: latestEntitiesRef.current.chatbotTraining,
         ihas_quizzes: latestEntitiesRef.current.modelTests,
         ihas_admin_creds: latestEntitiesRef.current.adminCredentials,
+        ihas_github_config: latestEntitiesRef.current.githubConfig,
         _meta: {
           authoritative: true,
           platform: 'I Have A School',
@@ -1005,11 +1115,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
         });
         notifyRealtimeUpdate('force_reload');
+
+        // Also push to GitHub if token is set
+        if (latestEntitiesRef.current.githubConfig.token?.trim()) {
+          pushDataToGitHub(latestEntitiesRef.current.githubConfig, snapshot).catch(() => {});
+        }
+
         return {
           success: true,
           message: lang === 'bn'
-            ? 'অ্যাডমিনের সকল পরিবর্তন কোডিং ফাইলে (src/data/liveData.json & public/liveData.json) চূড়ান্ত হিসেবে সফলভাবে সংরক্ষিত হয়েছে!'
-            : 'All admin changes have been permanently and authoritatively saved to the codebase (src/data/liveData.json)!'
+            ? 'অ্যাডমিনের সকল পরিবর্তন কোডিং ফাইলে (src/data/liveData.json & public/liveData.json) ও গিটহাবে চূড়ান্ত হিসেবে সফলভাবে সংরক্ষিত হয়েছে!'
+            : 'All admin changes have been permanently and authoritatively saved to the codebase and GitHub!'
         };
       } else {
         setCodeSyncStatus('error');

@@ -24,6 +24,7 @@ export interface SchoolSettings {
   youtubeUrl: string;
   telegramUrl: string;
   messengerUrl?: string;
+  tiktokUrl?: string;
   founderNameBn?: string;
   founderNameEn?: string;
   footerDescriptionBn?: string;

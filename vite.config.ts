@@ -84,6 +84,18 @@ function codeSyncPlugin() {
                 console.warn('[CodeSync Warning] Failed to sync public/liveData.json:', publicErr);
               }
 
+              // Also write to data/ihas_live_database.json for git repository persistence
+              try {
+                const liveDbFilePath = path.resolve(process.cwd(), 'data/ihas_live_database.json');
+                const dataDir = path.resolve(process.cwd(), 'data');
+                if (!fs.existsSync(dataDir)) {
+                  fs.mkdirSync(dataDir, { recursive: true });
+                }
+                await fs.promises.writeFile(liveDbFilePath, jsonString, 'utf-8');
+              } catch (dbErr) {
+                console.warn('[CodeSync Warning] Failed to sync data/ihas_live_database.json:', dbErr);
+              }
+
               res.setHeader('Content-Type', 'application/json');
               res.statusCode = 200;
               res.end(JSON.stringify({ 
@@ -149,7 +161,13 @@ export default defineConfig(async ({ mode }): Promise<UserConfig> => {
       strictPort: true,
       allowedHosts: true,
       watch: {
-        ignored: ['**/src/data/liveData.json', '**/public/liveData.json', '**/liveData.json']
+        ignored: [
+          '**/src/data/liveData.json',
+          '**/public/liveData.json',
+          '**/liveData.json',
+          '**/data/ihas_live_database.json',
+          '**/ihas_live_database.json'
+        ]
       }
     },
     envPrefix: ['VITE_', 'NEXT_PUBLIC_'],
