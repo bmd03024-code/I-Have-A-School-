@@ -72,8 +72,10 @@ import {
   EditSlideModal, 
   EditCourseModal, 
   EditStudentModal, 
-  EditTeacherModal 
+  EditTeacherModal,
+  EditVideoClassModal
 } from '../components/admin/AdminModals';
+import { extractYouTubeId, resolveAutoThumbnail, detectVideoPlatform } from '../services/videoService';
 
 export const AdminPanel: React.FC = () => {
   const {
@@ -460,6 +462,8 @@ export const AdminPanel: React.FC = () => {
   const [newVideoUrl, setNewVideoUrl] = useState('');
   const [newVideoFile, setNewVideoFile] = useState('');
   const [newVideoThumb, setNewVideoThumb] = useState('');
+  const [deletingVideoId, setDeletingVideoId] = useState<string | null>(null);
+  const [isAutoFetchingThumb, setIsAutoFetchingThumb] = useState(false);
 
   // 8. Notes & Sheets State (Direct Image & PDF Upload)
   const [newNoteTitleBn, setNewNoteTitleBn] = useState('');
@@ -760,37 +764,115 @@ export const AdminPanel: React.FC = () => {
     showToast(lang === 'bn' ? 'শিক্ষক সফলভাবে যুক্ত হয়েছেন!' : 'Teacher profile added!');
   };
 
+  // Video URL Change: Auto-extract YouTube or Facebook thumbnail
+  const handleVideoUrlChange = async (url: string) => {
+    setNewVideoUrl(url);
+    if (!url.trim()) return;
+
+    const detected = detectVideoPlatform(url);
+    setNewVideoPlatform(detected);
+
+    // If user hasn't uploaded a custom image file, auto-set thumbnail
+    if (!newVideoThumb || !newVideoThumb.startsWith('data:image')) {
+      const res = await resolveAutoThumbnail(url, detected);
+      if (res.url) {
+        setNewVideoThumb(res.url);
+      }
+    }
+  };
+
+  // Direct Thumbnail Image Upload from local device
+  const handleCustomVideoThumbUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      try {
+        const dataUrl = await readFileAsDataUrl(file);
+        setNewVideoThumb(dataUrl);
+        showToast(lang === 'bn' ? 'থাম্বনেইল ছবি সফলভাবে আপলোড হয়েছে!' : 'Custom thumbnail uploaded!');
+      } catch {
+        showToast(lang === 'bn' ? 'ছবি আপলোড করতে সমস্যা হয়েছে।' : 'Error uploading thumbnail.');
+      }
+    }
+  };
+
+  // Manual Trigger to auto-fetch thumbnail from YouTube or Facebook
+  const handleManualAutoFetchThumb = async () => {
+    if (!newVideoUrl.trim()) {
+      showToast(lang === 'bn' ? 'প্রথমে ইউটিউব বা ফেসবুক ভিডিওর লিঙ্ক দিন!' : 'Please enter video URL first!');
+      return;
+    }
+    setIsAutoFetchingThumb(true);
+    try {
+      const res = await resolveAutoThumbnail(newVideoUrl, newVideoPlatform);
+      setNewVideoThumb(res.url);
+      if (res.platform !== 'custom') {
+        setNewVideoPlatform(res.platform);
+      }
+      showToast(lang === 'bn' ? 'লিঙ্ক থেকে থাম্বনেইল আনা হয়েছে!' : 'Thumbnail extracted from link!');
+    } finally {
+      setIsAutoFetchingThumb(false);
+    }
+  };
+
+  // Delete Video Class with immediate feedback and toast
+  const handleDeleteVideoClass = (id: string, title?: string) => {
+    deleteVideoClass(id);
+    setDeletingVideoId(null);
+    showToast(
+      lang === 'bn' 
+        ? `"${title || 'ক্লাস'}" সফলভাবে ডিলিট করা হয়েছে!` 
+        : `Video class deleted successfully!`
+    );
+    if (githubConfig.enabled && githubConfig.autoPushOnChange && githubConfig.token) {
+      pushToGitHub('Deleted video: ' + (title || id)).catch(() => {});
+    }
+  };
+
   // Add Video Class
-  const handleAddVideoClass = (e: React.FormEvent) => {
+  const handleAddVideoClass = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newVideoTitleBn.trim()) {
       showToast(lang === 'bn' ? 'ভিডিও শিরোনাম দিন!' : 'Please enter title!');
       return;
     }
+
+    let finalThumb = newVideoThumb;
+    const ytId = extractYouTubeId(newVideoUrl) || 'dQw4w9WgXcQ';
+
+    if (!finalThumb) {
+      const resolved = await resolveAutoThumbnail(newVideoUrl, newVideoPlatform);
+      finalThumb = resolved.url;
+    }
+
     const vid: VideoClass = {
       id: `vid-${Date.now()}`,
       titleBn: newVideoTitleBn.trim(),
       titleEn: newVideoTitleEn.trim() || newVideoTitleBn.trim(),
-      descriptionBn: newVideoDescBn.trim(),
-      descriptionEn: newVideoDescBn.trim(),
+      descriptionBn: newVideoDescBn.trim() || 'তুহিন স্যারের বিশেষ ফ্রি ক্লাস।',
+      descriptionEn: newVideoDescBn.trim() || 'Exclusive free video lecture by Tuhin Sir.',
       category: newVideoCategory,
-      duration: newVideoDuration,
-      youtubeId: newVideoUrl.includes('v=') ? newVideoUrl.split('v=')[1]?.substring(0, 11) : (newVideoUrl.split('/').pop() || 'dQw4w9WgXcQ'),
+      duration: newVideoDuration || '18:45',
+      youtubeId: ytId,
       videoUrl: newVideoUrl,
       videoPlatform: newVideoPlatform,
       videoFileUrl: newVideoFile,
-      thumbnailUrl: newVideoThumb || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=600&auto=format&fit=crop',
+      thumbnailUrl: finalThumb || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=600&auto=format&fit=crop',
       views: '1.2K',
       publishedDate: 'Just now',
       level: 'All Levels'
     };
+
     addVideoClass(vid);
     setNewVideoTitleBn('');
     setNewVideoTitleEn('');
+    setNewVideoDescBn('');
     setNewVideoUrl('');
     setNewVideoFile('');
     setNewVideoThumb('');
-    showToast(lang === 'bn' ? 'ফ্রি ক্লাস যুক্ত হয়েছে!' : 'Video class added!');
+    showToast(lang === 'bn' ? 'ফ্রি ক্লাস সফলভাবে যুক্ত হয়েছে!' : 'Video class added successfully!');
+    if (githubConfig.enabled && githubConfig.autoPushOnChange && githubConfig.token) {
+      pushToGitHub('Added video: ' + vid.titleBn).catch(() => {});
+    }
   };
 
   // Add Note
@@ -2897,24 +2979,102 @@ export const AdminPanel: React.FC = () => {
                     </div>
                   ) : (
                     <div>
-                      <label className="block font-bold text-slate-700 mb-1">
-                        {newVideoPlatform.toUpperCase()} ভিডিও লিঙ্ক (URL)
-                      </label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block font-bold text-slate-700">
+                          {newVideoPlatform.toUpperCase()} ভিডিও লিঙ্ক (URL)
+                        </label>
+                        {newVideoUrl && (
+                          <button
+                            type="button"
+                            onClick={handleManualAutoFetchThumb}
+                            disabled={isAutoFetchingThumb}
+                            className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 cursor-pointer"
+                          >
+                            <RefreshCw className={`w-3 h-3 ${isAutoFetchingThumb ? 'animate-spin' : ''}`} />
+                            <span>{lang === 'bn' ? 'অটো থাম্বনেইল আনুন' : 'Auto Thumbnail'}</span>
+                          </button>
+                        )}
+                      </div>
                       <input
                         type="text"
-                        placeholder="https://..."
+                        placeholder="https://www.youtube.com/watch?v=... অথবা https://www.facebook.com/..."
                         value={newVideoUrl}
-                        onChange={(e) => setNewVideoUrl(e.target.value)}
-                        className="w-full border rounded-xl px-3 py-2 text-xs focus:outline-none"
+                        onChange={(e) => handleVideoUrlChange(e.target.value)}
+                        className="w-full border rounded-xl px-3 py-2 text-xs focus:border-emerald-500 focus:outline-none"
                       />
+                      <p className="text-[10px] text-slate-400 mt-1">
+                        {lang === 'bn'
+                          ? '* ইউটিউব বা ফেসবুক লিঙ্ক দিলেই থাম্বনেইল স্বয়ংক্রিয়ভাবে তৈরি হবে।'
+                          : '* Thumbnail is automatically extracted from YouTube or Facebook URL.'}
+                      </p>
                     </div>
                   )}
+                </div>
+
+                {/* THUMBNAIL UPLOAD & AUTO-PREVIEW SECTION */}
+                <div className="p-4 bg-slate-50 border border-slate-200/90 rounded-2xl space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <label className="font-bold text-slate-800 flex items-center gap-1.5">
+                      <ImageIcon className="w-4 h-4 text-emerald-600" />
+                      <span>{lang === 'bn' ? 'ভিডিও থাম্বনেইল (ছবি আপলোড অথবা অটো)' : 'Video Thumbnail (Upload or Auto)'}</span>
+                    </label>
+                    {newVideoThumb && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                        {newVideoThumb.startsWith('data:image')
+                          ? (lang === 'bn' ? 'নিজস্ব ছবি আপলোডকৃত' : 'Custom Image Uploaded')
+                          : newVideoThumb.includes('youtube')
+                          ? (lang === 'bn' ? 'ইউটিউব থেকে অটো থাম্বনেইল' : 'YouTube Auto-Thumbnail')
+                          : (lang === 'bn' ? 'ফেসবুক ভিডিও থাম্বনেইল' : 'Facebook Video Thumbnail')}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-center gap-4">
+                    {/* Live Preview Aspect Box */}
+                    <div className="relative w-full sm:w-48 aspect-video rounded-xl overflow-hidden border-2 border-slate-200 bg-slate-900 shrink-0 shadow-xs flex items-center justify-center">
+                      {newVideoThumb ? (
+                        <img src={newVideoThumb} alt="Thumbnail preview" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="flex flex-col items-center justify-center text-slate-400 text-center p-2">
+                          <ImageIcon className="w-6 h-6 mb-1 text-slate-500" />
+                          <span className="text-[10px]">{lang === 'bn' ? 'থাম্বনেইল প্রিভিউ' : 'No Thumbnail'}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Direct Image File Upload Button & Options */}
+                    <div className="w-full space-y-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <label className="cursor-pointer px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs">
+                          <Upload className="w-3.5 h-3.5" />
+                          <span>{lang === 'bn' ? 'থাম্বনেইল ছবি আপলোড করুন' : 'Upload Thumbnail Image'}</span>
+                          <input type="file" accept="image/*" onChange={handleCustomVideoThumbUpload} className="hidden" />
+                        </label>
+
+                        {newVideoThumb && (
+                          <button
+                            type="button"
+                            onClick={() => setNewVideoThumb('')}
+                            className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-semibold transition-colors"
+                          >
+                            {lang === 'bn' ? 'রিসেট' : 'Clear'}
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-500 leading-relaxed">
+                        {lang === 'bn'
+                          ? 'ফেসবুক বা ইউটিউব লিঙ্ক দিলে অটো থাম্বনেইল চলে আসবে। এছাড়া চাইলে আপনার কম্পিউটার/মোবাইল থেকে সরাসরি যেকোনো ছবি থাম্বনেইল হিসেবে আপলোড করতে পারবেন।'
+                          : 'Auto-fetches thumbnail from YouTube/Facebook link. You can also upload any custom image file directly.'}
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="flex justify-end pt-2">
                   <button
                     type="submit"
-                    className="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center gap-1.5"
+                    className="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
                   >
                     <Plus className="w-4 h-4 text-emerald-400" />
                     <span>{lang === 'bn' ? 'ফ্রি ক্লাস প্রকাশ করুন' : 'Publish Video Class'}</span>
@@ -2924,45 +3084,73 @@ export const AdminPanel: React.FC = () => {
             </div>
 
             {/* Video List */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {videoClasses.map((v) => (
-                <div key={v.id} className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs space-y-3 flex flex-col justify-between">
-                  <div className="space-y-2">
-                    <div className="aspect-video w-full rounded-xl overflow-hidden border border-slate-100 bg-slate-900 flex items-center justify-center relative">
-                      <img src={v.thumbnailUrl} alt={v.titleBn} className="w-full h-full object-cover" />
-                      <span className="absolute bottom-2 right-2 bg-black/70 text-white text-[10px] px-1.5 py-0.5 rounded font-mono">
-                        {v.duration}
-                      </span>
+            {videoClasses.length === 0 ? (
+              <div className="text-center py-12 bg-white rounded-2xl border-2 border-dashed border-slate-200 p-6 space-y-2">
+                <Video className="w-10 h-10 text-slate-400 mx-auto" />
+                <h4 className="font-bold text-slate-700 text-sm">{lang === 'bn' ? 'কোনো ফ্রি ক্লাস নেই' : 'No Free Classes Found'}</h4>
+                <p className="text-xs text-slate-400">{lang === 'bn' ? 'ওপরের ফরম থেকে ইউটিউব বা ফেসবুক ভিডিও ক্লাস যুক্ত করুন।' : 'Add a YouTube or Facebook video class using the form above.'}</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {videoClasses.map((v) => (
+                  <div key={v.id} className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs space-y-3 flex flex-col justify-between hover:border-emerald-300 transition-colors">
+                    <div className="space-y-2">
+                      <div className="aspect-video w-full rounded-xl overflow-hidden border border-slate-100 bg-slate-900 flex items-center justify-center relative shadow-2xs">
+                        <img src={v.thumbnailUrl} alt={v.titleBn} className="w-full h-full object-cover" />
+                        <span className="absolute bottom-2 right-2 bg-black/75 text-white text-[10px] px-1.5 py-0.5 rounded font-mono">
+                          {v.duration}
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700">{v.category}</span>
+                      <h4 className="font-bold text-slate-900 text-sm leading-snug">{v.titleBn}</h4>
                     </div>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700">{v.category}</span>
-                    <h4 className="font-bold text-slate-900 text-sm leading-snug">{v.titleBn}</h4>
-                  </div>
 
-                  <div className="flex items-center justify-between border-t border-slate-100 pt-3">
-                    <span className="text-[10px] text-slate-400">{v.videoPlatform || 'YouTube'}</span>
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        onClick={() => {
-                          const newTitle = prompt('নতুন শিরোনাম লিখুন:', v.titleBn);
-                          if (newTitle) updateVideoClass({ ...v, titleBn: newTitle });
-                        }}
-                        className="px-2.5 py-1 rounded bg-slate-100 text-slate-700 text-xs font-semibold"
-                      >
-                        {lang === 'bn' ? 'এডিট' : 'Edit'}
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (confirm('মুছে ফেলতে চান?')) deleteVideoClass(v.id);
-                        }}
-                        className="px-2.5 py-1 rounded bg-red-50 text-red-600 text-xs font-semibold"
-                      >
-                        {lang === 'bn' ? 'ডিলিট' : 'Delete'}
-                      </button>
+                    <div className="flex items-center justify-between border-t border-slate-100 pt-3">
+                      <span className="text-[10px] text-slate-400 uppercase font-mono">{v.videoPlatform || 'YouTube'}</span>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setEditingVideoClass(v)}
+                          className="px-2.5 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                          <span>{lang === 'bn' ? 'এডিট' : 'Edit'}</span>
+                        </button>
+
+                        {deletingVideoId === v.id ? (
+                          <div className="flex items-center gap-1 animate-scale-in">
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteVideoClass(v.id, v.titleBn)}
+                              className="px-2.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold rounded-lg shadow-2xs cursor-pointer"
+                            >
+                              {lang === 'bn' ? 'হ্যাঁ, মুছুন' : 'Confirm'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDeletingVideoId(null)}
+                              className="px-2 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-[11px] font-semibold rounded-lg cursor-pointer"
+                            >
+                              {lang === 'bn' ? 'বাতিল' : 'Cancel'}
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setDeletingVideoId(v.id)}
+                            className="px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer"
+                            title={lang === 'bn' ? 'ক্লাস ডিলিট করুন' : 'Delete class'}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>{lang === 'bn' ? 'ডিলিট' : 'Delete'}</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -3641,6 +3829,27 @@ export const AdminPanel: React.FC = () => {
             }
           }}
           onClose={() => setEditingTeacher(null)}
+        />
+      )}
+
+      {/* Direct Edit Video Class Modal */}
+      {editingVideoClass && (
+        <EditVideoClassModal
+          video={editingVideoClass}
+          lang={lang}
+          onSave={(updatedVideo) => {
+            updateVideoClass(updatedVideo);
+            setEditingVideoClass(null);
+            showToast(lang === 'bn' ? 'ফ্রি ক্লাস সফলভাবে আপডেট হয়েছে!' : 'Video class updated!');
+            if (githubConfig.enabled && githubConfig.autoPushOnChange && githubConfig.token) {
+              pushToGitHub('Updated video: ' + updatedVideo.titleBn).catch(() => {});
+            }
+          }}
+          onDelete={(id) => {
+            handleDeleteVideoClass(id, editingVideoClass.titleBn);
+            setEditingVideoClass(null);
+          }}
+          onClose={() => setEditingVideoClass(null)}
         />
       )}
 
