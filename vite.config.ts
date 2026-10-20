@@ -11,6 +11,17 @@ function codeSyncPlugin() {
     name: 'code-sync-plugin',
     configureServer(server: any) {
       server.middlewares.use('/api/sync-to-code', async (req: any, res: any) => {
+        // Set CORS & JSON headers
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+        if (req.method === 'OPTIONS') {
+          res.statusCode = 204;
+          res.end();
+          return;
+        }
+
         if (req.method === 'POST') {
           let body = '';
           req.on('data', (chunk: any) => {
@@ -20,6 +31,7 @@ function codeSyncPlugin() {
             try {
               const payload = JSON.parse(body);
               const dataFilePath = path.resolve(process.cwd(), 'src/data/liveData.json');
+              const publicDataFilePath = path.resolve(process.cwd(), 'public/liveData.json');
 
               let existing: Record<string, any> = {};
               if (fs.existsSync(dataFilePath)) {
@@ -31,22 +43,56 @@ function codeSyncPlugin() {
                 }
               }
 
+              const timestamp = new Date().toISOString();
+
               // Merge single key updates or full snapshots
               if (payload.snapshot && typeof payload.snapshot === 'object') {
-                existing = { ...existing, ...payload.snapshot, _updatedAt: new Date().toISOString() };
+                existing = { 
+                  ...existing, 
+                  ...payload.snapshot, 
+                  _updatedAt: timestamp,
+                  _meta: {
+                    ...(existing._meta || {}),
+                    authoritative: true,
+                    lastSavedAt: timestamp,
+                    syncedBy: 'Admin Control Panel Auto Engine'
+                  }
+                };
               } else if (payload.key) {
                 existing[payload.key] = payload.data;
-                existing._updatedAt = new Date().toISOString();
+                existing._updatedAt = timestamp;
+                if (!existing._meta) existing._meta = {};
+                existing._meta.lastSavedAt = timestamp;
+                existing._meta.lastUpdatedKey = payload.key;
               } else {
-                existing = { ...existing, ...payload, _updatedAt: new Date().toISOString() };
+                existing = { ...existing, ...payload, _updatedAt: timestamp };
               }
 
-              await fs.promises.writeFile(dataFilePath, JSON.stringify(existing, null, 2), 'utf-8');
+              const jsonString = JSON.stringify(existing, null, 2);
+
+              // Write to src/data/liveData.json
+              await fs.promises.writeFile(dataFilePath, jsonString, 'utf-8');
+
+              // Also write to public/liveData.json for direct runtime accessibility
+              try {
+                const publicDir = path.resolve(process.cwd(), 'public');
+                if (!fs.existsSync(publicDir)) {
+                  fs.mkdirSync(publicDir, { recursive: true });
+                }
+                await fs.promises.writeFile(publicDataFilePath, jsonString, 'utf-8');
+              } catch (publicErr) {
+                console.warn('[CodeSync Warning] Failed to sync public/liveData.json:', publicErr);
+              }
 
               res.setHeader('Content-Type', 'application/json');
               res.statusCode = 200;
-              res.end(JSON.stringify({ success: true, message: 'Database updated successfully' }));
+              res.end(JSON.stringify({ 
+                success: true, 
+                message: 'Admin changes written directly to codebase files (src/data/liveData.json & public/liveData.json)',
+                updatedAt: timestamp
+              }));
             } catch (err: any) {
+              console.error('[CodeSync Error]:', err);
               res.statusCode = 500;
               res.setHeader('Content-Type', 'application/json');
               res.end(JSON.stringify({ success: false, error: err.message }));
@@ -103,7 +149,7 @@ export default defineConfig(async ({ mode }): Promise<UserConfig> => {
       strictPort: true,
       allowedHosts: true,
       watch: {
-        ignored: ['**/src/data/liveData.json', '**/liveData.json']
+        ignored: ['**/src/data/liveData.json', '**/public/liveData.json', '**/liveData.json']
       }
     },
     envPrefix: ['VITE_', 'NEXT_PUBLIC_'],

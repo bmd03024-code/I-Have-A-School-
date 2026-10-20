@@ -60,7 +60,10 @@ export async function testGitHubConnection(config: GitHubConfig): Promise<{
   }
 
   const cleanOwner = owner.trim();
-  const cleanRepo = repo.trim();
+  let cleanRepo = repo.trim();
+  if (cleanOwner.toLowerCase() === 'bmd03024-code' && cleanRepo === 'I-Have-A-School') {
+    cleanRepo = 'I-Have-A-School-';
+  }
   const cleanBranch = (branch || 'main').trim();
   const cleanPath = (filePath || 'data/ihas_live_database.json').replace(/^\/+/, '').trim();
 
@@ -74,15 +77,26 @@ export async function testGitHubConnection(config: GitHubConfig): Promise<{
 
   try {
     // 1. Verify Repository exists
-    const repoRes = await fetch(`https://api.github.com/repos/${cleanOwner}/${cleanRepo}`, {
+    let repoRes = await fetch(`https://api.github.com/repos/${cleanOwner}/${cleanRepo}`, {
       headers
     });
+
+    if (!repoRes.ok && repoRes.status === 404 && !cleanRepo.endsWith('-')) {
+      // Auto-fallback check if repo has trailing hyphen
+      const altRes = await fetch(`https://api.github.com/repos/${cleanOwner}/${cleanRepo}-`, {
+        headers
+      });
+      if (altRes.ok) {
+        repoRes = altRes;
+        cleanRepo = `${cleanRepo}-`;
+      }
+    }
 
     if (!repoRes.ok) {
       if (repoRes.status === 404) {
         return {
           success: false,
-          message: `রিপোজিটরি '${cleanOwner}/${cleanRepo}' খুঁজে পাওয়া যায়নি। রিপোজিটরি নাম ও টোকেন পারমিশন চেক করুন।`
+          message: `রিপোজিটরি '${cleanOwner}/${cleanRepo}' খুঁজে পাওয়া যায়নি। দ্রষ্টব্য: আপনার গিটহাব রিপোজিটরির নাম 'I-Have-A-School-' (শেষে হাইফেন '-' সহ)।`
         };
       }
       if (repoRes.status === 401) {
@@ -159,7 +173,10 @@ export async function pushDataToGitHub(
   }
 
   const cleanOwner = owner.trim();
-  const cleanRepo = repo.trim();
+  let cleanRepo = repo.trim();
+  if (cleanOwner.toLowerCase() === 'bmd03024-code' && cleanRepo === 'I-Have-A-School') {
+    cleanRepo = 'I-Have-A-School-';
+  }
   const cleanBranch = (branch || 'main').trim();
   const cleanPath = (filePath || 'data/ihas_live_database.json').replace(/^\/+/, '').trim();
 
@@ -277,7 +294,10 @@ export async function fetchDataFromGitHub(config: GitHubConfig): Promise<{
   }
 
   const cleanOwner = owner.trim();
-  const cleanRepo = repo.trim();
+  let cleanRepo = repo.trim();
+  if (cleanOwner.toLowerCase() === 'bmd03024-code' && cleanRepo === 'I-Have-A-School') {
+    cleanRepo = 'I-Have-A-School-';
+  }
   const cleanBranch = (branch || 'main').trim();
   const cleanPath = (filePath || 'data/ihas_live_database.json').replace(/^\/+/, '').trim();
 

@@ -27,6 +27,7 @@ import { VideoClass, NoteResource, Course, Teacher } from '../types';
 export const Home: React.FC = () => {
   const { 
     lang, 
+    heroSlides,
     courses, 
     videoClasses, 
     notes, 
@@ -92,8 +93,8 @@ export const Home: React.FC = () => {
     setQuizSubmitted(true);
   };
 
-  // Loading skeleton state preventing white flash / content jump during initial hydration
-  if (isInitialLoading) {
+  // Smooth immediate hydration - avoid jarring full-screen flash if cached or baseline data exists
+  if (isInitialLoading && courses.length === 0 && heroSlides.length === 0) {
     return (
       <div className="space-y-12 pb-16 animate-pulse">
         {/* Hero Skeleton */}
@@ -120,16 +121,6 @@ export const Home: React.FC = () => {
               </div>
             </div>
           ))}
-        </div>
-
-        {/* Courses Skeleton */}
-        <div className="max-w-7xl mx-auto px-4 space-y-6">
-          <div className="h-8 w-64 bg-slate-200 rounded-xl" />
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-80 bg-white rounded-3xl border border-slate-200 overflow-hidden" />
-            ))}
-          </div>
         </div>
       </div>
     );

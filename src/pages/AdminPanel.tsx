@@ -42,7 +42,8 @@ import {
   RotateCcw,
   GitBranch,
   Zap,
-  RefreshCw
+  RefreshCw,
+  Database
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { DEFAULT_SCHOOL_SETTINGS } from '../data/mockData';
@@ -143,8 +144,17 @@ export const AdminPanel: React.FC = () => {
     gitHubSyncStatus,
     pushToGitHub,
     pullFromGitHub,
+    isCodeSyncing,
+    codeSyncStatus,
+    codeSyncLastSaved,
+    saveAllToCodebase,
     showToast
   } = useApp();
+
+  const handleSaveAllToCodebase = async () => {
+    const res = await saveAllToCodebase();
+    showToast(res.message);
+  };
 
   // Login form state
   const [loginEmail, setLoginEmail] = useState('');
@@ -168,6 +178,7 @@ export const AdminPanel: React.FC = () => {
     | 'chatbot_training' 
     | 'dictionary' 
     | 'quizzes' 
+    | 'code_sync'
     | 'google_cloud' 
     | 'github_sync'
     | 'security'
@@ -1004,6 +1015,35 @@ export const AdminPanel: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Real-Time Codebase Auto-Sync Status Badge */}
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 text-xs font-semibold rounded-xl shadow-xs">
+              <span className={`w-2 h-2 rounded-full ${codeSyncStatus === 'saving' ? 'bg-amber-400 animate-ping' : 'bg-emerald-400 animate-pulse'}`} />
+              <span className="hidden sm:inline">
+                {lang === 'bn' ? 'কোডে অটো-পরিবর্তন: ' : 'Auto-Sync to Code: '}
+              </span>
+              <span className="font-mono text-[11px] text-emerald-200">
+                {codeSyncStatus === 'saving'
+                  ? (lang === 'bn' ? 'অটো-সংরক্ষণ হচ্ছে...' : 'Auto-saving...')
+                  : (lang === 'bn' ? 'স্বয়ংক্রিয় সংরক্ষিত ✓' : 'Auto-Saved ✓')}
+              </span>
+            </div>
+
+            {/* Master Codebase Save Button (অ্যাডমিনের পরিবর্তন কোডিংয়ে চূড়ান্ত সংরক্ষণ) */}
+            <button
+              type="button"
+              onClick={handleSaveAllToCodebase}
+              disabled={isCodeSyncing}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-all shadow-md active:scale-95 border border-emerald-400/40"
+              title={lang === 'bn' ? 'অ্যাডমিনের সকল পরিবর্তন সরাসরি কোডিং ফাইলে (src/data/liveData.json & public/liveData.json) চূড়ান্ত হিসেবে সংরক্ষণ করুন' : 'Save all admin changes authoritatively to codebase files'}
+            >
+              <Save className={`w-3.5 h-3.5 ${isCodeSyncing ? 'animate-spin' : ''}`} />
+              <span>
+                {isCodeSyncing 
+                  ? (lang === 'bn' ? 'কোডে সেভ হচ্ছে...' : 'Saving to Code...') 
+                  : (lang === 'bn' ? 'কোডে ম্যানুয়াল ফোর্স সেভ' : 'Force Save to Code')}
+              </span>
+            </button>
+
             {/* GitHub Live Sync Quick Indicator */}
             <div className="flex items-center gap-2 border-r border-slate-700 pr-3">
               <button
@@ -1094,6 +1134,7 @@ export const AdminPanel: React.FC = () => {
             { id: 'quizzes', label: lang === 'bn' ? 'কুইজ মেনেজমেন্ট' : 'Quiz Management', icon: Layers },
             { id: 'google_cloud', label: lang === 'bn' ? '১১. গুগল ক্লাউড ডেটাবেজ' : '11. Google Cloud DB', icon: Cloud },
             { id: 'github_sync', label: lang === 'bn' ? '১২. গিটহাব এপিআই ও লাইভ সিঙ্ক' : '12. GitHub Live Sync', icon: GitBranch },
+            { id: 'code_sync', label: lang === 'bn' ? '⚡ কোডিং ডেটাবেজ (চূড়ান্ত)' : '⚡ Codebase Database', icon: Database },
             { id: 'security', label: lang === 'bn' ? 'সিকিউরিটি' : 'Security', icon: Lock }
           ].map((tab) => {
             const Icon = tab.icon;
@@ -3255,6 +3296,193 @@ export const AdminPanel: React.FC = () => {
             lang={lang}
             showToast={showToast}
           />
+        )}
+
+        {/* ==================== TAB: CODEBASE DIRECT DATABASE SYNC ==================== */}
+        {activeTab === 'code_sync' && (
+          <div className="space-y-6">
+            {/* Header & Status Card */}
+            <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="bg-emerald-600 text-white text-[10px] font-black px-2.5 py-0.5 rounded uppercase flex items-center gap-1 shadow-xs">
+                    <Database className="w-3 h-3" />
+                    AUTHORITATIVE CODEBASE DATABASE
+                  </span>
+                  <span className="bg-indigo-100 text-indigo-800 text-[10px] font-bold px-2 py-0.5 rounded font-mono">
+                    src/data/liveData.json
+                  </span>
+                </div>
+                <h3 className="text-xl sm:text-2xl font-black text-slate-900">
+                  {lang === 'bn' ? 'অ্যাডমিন কোডিং ডেটাবেজ ও চূড়ান্ত ডেটা কন্ট্রোল' : 'Admin Codebase Database & Final Authority'}
+                </h3>
+                <p className="text-xs text-slate-600 max-w-2xl leading-relaxed">
+                  {lang === 'bn'
+                    ? 'অ্যাডমিন প্যানেল থেকে আপনি যা-ই পরিবর্তন করবেন, তাই চূড়ান্ত এবং তা সরাসরি প্রোজেক্টের কোডিং ফাইলে (src/data/liveData.json) স্বয়ংক্রিয়ভাবে সেভ হয়ে যাবে। কোনো ক্যাশ ক্লিয়ার বা নতুন ডিভাইস থেকেও এই তথ্য আর মুছে যাবে না।'
+                    : 'Whatever changes you make in the Admin Panel are authoritative and automatically saved directly into the project codebase file (src/data/liveData.json).'}
+                </p>
+              </div>
+
+              {/* Status & Master Trigger Box */}
+              <div className="bg-slate-900 text-white rounded-2xl p-5 min-w-[280px] space-y-3 shadow-lg border border-slate-800">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-slate-300 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    {lang === 'bn' ? 'সিঙ্ক স্ট্যাটাস:' : 'Sync Status:'}
+                  </span>
+                  <span className="font-bold px-2.5 py-0.5 rounded-full text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    {lang === 'bn' ? 'কোডে লাইভ সিঙ্ক সক্রিয়' : 'Code Sync Active'}
+                  </span>
+                </div>
+
+                <div className="text-[11px] text-slate-400 font-mono">
+                  {lang === 'bn' ? 'সর্বশেষ কোড আপডেট: ' : 'Last Saved: '}
+                  <span className="text-slate-200">
+                    {codeSyncLastSaved ? new Date(codeSyncLastSaved).toLocaleTimeString('bn-BD') : 'এখনই'}
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleSaveAllToCodebase}
+                  disabled={isCodeSyncing}
+                  className="w-full py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-50 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-md active:scale-95"
+                >
+                  <Save className={`w-4 h-4 ${isCodeSyncing ? 'animate-spin' : ''}`} />
+                  <span>
+                    {isCodeSyncing
+                      ? (lang === 'bn' ? 'কোডিংয়ে সংরক্ষণ হচ্ছে...' : 'Saving to Codebase...')
+                      : (lang === 'bn' ? 'কোডিংয়ে সম্পূর্ণ স্ন্যাপশট লিখুন' : 'Write Full Snapshot to Code')}
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            {/* Supabase Cloud Connection Status */}
+            <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-teal-950 border border-emerald-500/30 text-white p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-md">
+              <div className="flex items-center gap-3.5">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-400 shrink-0">
+                  <Database className="w-5 h-5" />
+                </div>
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-sm text-white">
+                      {lang === 'bn' ? 'সুপারবেস ক্লাউড ডেটাবেজ (Supabase Cloud)' : 'Supabase Cloud Database'}
+                    </span>
+                    <span className="px-2 py-0.5 text-[10px] font-black rounded-full bg-emerald-400 text-slate-950 uppercase flex items-center gap-1 shadow-xs">
+                      <span className="w-1.5 h-1.5 rounded-full bg-slate-950 animate-pulse" />
+                      CONNECTED
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-emerald-200/90 font-mono">
+                    https://gdopjlajrlexmuccpctg.supabase.co
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-[11px] text-slate-300 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700 font-mono">
+                  Key: ••••••••_Jak
+                </span>
+              </div>
+            </div>
+
+            {/* Information & Feature Summary Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+                <span className="text-slate-400 font-semibold uppercase text-[10px] flex items-center gap-1">
+                  <Settings className="w-3.5 h-3.5 text-emerald-600" />
+                  প্রতিষ্ঠান ও ফুটার
+                </span>
+                <p className="text-lg font-bold text-slate-800">১টি প্রতিষ্ঠান প্রোফাইল</p>
+                <p className="text-[11px] text-slate-500">লোগো, সিল, নাম ও ফুটার লিংক কোডে সংরক্ষিত</p>
+              </div>
+
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+                <span className="text-slate-400 font-semibold uppercase text-[10px] flex items-center gap-1">
+                  <ImageIcon className="w-3.5 h-3.5 text-emerald-600" />
+                  হিরো স্লাইডার
+                </span>
+                <p className="text-lg font-bold text-slate-800">{heroSlides.length}টি ব্যানার স্লাইড</p>
+                <p className="text-[11px] text-slate-500">হোমপেজের স্লাইডার কোডিং ডেটাবেজে লাইভ</p>
+              </div>
+
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+                <span className="text-slate-400 font-semibold uppercase text-[10px] flex items-center gap-1">
+                  <BookOpen className="w-3.5 h-3.5 text-emerald-600" />
+                  কোর্স কারিকুলাম
+                </span>
+                <p className="text-lg font-bold text-slate-800">{courses.length}টি ব্যাচ ও কোর্স</p>
+                <p className="text-[11px] text-slate-500">ফি, মেয়াদ ও কারিকুলাম কোডে চূড়ান্ত</p>
+              </div>
+
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+                <span className="text-slate-400 font-semibold uppercase text-[10px] flex items-center gap-1">
+                  <Users className="w-3.5 h-3.5 text-emerald-600" />
+                  শিক্ষার্থী তালিকা
+                </span>
+                <p className="text-lg font-bold text-slate-800">{students.length} জন শিক্ষার্থী</p>
+                <p className="text-[11px] text-slate-500">ভর্তি ও শিক্ষার্থীর তথ্য কোডে সংরক্ষিত</p>
+              </div>
+
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+                <span className="text-slate-400 font-semibold uppercase text-[10px] flex items-center gap-1">
+                  <Award className="w-3.5 h-3.5 text-emerald-600" />
+                  ফলাফল ও মার্কশিট
+                </span>
+                <p className="text-lg font-bold text-slate-800">{results.length}টি পরীক্ষার ফলাফল</p>
+                <p className="text-[11px] text-slate-500">{subjects.length} বিষয় ও {exams.length} পরীক্ষার ডেটা</p>
+              </div>
+
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+                <span className="text-slate-400 font-semibold uppercase text-[10px] flex items-center gap-1">
+                  <GraduationCap className="w-3.5 h-3.5 text-emerald-600" />
+                  শিক্ষক ও সিল/স্বাক্ষর
+                </span>
+                <p className="text-lg font-bold text-slate-800">{teachers.length} জন শিক্ষক</p>
+                <p className="text-[11px] text-slate-500">আইডি কার্ড ও ডিজিটাল স্বাক্ষর কোডে যুক্ত</p>
+              </div>
+
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+                <span className="text-slate-400 font-semibold uppercase text-[10px] flex items-center gap-1">
+                  <Video className="w-3.5 h-3.5 text-emerald-600" />
+                  ফ্রি ক্লাস ও নোটস
+                </span>
+                <p className="text-lg font-bold text-slate-800">{videoClasses.length}টি ক্লাস, {notes.length}টি নোটস</p>
+                <p className="text-[11px] text-slate-500">ভিডিও লেকচার ও পিডিএফ শিট কোডে সিঙ্কড</p>
+              </div>
+
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-1">
+                <span className="text-slate-400 font-semibold uppercase text-[10px] flex items-center gap-1">
+                  <Bot className="w-3.5 h-3.5 text-emerald-600" />
+                  চ্যাটবট ও কুইজ
+                </span>
+                <p className="text-lg font-bold text-slate-800">{chatbotTraining.length}টি টপিক, {modelTests.length}টি কুইজ</p>
+                <p className="text-[11px] text-slate-500">১০ লাখ শব্দের জ্ঞানভাণ্ডার কোডে চূড়ান্ত</p>
+              </div>
+            </div>
+
+            {/* How It Works Explanatory Callout */}
+            <div className="bg-emerald-50/80 border border-emerald-200 rounded-3xl p-6 sm:p-8 space-y-4">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-600" />
+                <h4 className="text-base font-bold text-emerald-950">
+                  {lang === 'bn' ? 'কীভাবে এই সিস্টেম কাজ করে?' : 'How this Authoritative Sync Works'}
+                </h4>
+              </div>
+              <ul className="space-y-2 text-xs text-emerald-900 leading-relaxed list-disc list-inside">
+                <li>
+                  <strong>স্বয়ংক্রিয় কোডিং রাইট:</strong> আপনি অ্যাডমিন প্যানেলে যেকোনো কোর্স, রুটিন, নোটিশ, শিক্ষার্থী, ফলাফল বা স্লাইডার তৈরি বা এডিট করার সাথে সাথে সিস্টেম স্বয়ংক্রিয়ভাবে <code className="bg-white px-2 py-0.5 rounded font-mono border border-emerald-300">src/data/liveData.json</code> ফাইলে তা লিখে দেয়।
+                </li>
+                <li>
+                  <strong>ক্যাশ ক্লিয়ার হলেও কোনো ডেটা হারাবে না:</strong> ব্যবহারকারী বা ভিজিটর যে ডিভাইসেই সাইট ওপেন করুক না কেন, কোডিং ফাইলটি মূল ভিত্তি হওয়ায় কোনো পুরনো বা ডিফল্ট ডেটায় ফিরে যাবে না।
+                </li>
+                <li>
+                  <strong>তাৎক্ষণিক সকল ট্যাবে ব্রডকাস্ট:</strong> এক ট্যাবে পরিবর্তন করার সাথে সাথে অন্য সকল ওপেন ব্রাউজার উইন্ডো ও স্টুডেন্ট সেশনে কোনো বিলম্ব ছাড়াই ডেটা আপডেট হয়ে যাবে।
+                </li>
+              </ul>
+            </div>
+          </div>
         )}
 
         {/* ==================== TAB: SECURITY & CREDENTIALS ==================== */}

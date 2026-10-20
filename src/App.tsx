@@ -76,9 +76,9 @@ export const App: React.FC = () => {
       {/* AI Educational Chatbot Module */}
       <AIChatbot />
 
-      {/* Toast Notification - completely static */}
+      {/* Smooth Toast Notification */}
       {toastMessage && (
-        <div className="fixed top-6 right-6 z-50 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-2xl border border-slate-700 flex items-center gap-2.5 text-xs font-semibold">
+        <div className="fixed top-6 right-6 z-50 bg-slate-900/95 backdrop-blur-md text-white px-4 py-3 rounded-2xl shadow-2xl shadow-emerald-950/20 border border-slate-700/80 flex items-center gap-2.5 text-xs font-semibold animate-scale-in transition-all duration-300">
           <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
           <span>{toastMessage}</span>
         </div>

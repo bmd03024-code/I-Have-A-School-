@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { 
   Language, 
   SchoolSettings, 
@@ -36,10 +36,17 @@ import {
   DEFAULT_GITHUB_CONFIG,
   MODEL_TESTS as DEFAULT_TESTS
 } from '../data/mockData';
+import codeLiveData from '../data/liveData.json';
 import { notifyRealtimeUpdate, subscribeRealtimeUpdate, clearAllCachesAndBroadcast, safeStorage } from '../lib/storageService';
 import { pushDataToGitHub, fetchDataFromGitHub } from '../services/githubSyncService';
 
 export interface AppContextType {
+  // Codebase Direct Sync & Authoritative Storage
+  isCodeSyncing: boolean;
+  codeSyncLastSaved: string | null;
+  codeSyncStatus: 'idle' | 'saving' | 'saved' | 'error';
+  saveAllToCodebase: () => Promise<{ success: boolean; message: string }>;
+
   // Language Toggle
   lang: Language;
   toggleLang: () => void;
@@ -203,13 +210,24 @@ const persistItem = (key: string, data: any) => {
 
 const getPersistedItem = <T,>(key: string, fallback: T): T => {
   try {
+    // 1. Check if user/admin locally edited this key
     const raw = safeStorage.getItem(key);
-    if (!raw) return fallback;
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(fallback) && !Array.isArray(parsed)) {
-      return fallback;
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (!(Array.isArray(fallback) && !Array.isArray(parsed))) {
+        return parsed ?? fallback;
+      }
     }
-    return parsed ?? fallback;
+
+    // 2. Authoritative baseline from codebase liveData.json
+    const codeVal = (codeLiveData as Record<string, any>)[key];
+    if (codeVal !== undefined && codeVal !== null) {
+      if (!(Array.isArray(fallback) && !Array.isArray(codeVal))) {
+        return codeVal;
+      }
+    }
+
+    return fallback;
   } catch {
     return fallback;
   }
@@ -288,11 +306,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   }, [isEqual]);
 
+  // Codebase direct sync state
+  const [isCodeSyncing, setIsCodeSyncing] = useState(false);
+  const [codeSyncStatus, setCodeSyncStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('saved');
+  const [codeSyncLastSaved, setCodeSyncLastSaved] = useState<string | null>(() => {
+    return (codeLiveData as any)?._meta?.updatedAt || (codeLiveData as any)?._meta?.lastSavedAt || (codeLiveData as any)?._updatedAt || null;
+  });
+
   // Post changes asynchronously after render, NEVER inside setState updater function
   const commitEntityChange = useCallback((key: string, topic: string, data: any) => {
     queueMicrotask(() => {
       persistItem(key, data);
       notifyRealtimeUpdate(topic, data);
+      setCodeSyncLastSaved(new Date().toISOString());
     });
   }, []);
 
@@ -695,8 +721,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // 15. GitHub REST API Database Sync & Cross-Browser Live Update
   const [githubConfig, setGithubConfig] = useState<GitHubConfig>(() => {
     try {
-      const saved = localStorage.getItem('ihas_github_config');
-      return saved ? JSON.parse(saved) : DEFAULT_GITHUB_CONFIG;
+      const saved = safeStorage.getItem('ihas_github_config');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const rawToken = parsed.token?.trim() || '';
+        const storedToken = rawToken.startsWith('ghp_Avnb0Qwt') ? '' : rawToken;
+        return {
+          ...DEFAULT_GITHUB_CONFIG,
+          ...parsed,
+          token: storedToken,
+          owner: parsed.owner?.trim() || DEFAULT_GITHUB_CONFIG.owner,
+          repo: parsed.repo?.trim() || DEFAULT_GITHUB_CONFIG.repo
+        };
+      }
+      return DEFAULT_GITHUB_CONFIG;
     } catch {
       return DEFAULT_GITHUB_CONFIG;
     }
@@ -844,6 +882,154 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     modelTests,
     adminCredentials
   ]);
+
+  // Automatic Debounced Codebase Auto-Sync Engine:
+  // Whatever the admin modifies (slides, courses, students, results, teachers, notes, routines, etc.),
+  // it is automatically saved directly into the codebase file (src/data/liveData.json & public/liveData.json)
+  const isInitialMountRef = useRef(true);
+  useEffect(() => {
+    if (isInitialMountRef.current) {
+      isInitialMountRef.current = false;
+      return;
+    }
+
+    setCodeSyncStatus('saving');
+    const autoSyncTimer = setTimeout(async () => {
+      try {
+        const snapshot = {
+          ihas_school_settings: latestEntitiesRef.current.schoolSettings,
+          ihas_hero_slides: latestEntitiesRef.current.heroSlides,
+          ihas_courses: latestEntitiesRef.current.courses,
+          ihas_students: latestEntitiesRef.current.students,
+          ihas_subjects: latestEntitiesRef.current.subjects,
+          ihas_exams: latestEntitiesRef.current.exams,
+          ihas_results: latestEntitiesRef.current.results,
+          ihas_teachers: latestEntitiesRef.current.teachers,
+          ihas_video_classes: latestEntitiesRef.current.videoClasses,
+          ihas_videos: latestEntitiesRef.current.videoClasses,
+          ihas_notes: latestEntitiesRef.current.notes,
+          ihas_notices: latestEntitiesRef.current.notices,
+          ihas_routines: latestEntitiesRef.current.routines,
+          ihas_chatbot_training: latestEntitiesRef.current.chatbotTraining,
+          ihas_quizzes: latestEntitiesRef.current.modelTests,
+          ihas_admin_creds: latestEntitiesRef.current.adminCredentials,
+          _meta: {
+            authoritative: true,
+            platform: 'I Have A School',
+            founder: 'MD Touhidul Hoque Tuhin',
+            updatedAt: new Date().toISOString(),
+            syncedBy: 'Admin Control Panel Auto Engine'
+          }
+        };
+
+        const res = await fetch('/api/sync-to-code', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ snapshot })
+        });
+
+        if (res.ok) {
+          const now = new Date().toISOString();
+          setCodeSyncLastSaved(now);
+          setCodeSyncStatus('saved');
+        } else {
+          setCodeSyncStatus('error');
+        }
+      } catch {
+        setCodeSyncStatus('error');
+      }
+    }, 450);
+
+    return () => clearTimeout(autoSyncTimer);
+  }, [
+    schoolSettings,
+    heroSlides,
+    courses,
+    students,
+    subjects,
+    exams,
+    results,
+    teachers,
+    videoClasses,
+    notes,
+    notices,
+    routines,
+    chatbotTraining,
+    modelTests,
+    adminCredentials
+  ]);
+
+  // Master function to write the entire database snapshot directly into the codebase file (src/data/liveData.json)
+  const saveAllToCodebase = useCallback(async (): Promise<{ success: boolean; message: string }> => {
+    setIsCodeSyncing(true);
+    setCodeSyncStatus('saving');
+    try {
+      const snapshot = {
+        ihas_school_settings: latestEntitiesRef.current.schoolSettings,
+        ihas_hero_slides: latestEntitiesRef.current.heroSlides,
+        ihas_courses: latestEntitiesRef.current.courses,
+        ihas_students: latestEntitiesRef.current.students,
+        ihas_subjects: latestEntitiesRef.current.subjects,
+        ihas_exams: latestEntitiesRef.current.exams,
+        ihas_results: latestEntitiesRef.current.results,
+        ihas_teachers: latestEntitiesRef.current.teachers,
+        ihas_video_classes: latestEntitiesRef.current.videoClasses,
+        ihas_videos: latestEntitiesRef.current.videoClasses,
+        ihas_notes: latestEntitiesRef.current.notes,
+        ihas_notices: latestEntitiesRef.current.notices,
+        ihas_routines: latestEntitiesRef.current.routines,
+        ihas_chatbot_training: latestEntitiesRef.current.chatbotTraining,
+        ihas_quizzes: latestEntitiesRef.current.modelTests,
+        ihas_admin_creds: latestEntitiesRef.current.adminCredentials,
+        _meta: {
+          authoritative: true,
+          platform: 'I Have A School',
+          founder: 'MD Touhidul Hoque Tuhin',
+          updatedAt: new Date().toISOString(),
+          syncedBy: 'Admin Control Panel'
+        }
+      };
+
+      const res = await fetch('/api/sync-to-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ snapshot })
+      });
+
+      if (res.ok) {
+        const now = new Date().toISOString();
+        setCodeSyncLastSaved(now);
+        setCodeSyncStatus('saved');
+        // Ensure local storage is also populated with this snapshot
+        Object.entries(snapshot).forEach(([k, v]) => {
+          if (k !== '_meta') {
+            safeStorage.setItem(k, JSON.stringify(v));
+          }
+        });
+        notifyRealtimeUpdate('force_reload');
+        return {
+          success: true,
+          message: lang === 'bn'
+            ? 'অ্যাডমিনের সকল পরিবর্তন কোডিং ফাইলে (src/data/liveData.json & public/liveData.json) চূড়ান্ত হিসেবে সফলভাবে সংরক্ষিত হয়েছে!'
+            : 'All admin changes have been permanently and authoritatively saved to the codebase (src/data/liveData.json)!'
+        };
+      } else {
+        setCodeSyncStatus('error');
+        return {
+          success: false,
+          message: lang === 'bn' ? 'কোডিং ফাইলে সংরক্ষণ করতে সমস্যা হয়েছে।' : 'Failed to write to codebase file.'
+        };
+      }
+    } catch (err: any) {
+      setCodeSyncStatus('error');
+      return {
+        success: false,
+        message: `ত্রুটি: ${err?.message || 'সংরক্ষণ ব্যর্থ হয়েছে'}`
+      };
+    } finally {
+      setIsCodeSyncing(false);
+    }
+  }, [lang]);
 
   const pushToGitHub = useCallback(async (
     customCommitMessage?: string
@@ -1048,7 +1234,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (g) safeSetIfChanged(setGoogleCloudConfig, g);
 
       const gh = safeParse<GitHubConfig>('ihas_github_config');
-      if (gh) safeSetIfChanged(setGithubConfig, gh);
+      if (gh) {
+        if (gh.token && gh.token.startsWith('ghp_Avnb0Qwt')) {
+          gh.token = '';
+          safeStorage.setItem('ihas_github_config', JSON.stringify(gh));
+        }
+        safeSetIfChanged(setGithubConfig, gh);
+      }
 
       const cr = safeParse<{ email: string; password: string }>('ihas_admin_creds');
       if (cr?.email && cr?.password) safeSetIfChanged(setAdminCredentials, cr);
@@ -1064,26 +1256,47 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     let isMounted = true;
     const fetchInitialData = async () => {
       try {
-        const res = await fetch('/api/sync-to-code', { cache: 'no-store' });
-        if (res.ok) {
-          const liveData = await res.json();
-          if (isMounted && liveData && typeof liveData === 'object') {
-            if (liveData.ihas_school_settings) safeSetIfChanged(setSchoolSettings, liveData.ihas_school_settings);
-            if (Array.isArray(liveData.ihas_hero_slides)) safeSetIfChanged(setHeroSlides, liveData.ihas_hero_slides);
-            if (Array.isArray(liveData.ihas_courses)) safeSetIfChanged(setCourses, liveData.ihas_courses);
-            if (Array.isArray(liveData.ihas_students)) safeSetIfChanged(setStudents, liveData.ihas_students);
-            if (Array.isArray(liveData.ihas_subjects)) safeSetIfChanged(setSubjects, liveData.ihas_subjects);
-            if (Array.isArray(liveData.ihas_exams)) safeSetIfChanged(setExams, liveData.ihas_exams);
-            if (Array.isArray(liveData.ihas_results)) safeSetIfChanged(setResults, liveData.ihas_results);
-            if (Array.isArray(liveData.ihas_teachers)) safeSetIfChanged(setTeachers, liveData.ihas_teachers);
-            if (Array.isArray(liveData.ihas_video_classes) || Array.isArray(liveData.ihas_videos)) {
-              safeSetIfChanged(setVideoClasses, liveData.ihas_video_classes || liveData.ihas_videos);
+        let liveData: any = null;
+        try {
+          const res = await fetch('/api/sync-to-code', { cache: 'no-store' });
+          if (res.ok) {
+            liveData = await res.json();
+          }
+        } catch (_apiErr) {
+          void _apiErr;
+        }
+
+        // Fallback to static public/liveData.json if API is unavailable
+        if (!liveData || typeof liveData !== 'object' || Object.keys(liveData).length === 0) {
+          try {
+            const fallbackRes = await fetch('/liveData.json', { cache: 'no-store' });
+            if (fallbackRes.ok) {
+              liveData = await fallbackRes.json();
             }
-            if (Array.isArray(liveData.ihas_notes)) safeSetIfChanged(setNotes, liveData.ihas_notes);
-            if (Array.isArray(liveData.ihas_notices)) safeSetIfChanged(setNotices, liveData.ihas_notices);
-            if (Array.isArray(liveData.ihas_routines)) safeSetIfChanged(setRoutines, liveData.ihas_routines);
-            if (Array.isArray(liveData.ihas_chatbot_training)) safeSetIfChanged(setChatbotTraining, liveData.ihas_chatbot_training);
-            if (Array.isArray(liveData.ihas_quizzes)) safeSetIfChanged(setModelTests, liveData.ihas_quizzes);
+          } catch (_fbErr) {
+            void _fbErr;
+          }
+        }
+
+        if (isMounted && liveData && typeof liveData === 'object') {
+          if (liveData.ihas_school_settings) safeSetIfChanged(setSchoolSettings, liveData.ihas_school_settings);
+          if (Array.isArray(liveData.ihas_hero_slides)) safeSetIfChanged(setHeroSlides, liveData.ihas_hero_slides);
+          if (Array.isArray(liveData.ihas_courses)) safeSetIfChanged(setCourses, liveData.ihas_courses);
+          if (Array.isArray(liveData.ihas_students)) safeSetIfChanged(setStudents, liveData.ihas_students);
+          if (Array.isArray(liveData.ihas_subjects)) safeSetIfChanged(setSubjects, liveData.ihas_subjects);
+          if (Array.isArray(liveData.ihas_exams)) safeSetIfChanged(setExams, liveData.ihas_exams);
+          if (Array.isArray(liveData.ihas_results)) safeSetIfChanged(setResults, liveData.ihas_results);
+          if (Array.isArray(liveData.ihas_teachers)) safeSetIfChanged(setTeachers, liveData.ihas_teachers);
+          if (Array.isArray(liveData.ihas_video_classes) || Array.isArray(liveData.ihas_videos)) {
+            safeSetIfChanged(setVideoClasses, liveData.ihas_video_classes || liveData.ihas_videos);
+          }
+          if (Array.isArray(liveData.ihas_notes)) safeSetIfChanged(setNotes, liveData.ihas_notes);
+          if (Array.isArray(liveData.ihas_notices)) safeSetIfChanged(setNotices, liveData.ihas_notices);
+          if (Array.isArray(liveData.ihas_routines)) safeSetIfChanged(setRoutines, liveData.ihas_routines);
+          if (Array.isArray(liveData.ihas_chatbot_training)) safeSetIfChanged(setChatbotTraining, liveData.ihas_chatbot_training);
+          if (Array.isArray(liveData.ihas_quizzes)) safeSetIfChanged(setModelTests, liveData.ihas_quizzes);
+          if (liveData._updatedAt || liveData._meta?.lastSavedAt) {
+            setCodeSyncLastSaved(liveData._updatedAt || liveData._meta?.lastSavedAt);
           }
         }
       } catch (err) {
@@ -1522,7 +1735,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsChatbotOpen,
         isInitialLoading,
         clearCacheAndSyncRealtime,
-        reloadAllFromStorage
+        reloadAllFromStorage,
+        isCodeSyncing,
+        codeSyncStatus,
+        codeSyncLastSaved,
+        saveAllToCodebase
       }}
     >
       {children}

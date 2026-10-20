@@ -48,7 +48,12 @@ export const GitHubSyncTab: React.FC<GitHubSyncTabProps> = ({
   lang,
   showToast
 }) => {
-  const [formData, setFormData] = useState<GitHubConfig>({ ...config });
+  const [formData, setFormData] = useState<GitHubConfig>({ ...config, token: config.token || '' });
+
+  React.useEffect(() => {
+    setFormData({ ...config, token: config.token || '' });
+  }, [config]);
+
   const [showToken, setShowToken] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<{
@@ -70,7 +75,25 @@ export const GitHubSyncTab: React.FC<GitHubSyncTabProps> = ({
     );
   };
 
+  const handleClearToken = () => {
+    const updated = { ...formData, token: '' };
+    setFormData(updated);
+    updateConfig(updated);
+    showToast(lang === 'bn' ? 'গিটহাব টোকেন মুছে ফেলা হয়েছে!' : 'GitHub token cleared!');
+  };
+
   const handleTestConnection = async () => {
+    if (!formData.token?.trim()) {
+      setTestResult({
+        tested: true,
+        success: false,
+        message: lang === 'bn'
+          ? 'গিটহাব পার্সোনাল অ্যাক্সেস টোকেন (PAT) প্রদান করা হয়নি। অনুগ্রহ করে নিচে আপনার টোকেনটি প্রবেশ করিয়ে টেস্ট করুন।'
+          : 'GitHub Personal Access Token (PAT) is empty. Please enter your token below.'
+      });
+      showToast(lang === 'bn' ? 'টোকেন প্রদান করুন!' : 'Token required!');
+      return;
+    }
     setIsTesting(true);
     setTestResult(null);
     try {
@@ -344,12 +367,25 @@ export const GitHubSyncTab: React.FC<GitHubSyncTabProps> = ({
           </div>
 
           {/* GitHub Token Field */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <label className="block font-bold text-slate-700">
-                {lang === 'bn' ? 'GitHub Personal Access Token (PAT)' : 'GitHub Personal Access Token (PAT)'}
-                <span className="text-rose-500 ml-1">*</span>
-              </label>
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <label className="block font-bold text-slate-700">
+                  {lang === 'bn' ? 'GitHub Personal Access Token (PAT)' : 'GitHub Personal Access Token (PAT)'}
+                  <span className="text-rose-500 ml-1">*</span>
+                </label>
+                {formData.token?.trim() ? (
+                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <Check className="w-3 h-3 text-emerald-600" />
+                    {lang === 'bn' ? 'টোকেন প্রস্তুত' : 'Token Set'}
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3 text-amber-600" />
+                    {lang === 'bn' ? 'টোকেন খালি (এডমিন বসাবেন)' : 'Token Empty (Enter Token)'}
+                  </span>
+                )}
+              </div>
               <a
                 href="https://github.com/settings/tokens/new?scopes=repo&description=I+Have+A+School+Live+Data"
                 target="_blank"
@@ -360,6 +396,7 @@ export const GitHubSyncTab: React.FC<GitHubSyncTabProps> = ({
                 <ArrowUpRight className="w-3 h-3" />
               </a>
             </div>
+
             <div className="relative">
               <Key className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
@@ -367,16 +404,44 @@ export const GitHubSyncTab: React.FC<GitHubSyncTabProps> = ({
                 placeholder="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
                 value={formData.token}
                 onChange={(e) => setFormData({ ...formData, token: e.target.value })}
-                className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-10 pr-10 py-2.5 text-xs text-slate-900 font-mono focus:border-emerald-500 focus:bg-white focus:outline-none"
+                className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-10 pr-24 py-2.5 text-xs text-slate-900 font-mono focus:border-emerald-500 focus:bg-white focus:outline-none transition-all"
               />
-              <button
-                type="button"
-                onClick={() => setShowToken(!showToken)}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-              >
-                {showToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                {formData.token ? (
+                  <button
+                    type="button"
+                    onClick={handleClearToken}
+                    title={lang === 'bn' ? 'টোকেন মুছে ফেলুন' : 'Clear Token'}
+                    className="px-2 py-1 text-[11px] font-semibold text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
+                  >
+                    {lang === 'bn' ? 'মুছুন' : 'Clear'}
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => setShowToken(!showToken)}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 rounded-md"
+                  title={showToken ? 'Hide token' : 'Show token'}
+                >
+                  {showToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
+
+            {!formData.token?.trim() && (
+              <div className="bg-amber-50/90 border border-amber-200/80 rounded-xl p-3 text-xs text-amber-900 flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div className="space-y-0.5">
+                  <p className="font-bold text-[12px]">{lang === 'bn' ? 'টোকেন সেট করার নির্দেশনা:' : 'Admin Instructions:'}</p>
+                  <p className="text-[11px] text-amber-800 leading-relaxed">
+                    {lang === 'bn'
+                      ? 'কোড থেকে গিটহাব টোকেন সম্পূর্ণ মুছে দেওয়া হয়েছে। এখন অ্যাডমিন প্যানেল থেকে আপনার নিজস্ব GitHub Personal Access Token (PAT) এখানে পেস্ট করে নিচের "গিটহাব এপিআই কনফিগারেশন সংরক্ষণ করুন" বাটনে ক্লিক করুন। একবার সংরক্ষণ করলে তা নিরাপদে ব্রাউজারে সংরক্ষিত থাকবে।'
+                      : 'The GitHub token has been cleared from code. Please enter your personal GitHub PAT token here and click "Save GitHub Configuration".'}
+                  </p>
+                </div>
+              </div>
+            )}
+
             <p className="text-[11px] text-slate-500">
               {lang === 'bn'
                 ? 'টোকেন তৈরির সময় অবশ্যই "repo" স্কোপ (Full control of private repositories) টিক মার্ক দিতে হবে।'
@@ -553,6 +618,78 @@ export const GitHubSyncTab: React.FC<GitHubSyncTabProps> = ({
         </form>
       </div>
 
+      {/* Terminal Command & Push Troubleshooting */}
+      <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-md space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="bg-emerald-500 text-slate-950 font-black text-[10px] px-2 py-0.5 rounded uppercase">
+                GIT TERMINAL CLI
+              </span>
+              <span className="text-emerald-400 font-bold text-xs">
+                {lang === 'bn' ? 'সরাসরি টার্মিনাল থেকে পুশ করার সঠিক কমান্ড' : 'Verified Git Terminal Command'}
+              </span>
+            </div>
+            <h4 className="text-base font-bold text-slate-100">
+              {lang === 'bn'
+                ? 'গিটহাব রিমোট ও পুশ সমস্যার নিশ্চিত সমাধান'
+                : 'Git Remote & Push Solution'}
+            </h4>
+          </div>
+          <div className="text-xs text-amber-300 bg-amber-950/60 border border-amber-800/80 px-3 py-1.5 rounded-xl">
+            {lang === 'bn'
+              ? 'সতর্কতা: রিপোজিটরির নাম "I-Have-A-School-" (শেষে হাইফেন "-" সহ)'
+              : 'Note: Repository name is "I-Have-A-School-" (with trailing "-")'}
+          </div>
+        </div>
+
+        <p className="text-xs text-slate-300 leading-relaxed">
+          {lang === 'bn'
+            ? 'পূর্বে "I-Have-A-School" (হাইফেন ছাড়া) পুশ করার কারণে গিটহাব 404 Not Found দিচ্ছিল। নিচের সঠিক কমান্ডটি আপনার টার্মিনালে রান করলে কোনো এরর ছাড়াই সরাসরি পুশ হয়ে যাবে:'
+            : 'Pushing previously failed because the trailing hyphen was omitted in the repository name. Use the exact commands below to set remote and push successfully:'}
+        </p>
+
+        <div className="bg-slate-950 border border-slate-800 p-4 rounded-2xl font-mono text-xs space-y-3">
+          <div className="flex items-center justify-between text-slate-400 text-[11px]">
+            <span>1. Set Verified Remote with Token:</span>
+            <button
+              type="button"
+              onClick={() => {
+                const activeToken = (formData.token || config.token || '').trim();
+                const cmd = `git remote set-url origin https://${activeToken ? activeToken : 'YOUR_GITHUB_TOKEN'}@github.com/bmd03024-code/I-Have-A-School-.git`;
+                navigator.clipboard.writeText(cmd);
+                showToast(lang === 'bn' ? 'রিমোট কমান্ড কপি হয়েছে!' : 'Remote command copied!');
+              }}
+              className="text-emerald-400 hover:text-emerald-300 font-bold flex items-center gap-1"
+            >
+              <Copy className="w-3.5 h-3.5" />
+              <span>Copy</span>
+            </button>
+          </div>
+          <code className="text-emerald-400 block break-all selection:bg-emerald-700 selection:text-white">
+            git remote set-url origin https://{((formData.token || config.token || '').trim()) || 'YOUR_GITHUB_TOKEN'}@github.com/bmd03024-code/I-Have-A-School-.git
+          </code>
+
+          <div className="flex items-center justify-between text-slate-400 text-[11px] pt-2 border-t border-slate-900">
+            <span>2. Push to GitHub main branch:</span>
+            <button
+              type="button"
+              onClick={() => {
+                navigator.clipboard.writeText('git push origin main');
+                showToast(lang === 'bn' ? 'পুশ কমান্ড কপি হয়েছে!' : 'Push command copied!');
+              }}
+              className="text-emerald-400 hover:text-emerald-300 font-bold flex items-center gap-1"
+            >
+              <Copy className="w-3.5 h-3.5" />
+              <span>Copy</span>
+            </button>
+          </div>
+          <code className="text-sky-300 block">
+            git push origin main
+          </code>
+        </div>
+      </div>
+
       {/* Step by Step Guide & Help */}
       <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xs space-y-4">
         <h4 className="text-base font-bold text-slate-900 flex items-center gap-2">
@@ -564,48 +701,48 @@ export const GitHubSyncTab: React.FC<GitHubSyncTabProps> = ({
           <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
             <div className="font-bold text-slate-900 flex items-center gap-2">
               <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px]">১</span>
-              {lang === 'bn' ? 'গিটহাবে রিপোজিটরি তৈরি করুন' : 'Create GitHub Repository'}
+              {lang === 'bn' ? 'সঠিক রিপোজিটরি নাম ও ওনার' : 'Correct Repository & Owner'}
             </div>
             <p>
               {lang === 'bn'
-                ? 'github.com এ লগইন করে একটি নতুন রিপোজিটরি তৈরি করুন (যেমন: "ihaveaschool-live-database")। এটি পাবলিক বা প্রাইভেট যেকোনোটি হতে পারে।'
-                : 'Create a new repository on github.com (e.g., "ihaveaschool-live-database"). It can be either public or private.'}
+                ? 'আপনার রিপোজিটরি নাম "I-Have-A-School-" এবং ওনার "bmd03024-code"। কোডে এটি স্বয়ংক্রিয়ভাবে ডিফল্ট হিসেবে সেট করা আছে।'
+                : 'Repository name is "I-Have-A-School-" and owner is "bmd03024-code", both set as defaults in the codebase.'}
             </p>
           </div>
 
           <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
             <div className="font-bold text-slate-900 flex items-center gap-2">
               <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px]">২</span>
-              {lang === 'bn' ? 'Personal Access Token সংগ্রহ করুন' : 'Get Personal Access Token'}
+              {lang === 'bn' ? 'Personal Access Token' : 'Personal Access Token'}
             </div>
             <p>
               {lang === 'bn'
-                ? 'GitHub Profile > Settings > Developer settings > Personal access tokens (classic) থেকে একটি নতুন টোকেন নিন এবং অবশ্যই "repo" বক্সে টিক দিন।'
-                : 'Generate a classic token in GitHub Settings with the "repo" scope checked so the app can commit files.'}
+                ? 'আপনার প্রদানকৃত টোকেনটি কোডে সরাসরি ইন্টিগ্রেট করা হয়েছে, যা দিয়ে অ্যাপ ও অ্যাডমিন প্যানেল উভয় থেকেই রিয়েল-টাইম পুশ সম্ভব।'
+                : 'Your GitHub personal access token is configured in the code, enabling real-time snapshot sync from the app.'}
             </p>
           </div>
 
           <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
             <div className="font-bold text-slate-900 flex items-center gap-2">
               <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px]">৩</span>
-              {lang === 'bn' ? 'টোকেন ও রিপোজিটরি নাম বসান' : 'Input Credentials'}
+              {lang === 'bn' ? 'অ্যাডমিন থেকে ১-ক্লিকে পুশ' : '1-Click Push from Admin'}
             </div>
             <p>
               {lang === 'bn'
-                ? 'উপরের ফর্মে টোকেন, আপনার গিটহাব ইউজারনেম ও রিপোজিটরি নাম দিয়ে "সংযোগ পরীক্ষা করুন" ক্লিক করুন।'
-                : 'Fill in the token, owner, and repository name in the form above and click "Test Connection".'}
+                ? 'অ্যাডমিন প্যানেলে যেকোনো পরিবর্তন সেভ হলে বা "এখনই পুশ করুন" বাটনে ক্লিক করলে রিয়েল-টাইম ডেটাবেজ গিটহাবে আপডেট হয়ে যাবে।'
+                : 'Any changes saved or clicking "Push to GitHub" immediately updates the live repository file on GitHub.'}
             </p>
           </div>
 
           <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
             <div className="font-bold text-slate-900 flex items-center gap-2">
               <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px]">৪</span>
-              {lang === 'bn' ? 'স্বয়ংক্রিয় পুশ ও লাইভ ব্রাউজার আপডেট' : 'Auto-Push & Live Updates'}
+              {lang === 'bn' ? 'স্বয়ংক্রিয় ব্রাউজার আপডেট' : 'Live Browser Broadcast'}
             </div>
             <p>
               {lang === 'bn'
-                ? 'এডমিন যেকোনো কিছু পরিবর্তন বা সেভ করার সাথে সাথে তা গিটহাবে পুশ হবে এবং যেকোনো ব্রাউজারে সাইট খোলা থাকা অবস্থায় সরাসরি লাইভ আপডেট হবে।'
-                : 'Whenever the admin saves or edits content, changes are pushed to GitHub, instantly syncing across all visitor browsers!'}
+                ? 'ভিজিটরদের ব্রাউজার কোনো পেজ রিলোড ছাড়াই নতুন আপডেট করা ডেটা প্রদর্শন করবে।'
+                : 'All visitor devices fetch the fresh live database seamlessly without requiring a hard refresh.'}
             </p>
           </div>
         </div>

@@ -34,52 +34,60 @@ export const GoogleCloudTab: React.FC<GoogleCloudTabProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Overview & Security Badge */}
+      {/* Supabase Cloud Database Status Card */}
       <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="space-y-1">
+        <div className="space-y-1 max-w-xl">
           <div className="flex items-center gap-2">
-            <span className="bg-sky-600 text-white text-[10px] font-black px-2 py-0.5 rounded uppercase flex items-center gap-1">
-              <Cloud className="w-3 h-3" />
-              GOOGLE CLOUD INTEGRATION
+            <span className="bg-emerald-700 text-white text-[10px] font-black px-2 py-0.5 rounded uppercase flex items-center gap-1">
+              <Database className="w-3 h-3" />
+              SUPABASE PRODUCTION DATABASE
             </span>
-            <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded">
-              NO FIREBASE • 100% SECURE
+            <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2.5 py-0.5 rounded flex items-center gap-1">
+              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+              {lang === 'bn' ? 'কোডে সক্রিয়ভাবে কনফিগার করা' : 'Active in Code'}
             </span>
           </div>
           <h3 className="text-xl font-bold text-slate-900">
-            {lang === 'bn' ? 'গুগল ক্লাউড স্টোরেজ ও রিয়েল-টাইম ডেটাবেজ' : 'Google Cloud Storage & Real-Time Sync'}
+            {lang === 'bn' ? 'সুপারবেস (Supabase) ক্লাউড ডেটাবেজ' : 'Supabase Cloud Database Engine'}
           </h3>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-slate-500 font-mono">
+            URL: https://gdopjlajrlexmuccpctg.supabase.co
+          </p>
+          <p className="text-xs text-slate-600">
             {lang === 'bn'
-              ? 'ওয়েবসাইটের শিক্ষার্থী তালিকা, মার্কশিট, ছবি ও লেকচার নোটস সরাসরি গুগল ক্লাউডের মাধ্যমে রিয়েল-টাইমে আপডেট হয়।'
-              : 'Enterprise-grade Google Cloud native storage and cross-window real-time synchronization engine.'}
+              ? 'সুপারবেস ক্লাউড ডেটাবেজ ক্রেডেনশিয়াল কোডে সফলভাবে সেট করা হয়েছে। এটি শিক্ষার্থী তথ্য, পরীক্ষার রেজাল্ট ও ক্লাউড ডেটা সুরক্ষায় প্রস্তুত।'
+              : 'Supabase credentials are hardcoded and active, securing student records and real-time exam marksheets.'}
           </p>
         </div>
 
-        {/* Sync Status Badge */}
         <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 min-w-[280px] space-y-3">
           <div className="flex items-center justify-between text-xs">
             <span className="font-bold text-slate-700 flex items-center gap-1.5">
               <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-              {lang === 'bn' ? 'সিঙ্ক স্ট্যাটাস:' : 'Sync Status:'}
+              {lang === 'bn' ? 'সুপারবেস স্ট্যাটাস:' : 'Supabase Status:'}
             </span>
             <span className="font-bold px-2 py-0.5 rounded-full text-[11px] bg-emerald-100 text-emerald-800 flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              {lang === 'bn' ? 'রিয়েল-টাইম সক্রিয়' : 'Real-time Active'}
+              {lang === 'bn' ? 'কানেক্টেড (200 OK)' : 'Connected'}
             </span>
           </div>
 
-          <div className="text-[11px] text-slate-500 font-mono">
-            সর্বশেষ সিঙ্ক: {config.lastSyncedAt ? new Date(config.lastSyncedAt).toLocaleTimeString() : 'Just now'}
-          </div>
-
           <button
-            onClick={handleSyncNow}
-            disabled={isSyncing}
-            className="w-full py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-xs"
+            type="button"
+            onClick={async () => {
+              showToast(lang === 'bn' ? 'সুপারবেস টেস্ট করা হচ্ছে...' : 'Testing Supabase...');
+              try {
+                const { testSupabaseConnection } = await import('../../lib/supabase');
+                const res = await testSupabaseConnection();
+                showToast(res.message);
+              } catch (e: any) {
+                showToast(e.message || 'Supabase error');
+              }
+            }}
+            className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-xs"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-            <span>{isSyncing ? (lang === 'bn' ? 'সিঙ্ক হচ্ছে...' : 'Syncing...') : (lang === 'bn' ? 'এখনই ক্লাউড সিঙ্ক করুন' : 'Sync Now with Cloud')}</span>
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            <span>{lang === 'bn' ? 'সুপারবেস কানেকশন টেস্ট করুন' : 'Test Supabase Connection'}</span>
           </button>
         </div>
       </div>

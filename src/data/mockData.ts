@@ -645,11 +645,12 @@ export const DEFAULT_GOOGLE_CLOUD_CONFIG: GoogleCloudConfig = {
   lastSyncedAt: new Date().toISOString()
 };
 
+// Default GitHub Configuration - Token is provided by the Admin via the Admin Panel
 export const DEFAULT_GITHUB_CONFIG: GitHubConfig = {
   enabled: true,
-  token: '',
-  owner: 'touhidul-hoque',
-  repo: 'ihaveaschool-live-database',
+  token: (typeof process !== 'undefined' && process.env?.VITE_GITHUB_TOKEN) || import.meta.env.VITE_GITHUB_TOKEN || '',
+  owner: import.meta.env.VITE_GITHUB_OWNER || 'bmd03024-code',
+  repo: import.meta.env.VITE_GITHUB_REPO || 'I-Have-A-School-',
   branch: 'main',
   filePath: 'data/ihas_live_database.json',
   autoPushOnChange: true,
