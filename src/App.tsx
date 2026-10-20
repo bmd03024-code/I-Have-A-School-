@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { EnrollmentModal } from './components/EnrollmentModal';
@@ -28,7 +28,15 @@ import { useApp } from './context/AppContext';
 import { CheckCircle } from 'lucide-react';
 
 export const App: React.FC = () => {
-  const { toastMessage } = useApp();
+  const { toastMessage, isAdminLoggedIn, logoutAdmin } = useApp();
+  const location = useLocation();
+
+  // Automatic Admin Logout: Whenever the user exits or navigates away from /admin, automatically log out
+  React.useEffect(() => {
+    if (location.pathname !== '/admin' && isAdminLoggedIn) {
+      logoutAdmin();
+    }
+  }, [location.pathname, isAdminLoggedIn, logoutAdmin]);
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 text-slate-800 antialiased font-sans overflow-x-hidden w-full">

@@ -193,61 +193,73 @@ export const Navbar: React.FC = () => {
         </div>
       </div>
 
-      {/* 2. Main Header: Completely Static & Fixed Layout, No Layout Shifting, Large Height */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between min-h-[76px] sm:min-h-[86px] py-2.5 sm:py-3.5 gap-3">
+      {/* 2. Main Header: Spacious, Fixed Layout with Generous Height and Cohesive Alignment */}
+      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between min-h-[86px] sm:min-h-[96px] py-3 sm:py-3.5 gap-3 lg:gap-5">
           
-          {/* First Column: Brand Logo & Title + 'By Tuhin Sir' + Language Toggle + Navigation */}
-          <div className="flex items-center gap-2.5 sm:gap-3.5 shrink-0 lg:shrink min-w-0">
-            {/* Brand Logo & Dynamic Institute Name with 'By Tuhin Sir' - Completely Static */}
-            <Link to="/" className="flex items-center gap-2.5 sm:gap-3 shrink-0">
-              {schoolSettings.logoUrl ? (
-                <img
-                  src={schoolSettings.logoUrl}
-                  alt={schoolSettings.instituteNameEn}
-                  className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl object-cover border-2 border-emerald-500/80 shadow-xs shrink-0"
-                />
-              ) : (
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-tr from-emerald-600 via-teal-600 to-emerald-500 flex items-center justify-center text-white shadow-md shrink-0">
-                  <GraduationCap className="w-6 h-6 sm:w-7 sm:h-7" />
-                </div>
-              )}
+          {/* First Column: Brand Logo & Title + 'By Tuhin Sir' + English Button + Navigation */}
+          <div className="flex items-center gap-3 sm:gap-4 shrink-0 lg:shrink min-w-0">
+            {/* Brand Logo & Institute Info */}
+            <div className="flex items-center gap-2.5 sm:gap-3.5 shrink-0">
+              <Link to="/" className="flex items-center shrink-0 group">
+                {schoolSettings.logoUrl ? (
+                  <img
+                    src={schoolSettings.logoUrl}
+                    alt={schoolSettings.instituteNameEn}
+                    className="w-11 h-11 sm:w-13 sm:h-13 rounded-2xl object-cover border-2 border-emerald-500/80 shadow-xs shrink-0 group-hover:scale-105 transition-transform"
+                  />
+                ) : (
+                  <div className="w-11 h-11 sm:w-13 sm:h-13 rounded-2xl bg-gradient-to-tr from-emerald-600 via-teal-600 to-emerald-500 flex items-center justify-center text-white shadow-md shrink-0 group-hover:scale-105 transition-transform">
+                    <GraduationCap className="w-6 h-6 sm:w-7 sm:h-7" />
+                  </div>
+                )}
+              </Link>
+              
               <div className="shrink-0 flex flex-col justify-center">
-                <div className="font-black text-base sm:text-lg lg:text-xl text-slate-900 tracking-tight flex items-center gap-1.5 flex-wrap">
-                  <span>{lang === 'bn' ? schoolSettings.instituteNameBn : schoolSettings.instituteNameEn}</span>
+                {/* 1st Line: Brand Name + 'By Tuhin Sir' + English Button + IHAS Badge */}
+                <div className="font-black text-base sm:text-lg lg:text-xl text-slate-900 tracking-tight flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                  <Link to="/" className="hover:text-emerald-700 transition-colors">
+                    <span>{lang === 'bn' ? schoolSettings.instituteNameBn : schoolSettings.instituteNameEn}</span>
+                  </Link>
                   
-                  {/* 'By Tuhin Sir' directly next to logo and title */}
+                  {/* 'By Tuhin Sir' directly next to title */}
                   <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white font-extrabold text-[11px] sm:text-xs shadow-xs tracking-wide">
                     <span>By Tuhin Sir</span>
                   </span>
+
+                  {/* English / বাংলা Button: Positioned Directly Beside 'By Tuhin Sir' */}
+                  <button
+                    type="button"
+                    onClick={toggleLang}
+                    className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-[11px] sm:text-xs border border-emerald-300 transition-all shadow-2xs shrink-0 cursor-pointer hover:scale-105 active:scale-95"
+                    title={lang === 'bn' ? 'Switch to English' : 'বাংলা ভাষায় দেখুন'}
+                  >
+                    <Globe className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span>{lang === 'bn' ? 'English' : 'বাংলা'}</span>
+                  </button>
 
                   <span className="text-[10px] bg-emerald-100 text-emerald-800 font-black px-1.5 py-0.5 rounded">
                     IHAS
                   </span>
                 </div>
 
-                {/* Fully visible text below the title and notice bar, completely static and never cut off */}
-                <p className="text-[11px] sm:text-xs text-slate-600 font-medium line-clamp-1 mt-0.5 flex items-center gap-1.5">
-                  <span className="text-emerald-700 font-semibold">{lang === 'bn' ? schoolSettings.taglineBn : schoolSettings.taglineEn}</span>
-                  <span className="text-slate-300 hidden md:inline">•</span>
-                  <span className="text-slate-500 hidden md:inline">{schoolSettings.founderNameBn || 'মো. তৌহিদুল হক তুহিন'}</span>
-                </p>
+                {/* 2nd Line: 'শিখুন এগিয়ে যান সফল হন • এমডি তৌহিদুল হক তুহিন সাহেব' - comfortably lowered with margin */}
+                <div className="mt-1.5 sm:mt-2 flex items-center gap-1.5 flex-wrap">
+                  <p className="text-[11px] sm:text-xs text-slate-600 font-medium line-clamp-1 flex items-center gap-1.5">
+                    <span className="text-emerald-700 font-semibold bg-emerald-50/80 px-2 py-0.5 rounded-md border border-emerald-200/50">
+                      {lang === 'bn' ? schoolSettings.taglineBn : schoolSettings.taglineEn}
+                    </span>
+                    <span className="text-slate-300 hidden md:inline">•</span>
+                    <span className="text-slate-700 font-semibold hidden md:inline">
+                      {schoolSettings.founderNameBn || 'এমডি তৌহিদুল হক তুহিন সাহেব'}
+                    </span>
+                  </p>
+                </div>
               </div>
-            </Link>
+            </div>
 
-            {/* Language Converter Button: Immediately Following Brand Logo and Title */}
-            <button
-              type="button"
-              onClick={toggleLang}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-[11px] border border-emerald-200 transition-colors shadow-2xs shrink-0 cursor-pointer"
-              title={lang === 'bn' ? 'Switch to English' : 'বাংলা ভাষায় দেখুন'}
-            >
-              <Globe className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-              <span>{lang === 'bn' ? 'English' : 'বাংলা'}</span>
-            </button>
-
-            {/* Compact Desktop Navigation Links positioned right next to language toggle */}
-            <nav className="hidden lg:flex items-center space-x-0.5 font-bold text-xs text-slate-600 pl-0.5">
+            {/* Compact Desktop Navigation Links */}
+            <nav className="hidden lg:flex items-center space-x-0.5 font-bold text-xs text-slate-600 pl-1">
               {navLinks.slice(0, 4).map((link) => (
                 <Link
                   key={link.path}

@@ -487,6 +487,21 @@ export const AdminPanel: React.FC = () => {
   );
   const currentCourseSubjects = subjects.filter((s: CourseSubject) => s.courseId === resCourseId);
 
+  // Auto-logout: When leaving or exiting the Admin Panel, automatically log out
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      logoutAdmin();
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('pagehide', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('pagehide', handleBeforeUnload);
+      logoutAdmin();
+    };
+  }, [logoutAdmin]);
+
   // Login handler
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -495,6 +510,7 @@ export const AdminPanel: React.FC = () => {
       setLoginError(lang === 'bn' ? 'ভুল ইমেইল বা পাসওয়ার্ড!' : 'Invalid credentials!');
     } else {
       setLoginError('');
+      setLoginPassword('');
       showToast(lang === 'bn' ? 'লগইন সফল হয়েছে!' : 'Logged in successfully!');
     }
   };

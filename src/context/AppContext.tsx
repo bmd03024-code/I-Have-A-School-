@@ -259,27 +259,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return getPersistedItem('ihas_admin_creds', { email: 'tuhinsir@gmail.com', password: 'tuhinsir1234' });
   });
 
-  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(() => {
-    try {
-      return safeStorage.getItem('ihas_admin_session') === 'true';
-    } catch {
-      return false;
-    }
-  });
+  // Admin Security: Temporary session only active while inside the Admin Panel.
+  // Exiting the Admin Panel automatically logs out and requires re-entering email/password.
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
 
-  const loginAdmin = (email: string, pass: string): boolean => {
-    if (email.toLowerCase() === adminCredentials.email.toLowerCase() && pass === adminCredentials.password) {
+  const loginAdmin = useCallback((email: string, pass: string): boolean => {
+    if (
+      email.toLowerCase().trim() === adminCredentials.email.toLowerCase().trim() &&
+      pass.trim() === adminCredentials.password.trim()
+    ) {
       setIsAdminLoggedIn(true);
-      safeStorage.setItem('ihas_admin_session', 'true');
       return true;
     }
     return false;
-  };
+  }, [adminCredentials]);
 
-  const logoutAdmin = () => {
+  const logoutAdmin = useCallback(() => {
     setIsAdminLoggedIn(false);
     safeStorage.removeItem('ihas_admin_session');
-  };
+  }, []);
 
   const updateAdminCredentials = (email: string, pass: string) => {
     const creds = { email, password: pass };
