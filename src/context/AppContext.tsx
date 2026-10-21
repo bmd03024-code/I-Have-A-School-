@@ -324,13 +324,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return (codeLiveData as any)?._meta?.updatedAt || (codeLiveData as any)?._meta?.lastSavedAt || (codeLiveData as any)?._updatedAt || null;
   });
 
-  // Post changes asynchronously after render, NEVER inside setState updater function
-  const commitEntityChange = useCallback((key: string, topic: string, data: any) => {
-    queueMicrotask(() => {
-      persistItem(key, data);
-      notifyRealtimeUpdate(topic, data);
-      setCodeSyncLastSaved(new Date().toISOString());
-    });
+  // Master Commit & Real-Time Sync Engine:
+  // Atomically executes:
+  // 1. Storage persistence (localStorage + IndexedDB)
+  // 2. Cross-tab/window BroadcastChannel, CustomEvent, and storage event ping
+  // 3. Server codebase write (/api/sync-to-code) triggering instant SSE stream to all visitors
+  const commitAndSync = useCallback((key: string, topic: string, data: any) => {
+    persistItem(key, data);
+    notifyRealtimeUpdate(topic, data);
+    setCodeSyncLastSaved(new Date().toISOString());
+
+    // Instant server-side write & SSE broadcast to all active website visitors
+    try {
+      fetch('/api/sync-to-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key, data })
+      }).catch(() => {});
+    } catch (_e) {
+      // ignore network errors
+    }
   }, []);
 
   // 3. School Settings & Branding
@@ -341,10 +354,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const updateSchoolSettings = useCallback((newSettings: SchoolSettings) => {
     setSchoolSettings((prev) => {
       if (isEqual(prev, newSettings)) return prev;
-      commitEntityChange('ihas_school_settings', 'schoolSettings', newSettings);
+      commitAndSync('ihas_school_settings', 'schoolSettings', newSettings);
       return newSettings;
     });
-  }, [commitEntityChange, isEqual]);
+  }, [commitAndSync, isEqual]);
 
   // 4. Hero Slides (Safe with Quota Protection)
   const [heroSlides, setHeroSlides] = useState<HeroSlide[]>(() => {
@@ -354,26 +367,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addHeroSlide = useCallback((slide: HeroSlide) => {
     setHeroSlides((prev) => {
       const next = [slide, ...prev];
-      commitEntityChange('ihas_hero_slides', 'heroSlides', next);
+      commitAndSync('ihas_hero_slides', 'heroSlides', next);
       return next;
     });
-  }, [commitEntityChange]);
+  }, [commitAndSync]);
 
   const updateHeroSlide = useCallback((slide: HeroSlide) => {
     setHeroSlides((prev) => {
       const next = prev.map((s) => (s.id === slide.id ? slide : s));
-      commitEntityChange('ihas_hero_slides', 'heroSlides', next);
+      commitAndSync('ihas_hero_slides', 'heroSlides', next);
       return next;
     });
-  }, [commitEntityChange]);
+  }, [commitAndSync]);
 
   const deleteHeroSlide = useCallback((id: string) => {
     setHeroSlides((prev) => {
       const next = prev.filter((s) => s.id !== id);
-      commitEntityChange('ihas_hero_slides', 'heroSlides', next);
+      commitAndSync('ihas_hero_slides', 'heroSlides', next);
       return next;
     });
-  }, [commitEntityChange]);
+  }, [commitAndSync]);
 
   // 5. Courses
   const [courses, setCourses] = useState<Course[]>(() => {
@@ -383,26 +396,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addCourse = useCallback((course: Course) => {
     setCourses((prev) => {
       const next = [course, ...prev];
-      commitEntityChange('ihas_courses', 'courses', next);
+      commitAndSync('ihas_courses', 'courses', next);
       return next;
     });
-  }, [commitEntityChange]);
+  }, [commitAndSync]);
 
   const updateCourse = useCallback((course: Course) => {
     setCourses((prev) => {
       const next = prev.map((c) => (c.id === course.id ? course : c));
-      commitEntityChange('ihas_courses', 'courses', next);
+      commitAndSync('ihas_courses', 'courses', next);
       return next;
     });
-  }, [commitEntityChange]);
+  }, [commitAndSync]);
 
   const deleteCourse = useCallback((id: string) => {
     setCourses((prev) => {
       const next = prev.filter((c) => c.id !== id);
-      commitEntityChange('ihas_courses', 'courses', next);
+      commitAndSync('ihas_courses', 'courses', next);
       return next;
     });
-  }, [commitEntityChange]);
+  }, [commitAndSync]);
 
   // 6. Students
   const [students, setStudents] = useState<Student[]>(() => {
@@ -412,26 +425,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addStudent = useCallback((student: Student) => {
     setStudents((prev) => {
       const next = [student, ...prev];
-      commitEntityChange('ihas_students', 'students', next);
+      commitAndSync('ihas_students', 'students', next);
       return next;
     });
-  }, [commitEntityChange]);
+  }, [commitAndSync]);
 
   const updateStudent = useCallback((student: Student) => {
     setStudents((prev) => {
       const next = prev.map((s) => (s.id === student.id ? student : s));
-      commitEntityChange('ihas_students', 'students', next);
+      commitAndSync('ihas_students', 'students', next);
       return next;
     });
-  }, [commitEntityChange]);
+  }, [commitAndSync]);
 
   const deleteStudent = useCallback((id: string) => {
     setStudents((prev) => {
       const next = prev.filter((s) => s.id !== id);
-      commitEntityChange('ihas_students', 'students', next);
+      commitAndSync('ihas_students', 'students', next);
       return next;
     });
-  }, [commitEntityChange]);
+  }, [commitAndSync]);
 
   // 7. Subjects & Exams
   const [subjects, setSubjects] = useState<CourseSubject[]>(() => {
@@ -441,18 +454,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addSubject = useCallback((sub: CourseSubject) => {
     setSubjects((prev) => {
       const next = [...prev, sub];
-      commitEntityChange('ihas_subjects', 'subjects', next);
+      commitAndSync('ihas_subjects', 'subjects', next);
       return next;
     });
-  }, [commitEntityChange]);
+  }, [commitAndSync]);
 
   const deleteSubject = useCallback((id: string) => {
     setSubjects((prev) => {
       const next = prev.filter((s) => s.id !== id);
-      commitEntityChange('ihas_subjects', 'subjects', next);
+      commitAndSync('ihas_subjects', 'subjects', next);
       return next;
     });
-  }, [commitEntityChange]);
+  }, [commitAndSync]);
 
   const [exams, setExams] = useState<CourseExam[]>(() => {
     return getPersistedItem('ihas_exams', INITIAL_EXAMS);
@@ -461,18 +474,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addExam = useCallback((exam: CourseExam) => {
     setExams((prev) => {
       const next = [...prev, exam];
-      commitEntityChange('ihas_exams', 'exams', next);
+      commitAndSync('ihas_exams', 'exams', next);
       return next;
     });
-  }, [commitEntityChange]);
+  }, [commitAndSync]);
 
   const deleteExam = useCallback((id: string) => {
     setExams((prev) => {
       const next = prev.filter((e) => e.id !== id);
-      commitEntityChange('ihas_exams', 'exams', next);
+      commitAndSync('ihas_exams', 'exams', next);
       return next;
     });
-  }, [commitEntityChange]);
+  }, [commitAndSync]);
 
   // 8. Results
   const [results, setResults] = useState<StudentResult[]>(() => {
@@ -485,18 +498,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         (r) => !(r.studentRoll === res.studentRoll && r.academicYear === res.academicYear && r.courseId === res.courseId && r.examId === res.examId)
       );
       const next = [res, ...filtered];
-      commitEntityChange('ihas_results', 'results', next);
+      commitAndSync('ihas_results', 'results', next);
       return next;
     });
-  }, [commitEntityChange]);
+  }, [commitAndSync]);
 
   const deleteResult = useCallback((id: string) => {
     setResults((prev) => {
       const next = prev.filter((r) => r.id !== id);
-      commitEntityChange('ihas_results', 'results', next);
+      commitAndSync('ihas_results', 'results', next);
       return next;
     });
-  }, [commitEntityChange]);
+  }, [commitAndSync]);
 
   // 9. Teachers
   const [teachers, setTeachers] = useState<Teacher[]>(() => {
@@ -506,26 +519,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addTeacher = useCallback((tch: Teacher) => {
     setTeachers((prev) => {
       const next = [...prev, tch];
-      commitEntityChange('ihas_teachers', 'teachers', next);
+      commitAndSync('ihas_teachers', 'teachers', next);
       return next;
     });
-  }, [commitEntityChange]);
+  }, [commitAndSync]);
 
   const updateTeacher = useCallback((tch: Teacher) => {
     setTeachers((prev) => {
       const next = prev.map((t) => (t.id === tch.id ? tch : t));
-      commitEntityChange('ihas_teachers', 'teachers', next);
+      commitAndSync('ihas_teachers', 'teachers', next);
       return next;
     });
-  }, [commitEntityChange]);
+  }, [commitAndSync]);
 
   const deleteTeacher = useCallback((id: string) => {
     setTeachers((prev) => {
       const next = prev.filter((t) => t.id !== id);
-      commitEntityChange('ihas_teachers', 'teachers', next);
+      commitAndSync('ihas_teachers', 'teachers', next);
       return next;
     });
-  }, [commitEntityChange]);
+  }, [commitAndSync]);
 
   // 10. Videos, Notes, Notices
   const [videoClasses, setVideoClasses] = useState<VideoClass[]>(() => {
@@ -535,26 +548,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addVideoClass = useCallback((v: VideoClass) => {
     setVideoClasses((prev) => {
       const next = [v, ...prev];
-      commitEntityChange('ihas_video_classes', 'videoClasses', next);
+      commitAndSync('ihas_video_classes', 'videoClasses', next);
+      persistItem('ihas_videos', next);
       return next;
     });
-  }, [commitEntityChange]);
+  }, [commitAndSync]);
 
   const updateVideoClass = useCallback((v: VideoClass) => {
     setVideoClasses((prev) => {
       const next = prev.map((vid) => (vid.id === v.id ? v : vid));
-      commitEntityChange('ihas_video_classes', 'videoClasses', next);
+      commitAndSync('ihas_video_classes', 'videoClasses', next);
+      persistItem('ihas_videos', next);
       return next;
     });
-  }, [commitEntityChange]);
+  }, [commitAndSync]);
 
   const deleteVideoClass = useCallback((id: string) => {
     setVideoClasses((prev) => {
       const next = prev.filter((v) => v.id !== id);
-      commitEntityChange('ihas_video_classes', 'videoClasses', next);
+      commitAndSync('ihas_video_classes', 'videoClasses', next);
+      persistItem('ihas_videos', next);
       return next;
     });
-  }, [commitEntityChange]);
+  }, [commitAndSync]);
 
   const [notes, setNotes] = useState<NoteResource[]>(() => {
     return getPersistedItem('ihas_notes', DEFAULT_NOTES);
@@ -563,26 +579,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addNote = useCallback((n: NoteResource) => {
     setNotes((prev) => {
       const next = [n, ...prev];
-      commitEntityChange('ihas_notes', 'notes', next);
+      commitAndSync('ihas_notes', 'notes', next);
       return next;
     });
-  }, [commitEntityChange]);
+  }, [commitAndSync]);
 
   const updateNote = useCallback((n: NoteResource) => {
     setNotes((prev) => {
       const next = prev.map((note) => (note.id === n.id ? n : note));
-      commitEntityChange('ihas_notes', 'notes', next);
+      commitAndSync('ihas_notes', 'notes', next);
       return next;
     });
-  }, [commitEntityChange]);
+  }, [commitAndSync]);
 
   const deleteNote = useCallback((id: string) => {
     setNotes((prev) => {
       const next = prev.filter((n) => n.id !== id);
-      commitEntityChange('ihas_notes', 'notes', next);
+      commitAndSync('ihas_notes', 'notes', next);
       return next;
     });
-  }, [commitEntityChange]);
+  }, [commitAndSync]);
 
   const [notices, setNotices] = useState<Notice[]>(() => {
     return getPersistedItem('ihas_notices', DEFAULT_NOTICES);
@@ -591,26 +607,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addNotice = useCallback((nt: Notice) => {
     setNotices((prev) => {
       const next = [nt, ...prev];
-      commitEntityChange('ihas_notices', 'notices', next);
+      commitAndSync('ihas_notices', 'notices', next);
       return next;
     });
-  }, [commitEntityChange]);
+  }, [commitAndSync]);
 
   const updateNotice = useCallback((nt: Notice) => {
     setNotices((prev) => {
       const next = prev.map((n) => (n.id === nt.id ? nt : n));
-      commitEntityChange('ihas_notices', 'notices', next);
+      commitAndSync('ihas_notices', 'notices', next);
       return next;
     });
-  }, [commitEntityChange]);
+  }, [commitAndSync]);
 
   const deleteNotice = useCallback((id: string) => {
     setNotices((prev) => {
       const next = prev.filter((nt) => nt.id !== id);
-      commitEntityChange('ihas_notices', 'notices', next);
+      commitAndSync('ihas_notices', 'notices', next);
       return next;
     });
-  }, [commitEntityChange]);
+  }, [commitAndSync]);
 
   // 11. Routines
   const [routines, setRoutines] = useState<ClassRoutine[]>(() => {
@@ -620,26 +636,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addRoutine = useCallback((rtn: ClassRoutine) => {
     setRoutines((prev) => {
       const next = [rtn, ...prev];
-      commitEntityChange('ihas_routines', 'routines', next);
+      commitAndSync('ihas_routines', 'routines', next);
       return next;
     });
-  }, [commitEntityChange]);
+  }, [commitAndSync]);
 
   const updateRoutine = useCallback((rtn: ClassRoutine) => {
     setRoutines((prev) => {
       const next = prev.map((r) => (r.id === rtn.id ? rtn : r));
-      commitEntityChange('ihas_routines', 'routines', next);
+      commitAndSync('ihas_routines', 'routines', next);
       return next;
     });
-  }, [commitEntityChange]);
+  }, [commitAndSync]);
 
   const deleteRoutine = useCallback((id: string) => {
     setRoutines((prev) => {
       const next = prev.filter((r) => r.id !== id);
-      commitEntityChange('ihas_routines', 'routines', next);
+      commitAndSync('ihas_routines', 'routines', next);
       return next;
     });
-  }, [commitEntityChange]);
+  }, [commitAndSync]);
 
   // 12. Chatbot Training Module (up to 1,000,000 words capacity)
   const [chatbotTraining, setChatbotTraining] = useState<ChatbotTrainingItem[]>(() => {
@@ -649,26 +665,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addChatbotTraining = useCallback((item: ChatbotTrainingItem) => {
     setChatbotTraining((prev) => {
       const next = [item, ...prev];
-      commitEntityChange('ihas_chatbot_training', 'chatbotTraining', next);
+      commitAndSync('ihas_chatbot_training', 'chatbotTraining', next);
       return next;
     });
-  }, [commitEntityChange]);
+  }, [commitAndSync]);
 
   const updateChatbotTraining = useCallback((item: ChatbotTrainingItem) => {
     setChatbotTraining((prev) => {
       const next = prev.map((t) => (t.id === item.id ? item : t));
-      commitEntityChange('ihas_chatbot_training', 'chatbotTraining', next);
+      commitAndSync('ihas_chatbot_training', 'chatbotTraining', next);
       return next;
     });
-  }, [commitEntityChange]);
+  }, [commitAndSync]);
 
   const deleteChatbotTraining = useCallback((id: string) => {
     setChatbotTraining((prev) => {
       const next = prev.filter((t) => t.id !== id);
-      commitEntityChange('ihas_chatbot_training', 'chatbotTraining', next);
+      commitAndSync('ihas_chatbot_training', 'chatbotTraining', next);
       return next;
     });
-  }, [commitEntityChange]);
+  }, [commitAndSync]);
 
   // 13. Quizzes / Model Tests (Quiz Management)
   const [modelTests, setModelTests] = useState<ModelTest[]>(() => {
@@ -678,26 +694,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addModelTest = useCallback((test: ModelTest) => {
     setModelTests((prev) => {
       const next = [test, ...prev];
-      commitEntityChange('ihas_quizzes', 'quizzes', next);
+      commitAndSync('ihas_quizzes', 'quizzes', next);
       return next;
     });
-  }, [commitEntityChange]);
+  }, [commitAndSync]);
 
   const updateModelTest = useCallback((test: ModelTest) => {
     setModelTests((prev) => {
       const next = prev.map((t) => (t.id === test.id ? test : t));
-      commitEntityChange('ihas_quizzes', 'quizzes', next);
+      commitAndSync('ihas_quizzes', 'quizzes', next);
       return next;
     });
-  }, [commitEntityChange]);
+  }, [commitAndSync]);
 
   const deleteModelTest = useCallback((id: string) => {
     setModelTests((prev) => {
       const next = prev.filter((t) => t.id !== id);
-      commitEntityChange('ihas_quizzes', 'quizzes', next);
+      commitAndSync('ihas_quizzes', 'quizzes', next);
       return next;
     });
-  }, [commitEntityChange]);
+  }, [commitAndSync]);
 
   // 14. Google Cloud Database & Storage Integration
   const [googleCloudConfig, setGoogleCloudConfig] = useState<GoogleCloudConfig>(() => {
@@ -855,7 +871,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       const s = data.schoolSettings || data.ihas_school_settings || data.school_settings;
       if (s) {
-        setSchoolSettings(s);
+        safeSetIfChanged(setSchoolSettings, s);
         persistItem('ihas_school_settings', s);
       }
 
@@ -1315,7 +1331,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (parsed.type === 'database_update' && parsed.data) {
             applyDatabaseSnapshot(parsed.data);
             if (parsed.timestamp) setCodeSyncLastSaved(parsed.timestamp);
-            notifyRealtimeUpdate('force_reload');
           }
         } catch (_e) {
           void _e;
@@ -1667,6 +1682,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
             break;
           }
+          case 'universalCloudConfig':
+          case 'universal_cloud':
+          case 'universal_cloud_config': {
+            if (data) safeSetIfChanged(setUniversalCloudSyncConfig, data);
+            else {
+              const raw = safeStorage.getItem('ihas_universal_cloud_config');
+              if (raw) safeSetIfChanged(setUniversalCloudSyncConfig, JSON.parse(raw));
+            }
+            break;
+          }
           case 'googleCloudConfig':
           case 'google_cloud':
           case 'google_cloud_config': {
@@ -1705,7 +1730,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             break;
           }
           default: {
-            reloadAllFromStorage();
+            // Unrecognized or private topics: do not thrash state
+            break;
           }
         }
       } catch (err) {

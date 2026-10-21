@@ -144,7 +144,13 @@ export const notifyRealtimeUpdate = (topic: string, data?: any) => {
       // Update atomic cache version and lightweight ping in localStorage so cross-window 'storage' events fire reliably
       try {
         localStorage.setItem('ihas_cache_version', String(timestamp));
-        localStorage.setItem('ihas_realtime_ping', JSON.stringify({ topic, timestamp, senderTabId: TAB_ID }));
+        let pingStr = '';
+        try {
+          pingStr = JSON.stringify({ topic, timestamp, data, senderTabId: TAB_ID });
+        } catch {
+          pingStr = JSON.stringify({ topic, timestamp, senderTabId: TAB_ID });
+        }
+        localStorage.setItem('ihas_realtime_ping', pingStr);
       } catch {
         // ignore storage errors
       }
