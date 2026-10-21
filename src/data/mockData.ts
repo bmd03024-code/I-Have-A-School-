@@ -17,7 +17,8 @@ import {
   ClassRoutine,
   ChatbotTrainingItem,
   GoogleCloudConfig,
-  GitHubConfig
+  GitHubConfig,
+  UniversalCloudSyncConfig
 } from '../types';
 
 export const DEFAULT_SCHOOL_SETTINGS: SchoolSettings = {
@@ -29,15 +30,15 @@ export const DEFAULT_SCHOOL_SETTINGS: SchoolSettings = {
   headmasterSignatureUrl: 'https://upload.wikimedia.org/wikipedia/commons/3/3a/Jon_Kirsch%27s_signature.png',
   officialSealUrl: 'https://cdn-icons-png.flaticon.com/512/992/992001.png',
   phone: '+880 1580-370062',
-  whatsapp: '8801580370062',
+  whatsapp: '+880 1580-370062',
   email: 'tuhinsir@gmail.com',
   addressEn: 'House 42, Road 11, Dhanmondi, Dhaka-1209, Bangladesh',
   addressBn: 'বাড়ি ৪২, রোড ১১, ধানমন্ডি, ঢাকা-১২০৯, বাংলাদেশ',
   facebookUrl: 'https://www.facebook.com/touhidulhoque.tuhin',
   youtubeUrl: 'https://youtube.com/@ihaveaschool?si=KO9IqCprs_uX0PEY',
   telegramUrl: 'https://t.me',
+  tiktokUrl: 'https://www.tiktok.com/@touhidulhoque.tuhin',
   messengerUrl: 'https://m.me/ihaveaschool',
-  tiktokUrl: 'https://www.tiktok.com/@ihaveaschool',
   founderNameBn: 'মো. তৌহিদুল হক তুহিন',
   founderNameEn: 'MD Touhidul Hoque Tuhin',
   footerDescriptionBn: 'এমডি তৌহিদুল হক তুহিন স্যারের শিক্ষামূলক প্ল্যাটফর্ম—ইংরেজি ব্যাকরণ সহজীকরণ, অনর্গল স্পোকেন ইংলিশ, বোর্ড পরীক্ষার ১০০% সাজেশন ও কোয়ালিটি কোর্স।',
@@ -327,7 +328,7 @@ export const INITIAL_TEACHERS: Teacher[] = [
     designationEn: 'Founder, Headmaster & English Specialist',
     designationBn: 'প্রতিষ্ঠাতা, প্রধান শিক্ষক ও ইংরেজি বিশেষজ্ঞ',
     qualification: 'M.A in English, 12+ Years Teaching Experience',
-    phone: '+880 1712-345678',
+    phone: '+880 1580-370062',
     email: 'tuhinsir@gmail.com',
     photoUrl: 'https://images.unsplash.com/photo-1544717305-2782549b5136?q=80&w=600&auto=format&fit=crop',
     isHeadmaster: true,
@@ -646,17 +647,52 @@ export const DEFAULT_GOOGLE_CLOUD_CONFIG: GoogleCloudConfig = {
   lastSyncedAt: new Date().toISOString()
 };
 
-// Default GitHub Configuration - Token is provided by the Admin via the Admin Panel
+// Helper to retrieve securely saved GitHub token across all reloads
+export const getStoredGitHubToken = (): string => {
+  try {
+    if (typeof window !== 'undefined') {
+      const master = localStorage.getItem('ihas_github_token_master');
+      if (master && master.trim()) return master.trim();
+      const session = sessionStorage.getItem('ihas_github_token_master');
+      if (session && session.trim()) return session.trim();
+      const legacy = localStorage.getItem('ihas_github_token');
+      if (legacy && legacy.trim()) return legacy.trim();
+      const cfgRaw = localStorage.getItem('ihas_github_config');
+      if (cfgRaw) {
+        try {
+          const parsed = JSON.parse(cfgRaw);
+          if (parsed?.token && parsed.token.trim()) return parsed.token.trim();
+        } catch {}
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return (typeof process !== 'undefined' && process.env?.VITE_GITHUB_TOKEN) || import.meta.env.VITE_GITHUB_TOKEN || '';
+};
+
+// Universal Real-Time Cloud Sync Config (Free, independent, zero Firebase/Supabase/Google Cloud)
+export const DEFAULT_UNIVERSAL_CLOUD_SYNC_CONFIG: UniversalCloudSyncConfig = {
+  enabled: true,
+  provider: 'server_stream',
+  endpointUrl: '',
+  apiKey: '',
+  autoSyncOnChange: true,
+  lastSyncedAt: ''
+};
+
+// Default GitHub Configuration - Token is permanently saved once entered
+// Note: lastSyncedAt must be empty string initially so visitor browsers pull the fresh remote database on first visit
 export const DEFAULT_GITHUB_CONFIG: GitHubConfig = {
   enabled: true,
-  token: (typeof process !== 'undefined' && process.env?.VITE_GITHUB_TOKEN) || import.meta.env.VITE_GITHUB_TOKEN || '',
+  token: getStoredGitHubToken(),
   owner: import.meta.env.VITE_GITHUB_OWNER || 'bmd03024-code',
   repo: import.meta.env.VITE_GITHUB_REPO || 'I-Have-A-School-',
   branch: 'main',
   filePath: 'data/ihas_live_database.json',
   autoPushOnChange: true,
-  autoPollIntervalSec: 30,
-  lastSyncedAt: new Date().toISOString(),
+  autoPollIntervalSec: 20,
+  lastSyncedAt: '',
   lastCommitSha: '',
   lastCommitMessage: 'Initial GitHub sync setup'
 };

@@ -23,8 +23,8 @@ export interface SchoolSettings {
   facebookUrl: string;
   youtubeUrl: string;
   telegramUrl: string;
-  messengerUrl?: string;
   tiktokUrl?: string;
+  messengerUrl?: string;
   founderNameBn?: string;
   founderNameEn?: string;
   footerDescriptionBn?: string;
@@ -293,6 +293,22 @@ export interface GoogleCloudConfig {
   isRealtimeSyncEnabled: boolean;
   oxfordApiCode?: string;
   lastSyncedAt?: string;
+}
+
+export interface UniversalCloudSyncConfig {
+  enabled: boolean;
+  provider: 'custom' | 'jsonbin' | 'npoint' | 'server_stream';
+  endpointUrl: string;
+  apiKey?: string;
+  autoSyncOnChange: boolean;
+  lastSyncedAt?: string;
+}
+
+export interface UniversalSyncStatus {
+  state: 'idle' | 'syncing' | 'synced' | 'error';
+  message: string;
+  lastSyncedAt?: string;
+  source?: string;
 }
 
 export interface GitHubConfig {

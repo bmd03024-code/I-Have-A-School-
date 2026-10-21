@@ -16,6 +16,8 @@ import {
   ChatbotTrainingItem,
   GoogleCloudConfig,
   GitHubConfig,
+  UniversalCloudSyncConfig,
+  UniversalSyncStatus,
   ModelTest
 } from '../types';
 import { 
@@ -34,11 +36,14 @@ import {
   INITIAL_CHATBOT_TRAINING,
   DEFAULT_GOOGLE_CLOUD_CONFIG,
   DEFAULT_GITHUB_CONFIG,
+  DEFAULT_UNIVERSAL_CLOUD_SYNC_CONFIG,
+  getStoredGitHubToken,
   MODEL_TESTS as DEFAULT_TESTS
 } from '../data/mockData';
 import codeLiveData from '../data/liveData.json';
 import { notifyRealtimeUpdate, subscribeRealtimeUpdate, clearAllCachesAndBroadcast, safeStorage } from '../lib/storageService';
-import { pushDataToGitHub, fetchDataFromGitHub, getPermanentlySavedGitHubToken, saveGitHubTokenPermanently } from '../services/githubSyncService';
+import { pushDataToGitHub, fetchDataFromGitHub } from '../services/githubSyncService';
+import { fetchOpenCloudData, pushToOpenCloud, testOpenCloudConnection } from '../services/cloudSyncService';
 
 export interface AppContextType {
   // Codebase Direct Sync & Authoritative Storage
@@ -137,6 +142,14 @@ export interface AppContextType {
   updateGoogleCloudConfig: (config: GoogleCloudConfig) => void;
   isCloudSyncing: boolean;
   triggerCloudSync: () => Promise<void>;
+
+  // Universal Real-Time Cloud Sync (Zero Firebase, Zero Supabase, Zero Google Cloud)
+  universalCloudSyncConfig: UniversalCloudSyncConfig;
+  updateUniversalCloudSyncConfig: (config: UniversalCloudSyncConfig) => void;
+  isUniversalCloudSyncing: boolean;
+  universalCloudSyncStatus: UniversalSyncStatus;
+  triggerUniversalCloudSync: () => Promise<void>;
+  testCloudConnection: () => Promise<{ success: boolean; message: string; latencyMs?: number }>;
 
   // GitHub REST API Integration & Cross-Browser Live Sync
   githubConfig: GitHubConfig;
@@ -716,40 +729,82 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  // 14. Universal Real-Time Cloud Sync (Zero Firebase, Zero Supabase, Zero Google Cloud)
+  const [universalCloudSyncConfig, setUniversalCloudSyncConfig] = useState<UniversalCloudSyncConfig>(() => {
+    try {
+      const saved = safeStorage.getItem('ihas_universal_cloud_config');
+      if (saved) return JSON.parse(saved);
+      return DEFAULT_UNIVERSAL_CLOUD_SYNC_CONFIG;
+    } catch {
+      return DEFAULT_UNIVERSAL_CLOUD_SYNC_CONFIG;
+    }
+  });
+
+  const [isUniversalCloudSyncing, setIsUniversalCloudSyncing] = useState(false);
+  const [universalCloudSyncStatus, setUniversalCloudSyncStatus] = useState<UniversalSyncStatus>({
+    state: 'idle',
+    message: 'প্রস্তুত (Ready)',
+    lastSyncedAt: universalCloudSyncConfig.lastSyncedAt
+  });
+
+  const updateUniversalCloudSyncConfig = (cfg: UniversalCloudSyncConfig) => {
+    setUniversalCloudSyncConfig(cfg);
+    persistItem('ihas_universal_cloud_config', cfg);
+    notifyRealtimeUpdate('universalCloudConfig', cfg);
+  };
+
+  const triggerUniversalCloudSync = async () => {
+    if (!universalCloudSyncConfig.endpointUrl) return;
+    setIsUniversalCloudSyncing(true);
+    setUniversalCloudSyncStatus({ state: 'syncing', message: 'ক্লাউডে ডেটা সিঙ্ক হচ্ছে...' });
+    try {
+      const res = await pushToOpenCloud(universalCloudSyncConfig, latestEntitiesRef.current);
+      if (res.success) {
+        const now = new Date().toISOString();
+        const updated = { ...universalCloudSyncConfig, lastSyncedAt: now };
+        updateUniversalCloudSyncConfig(updated);
+        setUniversalCloudSyncStatus({
+          state: 'synced',
+          message: 'ক্লাউড স্টোরে সফলভাবে সিঙ্ক সম্পন্ন হয়েছে',
+          lastSyncedAt: now
+        });
+      } else {
+        setUniversalCloudSyncStatus({
+          state: 'error',
+          message: res.message || 'সিঙ্ক ব্যর্থ হয়েছে'
+        });
+      }
+    } catch (e: any) {
+      setUniversalCloudSyncStatus({ state: 'error', message: e.message || 'এরর' });
+    } finally {
+      setIsUniversalCloudSyncing(false);
+    }
+  };
+
+  const testCloudConnection = async () => {
+    return testOpenCloudConnection(universalCloudSyncConfig);
+  };
+
   // 15. GitHub REST API Database Sync & Cross-Browser Live Update
+  // Master Token is permanently preserved so the admin only enters it once
   const [githubConfig, setGithubConfig] = useState<GitHubConfig>(() => {
     try {
-      const savedConfig = safeStorage.getItem('ihas_github_config');
-      const savedToken = safeStorage.getItem('ihas_github_token') || getPermanentlySavedGitHubToken();
-      const codeConfig = (codeLiveData as any)?.ihas_github_config;
-
-      let parsed: any = {};
-      if (savedConfig) {
-        try {
-          parsed = JSON.parse(savedConfig);
-        } catch {
-          parsed = {};
-        }
-      } else if (codeConfig) {
-        parsed = codeConfig;
+      const storedToken = getStoredGitHubToken();
+      const saved = safeStorage.getItem('ihas_github_config');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const token = (parsed.token && parsed.token.trim()) ? parsed.token.trim() : storedToken;
+        return {
+          ...DEFAULT_GITHUB_CONFIG,
+          ...parsed,
+          token,
+          owner: parsed.owner?.trim() || DEFAULT_GITHUB_CONFIG.owner,
+          repo: parsed.repo?.trim() || DEFAULT_GITHUB_CONFIG.repo
+        };
       }
-
-      // Permanent token resolution: check dedicated saved token, parsed config, codebase config, env var
-      const token = (
-        savedToken?.trim() ||
-        parsed.token?.trim() ||
-        codeConfig?.token?.trim() ||
-        DEFAULT_GITHUB_CONFIG.token ||
-        ''
-      ).trim();
-
       return {
         ...DEFAULT_GITHUB_CONFIG,
-        ...codeConfig,
-        ...parsed,
-        token,
-        owner: parsed.owner?.trim() || codeConfig?.owner?.trim() || DEFAULT_GITHUB_CONFIG.owner,
-        repo: parsed.repo?.trim() || codeConfig?.repo?.trim() || DEFAULT_GITHUB_CONFIG.repo
+        token: storedToken
       };
     } catch {
       return DEFAULT_GITHUB_CONFIG;
@@ -770,94 +825,123 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   const updateGitHubConfig = (cfg: GitHubConfig) => {
-    const cleanToken = cfg.token?.trim() || '';
+    const cleanToken = cfg.token ? cfg.token.trim() : '';
     if (cleanToken) {
-      saveGitHubTokenPermanently(cleanToken);
-      safeStorage.setItem('ihas_github_token', cleanToken);
+      try {
+        localStorage.setItem('ihas_github_token_master', cleanToken);
+        safeStorage.setItem('ihas_github_token', cleanToken);
+      } catch (e) {
+        console.warn('Storage token write notice:', e);
+      }
     } else {
-      saveGitHubTokenPermanently('');
-      safeStorage.removeItem('ihas_github_token');
+      try {
+        localStorage.removeItem('ihas_github_token_master');
+        safeStorage.removeItem('ihas_github_token');
+      } catch (e) {
+        console.warn('Storage token remove notice:', e);
+      }
     }
-    const cleanCfg: GitHubConfig = {
+    const updatedCfg: GitHubConfig = {
       ...cfg,
       token: cleanToken
     };
-    latestEntitiesRef.current.githubConfig = cleanCfg;
-    setGithubConfig(cleanCfg);
-    persistItem('ihas_github_config', cleanCfg);
-    notifyRealtimeUpdate('githubConfig', cleanCfg);
-
-    // Persist to codebase files on disk so it remains permanently across restarts
-    fetch('/api/sync-to-code', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ key: 'ihas_github_config', data: cleanCfg })
-    }).catch(() => {});
+    setGithubConfig(updatedCfg);
+    persistItem('ihas_github_config', updatedCfg);
+    notifyRealtimeUpdate('githubConfig', updatedCfg);
   };
 
   const applyDatabaseSnapshot = useCallback((data: any) => {
     if (!data || typeof data !== 'object') return;
     try {
-      if (data.schoolSettings) {
-        setSchoolSettings(data.schoolSettings);
-        persistItem('ihas_school_settings', data.schoolSettings);
+      const s = data.schoolSettings || data.ihas_school_settings || data.school_settings;
+      if (s) {
+        setSchoolSettings(s);
+        persistItem('ihas_school_settings', s);
       }
-      if (Array.isArray(data.heroSlides)) {
-        safeSetIfChanged(setHeroSlides, data.heroSlides);
-        persistItem('ihas_hero_slides', data.heroSlides);
+
+      const slides = data.heroSlides || data.ihas_hero_slides || data.hero_slides;
+      if (Array.isArray(slides)) {
+        safeSetIfChanged(setHeroSlides, slides);
+        persistItem('ihas_hero_slides', slides);
       }
-      if (Array.isArray(data.courses)) {
-        safeSetIfChanged(setCourses, data.courses);
-        persistItem('ihas_courses', data.courses);
+
+      const c = data.courses || data.ihas_courses;
+      if (Array.isArray(c)) {
+        safeSetIfChanged(setCourses, c);
+        persistItem('ihas_courses', c);
       }
-      if (Array.isArray(data.students)) {
-        safeSetIfChanged(setStudents, data.students);
-        persistItem('ihas_students', data.students);
+
+      const std = data.students || data.ihas_students;
+      if (Array.isArray(std)) {
+        safeSetIfChanged(setStudents, std);
+        persistItem('ihas_students', std);
       }
-      if (Array.isArray(data.subjects)) {
-        safeSetIfChanged(setSubjects, data.subjects);
-        persistItem('ihas_subjects', data.subjects);
+
+      const sub = data.subjects || data.ihas_subjects;
+      if (Array.isArray(sub)) {
+        safeSetIfChanged(setSubjects, sub);
+        persistItem('ihas_subjects', sub);
       }
-      if (Array.isArray(data.exams)) {
-        safeSetIfChanged(setExams, data.exams);
-        persistItem('ihas_exams', data.exams);
+
+      const ex = data.exams || data.ihas_exams;
+      if (Array.isArray(ex)) {
+        safeSetIfChanged(setExams, ex);
+        persistItem('ihas_exams', ex);
       }
-      if (Array.isArray(data.results)) {
-        safeSetIfChanged(setResults, data.results);
-        persistItem('ihas_results', data.results);
+
+      const res = data.results || data.ihas_results;
+      if (Array.isArray(res)) {
+        safeSetIfChanged(setResults, res);
+        persistItem('ihas_results', res);
       }
-      if (Array.isArray(data.teachers)) {
-        safeSetIfChanged(setTeachers, data.teachers);
-        persistItem('ihas_teachers', data.teachers);
+
+      const tch = data.teachers || data.ihas_teachers;
+      if (Array.isArray(tch)) {
+        safeSetIfChanged(setTeachers, tch);
+        persistItem('ihas_teachers', tch);
       }
-      if (Array.isArray(data.videoClasses)) {
-        safeSetIfChanged(setVideoClasses, data.videoClasses);
-        persistItem('ihas_videos', data.videoClasses);
-        persistItem('ihas_video_classes', data.videoClasses);
+
+      const vid = data.videoClasses || data.ihas_video_classes || data.ihas_videos || data.videos;
+      if (Array.isArray(vid)) {
+        safeSetIfChanged(setVideoClasses, vid);
+        persistItem('ihas_videos', vid);
+        persistItem('ihas_video_classes', vid);
       }
-      if (Array.isArray(data.notes)) {
-        safeSetIfChanged(setNotes, data.notes);
-        persistItem('ihas_notes', data.notes);
+
+      const nts = data.notes || data.ihas_notes;
+      if (Array.isArray(nts)) {
+        safeSetIfChanged(setNotes, nts);
+        persistItem('ihas_notes', nts);
       }
-      if (Array.isArray(data.notices)) {
-        safeSetIfChanged(setNotices, data.notices);
-        persistItem('ihas_notices', data.notices);
+
+      const nots = data.notices || data.ihas_notices;
+      if (Array.isArray(nots)) {
+        safeSetIfChanged(setNotices, nots);
+        persistItem('ihas_notices', nots);
       }
-      if (Array.isArray(data.routines)) {
-        safeSetIfChanged(setRoutines, data.routines);
-        persistItem('ihas_routines', data.routines);
+
+      const rts = data.routines || data.ihas_routines;
+      if (Array.isArray(rts)) {
+        safeSetIfChanged(setRoutines, rts);
+        persistItem('ihas_routines', rts);
       }
-      if (Array.isArray(data.chatbotTraining)) {
-        safeSetIfChanged(setChatbotTraining, data.chatbotTraining);
-        persistItem('ihas_chatbot_training', data.chatbotTraining);
+
+      const bot = data.chatbotTraining || data.ihas_chatbot_training;
+      if (Array.isArray(bot)) {
+        safeSetIfChanged(setChatbotTraining, bot);
+        persistItem('ihas_chatbot_training', bot);
       }
-      if (Array.isArray(data.modelTests)) {
-        safeSetIfChanged(setModelTests, data.modelTests);
-        persistItem('ihas_quizzes', data.modelTests);
+
+      const qz = data.modelTests || data.ihas_quizzes || data.quizzes;
+      if (Array.isArray(qz)) {
+        safeSetIfChanged(setModelTests, qz);
+        persistItem('ihas_quizzes', qz);
       }
-      if (data.adminCredentials?.email && data.adminCredentials?.password) {
-        safeSetIfChanged(setAdminCredentials, data.adminCredentials);
-        persistItem('ihas_admin_creds', data.adminCredentials);
+
+      const cr = data.adminCredentials || data.ihas_admin_creds;
+      if (cr?.email && cr?.password) {
+        safeSetIfChanged(setAdminCredentials, cr);
+        persistItem('ihas_admin_creds', cr);
       }
     } catch (e) {
       console.warn('Error applying database snapshot:', e);
@@ -926,8 +1010,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Whatever the admin modifies (slides, courses, students, results, teachers, notes, routines, etc.),
   // it is automatically saved directly into the codebase file (src/data/liveData.json & public/liveData.json)
   const isInitialMountRef = useRef(true);
-  const lastPushedContentHashRef = useRef<string>('');
-
   useEffect(() => {
     if (isInitialMountRef.current) {
       isInitialMountRef.current = false;
@@ -975,68 +1057,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           setCodeSyncLastSaved(now);
           setCodeSyncStatus('saved');
 
-          // Automatic GitHub Push if token is configured and content actually changed
-          const activeToken = (
-            latestEntitiesRef.current.githubConfig?.token?.trim() ||
-            getPermanentlySavedGitHubToken() ||
-            safeStorage.getItem('ihas_github_token') ||
-            ''
-          ).trim();
-
-          const currentGhConfig = {
-            ...latestEntitiesRef.current.githubConfig,
-            token: activeToken
-          };
-
-          // Generate a content signature of the actual administrative entities
-          const contentSignature = JSON.stringify({
-            schoolSettings: latestEntitiesRef.current.schoolSettings,
-            heroSlides: latestEntitiesRef.current.heroSlides,
-            courses: latestEntitiesRef.current.courses,
-            students: latestEntitiesRef.current.students,
-            subjects: latestEntitiesRef.current.subjects,
-            exams: latestEntitiesRef.current.exams,
-            results: latestEntitiesRef.current.results,
-            teachers: latestEntitiesRef.current.teachers,
-            videoClasses: latestEntitiesRef.current.videoClasses,
-            notes: latestEntitiesRef.current.notes,
-            notices: latestEntitiesRef.current.notices,
-            routines: latestEntitiesRef.current.routines,
-            chatbotTraining: latestEntitiesRef.current.chatbotTraining,
-            modelTests: latestEntitiesRef.current.modelTests
-          });
-
-          if (
-            activeToken &&
-            currentGhConfig?.autoPushOnChange !== false &&
-            contentSignature !== lastPushedContentHashRef.current
-          ) {
-            lastPushedContentHashRef.current = contentSignature;
-            pushDataToGitHub(currentGhConfig, snapshot).then((ghRes) => {
-              if (ghRes.success) {
-                const nowTime = new Date().toISOString();
-                const updatedGhConfig: GitHubConfig = {
-                  ...currentGhConfig,
-                  lastSyncedAt: nowTime,
-                  lastCommitSha: ghRes.sha || currentGhConfig.lastCommitSha
-                };
-                latestEntitiesRef.current.githubConfig = updatedGhConfig;
-                safeStorage.setItem('ihas_github_config', JSON.stringify(updatedGhConfig));
-                setGithubConfig(updatedGhConfig);
-                setGitHubSyncStatus({
-                  state: 'synced',
-                  message: 'স্বয়ংক্রিয়ভাবে গিটহাবে কোড ও ডেটাবেজ আপডেট হয়েছে',
-                  lastSyncedAt: nowTime,
-                  lastCommitSha: ghRes.sha
-                });
-              } else {
-                // Allow retry on next modification if push encountered an error
-                lastPushedContentHashRef.current = '';
-              }
-            }).catch((err) => {
-              lastPushedContentHashRef.current = '';
-              console.warn('[Auto GitHub Sync]', err);
-            });
+          // Auto-push live changes directly to GitHub repository if token is present
+          const activeToken = (githubConfig.token && githubConfig.token.trim()) || getStoredGitHubToken();
+          if (githubConfig.enabled && githubConfig.autoPushOnChange && activeToken) {
+            pushDataToGitHub({ ...githubConfig, token: activeToken }, latestEntitiesRef.current)
+              .then((pushRes) => {
+                if (pushRes.success) {
+                  setGitHubSyncStatus({
+                    state: 'synced',
+                    message: 'গিটহাবে স্বয়ংক্রিয়ভাবে কোড ও ডেটা পুশ সম্পন্ন হয়েছে',
+                    lastSyncedAt: new Date().toISOString(),
+                    lastCommitSha: pushRes.sha || pushRes.commitSha
+                  });
+                }
+              })
+              .catch((pushErr) => {
+                console.warn('[AutoPush] Background push notice:', pushErr);
+              });
           }
         } else {
           setCodeSyncStatus('error');
@@ -1062,8 +1099,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     routines,
     chatbotTraining,
     modelTests,
-    adminCredentials,
-    githubConfig
+    adminCredentials
   ]);
 
   // Master function to write the entire database snapshot directly into the codebase file (src/data/liveData.json)
@@ -1116,16 +1152,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
         notifyRealtimeUpdate('force_reload');
 
-        // Also push to GitHub if token is set
-        if (latestEntitiesRef.current.githubConfig.token?.trim()) {
-          pushDataToGitHub(latestEntitiesRef.current.githubConfig, snapshot).catch(() => {});
+        // If GitHub sync is enabled, also trigger a code push
+        if (githubConfig.enabled && githubConfig.token?.trim()) {
+          pushToGitHub('Admin permanently committed changes').catch(() => {});
         }
 
         return {
           success: true,
           message: lang === 'bn'
-            ? 'অ্যাডমিনের সকল পরিবর্তন কোডিং ফাইলে (src/data/liveData.json & public/liveData.json) ও গিটহাবে চূড়ান্ত হিসেবে সফলভাবে সংরক্ষিত হয়েছে!'
-            : 'All admin changes have been permanently and authoritatively saved to the codebase and GitHub!'
+            ? 'অ্যাডমিনের সকল পরিবর্তন কোডিং ফাইলে (src/data/liveData.json) এবং গিটহাবে স্থায়ীভাবে সংরক্ষিত হয়েছে!'
+            : 'All admin changes have been permanently saved to the codebase and GitHub!'
         };
       } else {
         setCodeSyncStatus('error');
@@ -1156,8 +1192,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }));
 
     try {
+      const activeToken = (githubConfig.token && githubConfig.token.trim()) || getStoredGitHubToken();
+      const effectiveConfig: GitHubConfig = {
+        ...githubConfig,
+        token: activeToken
+      };
       const snapshot = latestEntitiesRef.current;
-      const result = await pushDataToGitHub(githubConfig, snapshot, customCommitMessage);
+      const result = await pushDataToGitHub(effectiveConfig, snapshot, customCommitMessage);
 
       if (result.success) {
         const now = new Date().toISOString();
@@ -1210,7 +1251,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setGitHubSyncStatus((prev) => ({
       ...prev,
       state: 'syncing',
-      message: 'গিটহাব থেকে লাইভ ডেটা যাচাই ও লোড হচ্ছে...'
+      message: 'গিটহাব ও বিশ্বব্যাপী সিডিএন থেকে লাইভ ডেটা যাচাই হচ্ছে...'
     }));
 
     try {
@@ -1218,8 +1259,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (res.success && res.data) {
         const remoteTime = res.lastUpdated ? new Date(res.lastUpdated).getTime() : 0;
         const localTime = githubConfig.lastSyncedAt ? new Date(githubConfig.lastSyncedAt).getTime() : 0;
+        const shaChanged = Boolean(res.sha && res.sha !== githubConfig.lastCommitSha);
+        const shouldApply = force || shaChanged || !localTime || !githubConfig.lastCommitSha || (remoteTime > 0 && remoteTime > localTime);
 
-        if (force || remoteTime > localTime || !localTime) {
+        if (shouldApply) {
           applyDatabaseSnapshot(res.data);
           const now = new Date().toISOString();
           const updatedConfig: GitHubConfig = {
@@ -1231,7 +1274,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           persistItem('ihas_github_config', updatedConfig);
           setGitHubSyncStatus({
             state: 'synced',
-            message: 'গিটহাব থেকে লাইভ ডেটা সকল ব্রাউজারে সফলভাবে সিঙ্ক হয়েছে',
+            message: 'গিটহাব থেকে লাইভ ডেটা সফলভাবে সকল ওয়েবসাইটে সিঙ্ক হয়েছে',
             lastSyncedAt: updatedConfig.lastSyncedAt,
             lastCommitSha: updatedConfig.lastCommitSha
           });
@@ -1260,33 +1303,80 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [githubConfig, applyDatabaseSnapshot]);
 
-  // Periodic background check against GitHub for live updates across all visitor browsers
+  // Real-time Server-Sent Events (SSE) stream for instant sub-second live database broadcast
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.EventSource) return;
+    let eventSource: EventSource | null = null;
+    try {
+      eventSource = new EventSource('/api/live-stream');
+      eventSource.onmessage = (event) => {
+        try {
+          const parsed = JSON.parse(event.data);
+          if (parsed.type === 'database_update' && parsed.data) {
+            applyDatabaseSnapshot(parsed.data);
+            if (parsed.timestamp) setCodeSyncLastSaved(parsed.timestamp);
+            notifyRealtimeUpdate('force_reload');
+          }
+        } catch (_e) {
+          void _e;
+        }
+      };
+    } catch (err) {
+      console.warn('[SSE Realtime] EventSource notice:', err);
+    }
+
+    return () => {
+      if (eventSource) eventSource.close();
+    };
+  }, [applyDatabaseSnapshot]);
+
+  // Periodic background check and instant tab focus listener across all visitor browsers
   useEffect(() => {
     if (!githubConfig.enabled || !githubConfig.owner || !githubConfig.repo) return;
 
     // Run initial pull check on mount
     const initialTimer = setTimeout(() => {
       pullFromGitHub(false).catch(() => {});
-    }, 1200);
+    }, 800);
 
-    // Polling interval for all visitor browsers (min 30s)
-    const intervalSec = Math.max(30, githubConfig.autoPollIntervalSec || 60);
+    // Fast polling interval for all visitor browsers (15s)
+    const intervalSec = Math.max(15, githubConfig.autoPollIntervalSec || 20);
     const timer = setInterval(() => {
-      if (document.visibilityState === 'visible') {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
         pullFromGitHub(false).catch(() => {});
       }
     }, intervalSec * 1000);
 
+    const handleFocus = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        pullFromGitHub(false).catch(() => {});
+        fetch('/api/sync-to-code', { cache: 'no-store' })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((data) => {
+            if (data && typeof data === 'object' && Object.keys(data).length > 0) {
+              applyDatabaseSnapshot(data);
+            }
+          })
+          .catch(() => {});
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleFocus);
+    window.addEventListener('focus', handleFocus);
+
     return () => {
       clearTimeout(initialTimer);
       clearInterval(timer);
+      document.removeEventListener('visibilitychange', handleFocus);
+      window.removeEventListener('focus', handleFocus);
     };
   }, [
     githubConfig.enabled,
     githubConfig.owner,
     githubConfig.repo,
     githubConfig.autoPollIntervalSec,
-    pullFromGitHub
+    pullFromGitHub,
+    applyDatabaseSnapshot
   ]);
 
   // Comprehensive state reload from storage to synchronize in-memory state WITHOUT unnecessary re-renders
@@ -1349,9 +1439,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       const gh = safeParse<GitHubConfig>('ihas_github_config');
       if (gh) {
-        if (gh.token && gh.token.startsWith('ghp_Avnb0Qwt')) {
-          gh.token = '';
-          safeStorage.setItem('ihas_github_config', JSON.stringify(gh));
+        if (!gh.token) {
+          gh.token = getStoredGitHubToken();
         }
         safeSetIfChanged(setGithubConfig, gh);
       }
@@ -1363,7 +1452,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [safeSetIfChanged]);
 
-  // Initial Database Hydration from server /api/sync-to-code
+  // Initial Database Hydration from server /api/live-data -> /api/sync-to-code -> live GitHub -> static fallback
   const [isInitialLoading, setIsInitialLoading] = useState(true);
 
   useEffect(() => {
@@ -1371,8 +1460,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const fetchInitialData = async () => {
       try {
         let liveData: any = null;
+
+        // Step 1: Check live server endpoint
         try {
-          const res = await fetch('/api/sync-to-code', { cache: 'no-store' });
+          const res = await fetch('/api/live-data', { cache: 'no-store' });
           if (res.ok) {
             liveData = await res.json();
           }
@@ -1380,7 +1471,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           void _apiErr;
         }
 
-        // Fallback to static public/liveData.json if API is unavailable
+        if (!liveData || typeof liveData !== 'object' || Object.keys(liveData).length === 0) {
+          try {
+            const res = await fetch('/api/sync-to-code', { cache: 'no-store' });
+            if (res.ok) {
+              liveData = await res.json();
+            }
+          } catch (_apiErr2) {
+            void _apiErr2;
+          }
+        }
+
+        // Step 2: Fetch directly from live GitHub CDN / API if local server is empty or offline (for visitors)
+        if (!liveData || typeof liveData !== 'object' || Object.keys(liveData).length === 0) {
+          try {
+            const ghRes = await fetchDataFromGitHub(githubConfig);
+            if (ghRes.success && ghRes.data) {
+              liveData = ghRes.data;
+              if (isMounted && ghRes.sha) {
+                setGithubConfig((prev) => ({
+                  ...prev,
+                  lastSyncedAt: ghRes.lastUpdated || new Date().toISOString(),
+                  lastCommitSha: ghRes.sha || prev.lastCommitSha
+                }));
+              }
+            }
+          } catch (_ghErr) {
+            void _ghErr;
+          }
+        }
+
+        // Step 3: Fallback to static public/liveData.json
         if (!liveData || typeof liveData !== 'object' || Object.keys(liveData).length === 0) {
           try {
             const fallbackRes = await fetch('/liveData.json', { cache: 'no-store' });
@@ -1392,23 +1513,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
         }
 
-        if (isMounted && liveData && typeof liveData === 'object') {
-          if (liveData.ihas_school_settings) safeSetIfChanged(setSchoolSettings, liveData.ihas_school_settings);
-          if (Array.isArray(liveData.ihas_hero_slides)) safeSetIfChanged(setHeroSlides, liveData.ihas_hero_slides);
-          if (Array.isArray(liveData.ihas_courses)) safeSetIfChanged(setCourses, liveData.ihas_courses);
-          if (Array.isArray(liveData.ihas_students)) safeSetIfChanged(setStudents, liveData.ihas_students);
-          if (Array.isArray(liveData.ihas_subjects)) safeSetIfChanged(setSubjects, liveData.ihas_subjects);
-          if (Array.isArray(liveData.ihas_exams)) safeSetIfChanged(setExams, liveData.ihas_exams);
-          if (Array.isArray(liveData.ihas_results)) safeSetIfChanged(setResults, liveData.ihas_results);
-          if (Array.isArray(liveData.ihas_teachers)) safeSetIfChanged(setTeachers, liveData.ihas_teachers);
-          if (Array.isArray(liveData.ihas_video_classes) || Array.isArray(liveData.ihas_videos)) {
-            safeSetIfChanged(setVideoClasses, liveData.ihas_video_classes || liveData.ihas_videos);
+        if (isMounted && liveData && typeof liveData === 'object' && Object.keys(liveData).length > 0) {
+          applyDatabaseSnapshot(liveData);
+          if (liveData.ihas_github_config) {
+            const incomingGh = liveData.ihas_github_config;
+            const token = (incomingGh.token && incomingGh.token.trim()) ? incomingGh.token.trim() : getStoredGitHubToken();
+            safeSetIfChanged(setGithubConfig, { ...incomingGh, token });
           }
-          if (Array.isArray(liveData.ihas_notes)) safeSetIfChanged(setNotes, liveData.ihas_notes);
-          if (Array.isArray(liveData.ihas_notices)) safeSetIfChanged(setNotices, liveData.ihas_notices);
-          if (Array.isArray(liveData.ihas_routines)) safeSetIfChanged(setRoutines, liveData.ihas_routines);
-          if (Array.isArray(liveData.ihas_chatbot_training)) safeSetIfChanged(setChatbotTraining, liveData.ihas_chatbot_training);
-          if (Array.isArray(liveData.ihas_quizzes)) safeSetIfChanged(setModelTests, liveData.ihas_quizzes);
           if (liveData._updatedAt || liveData._meta?.lastSavedAt) {
             setCodeSyncLastSaved(liveData._updatedAt || liveData._meta?.lastSavedAt);
           }
@@ -1818,6 +1929,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateGoogleCloudConfig,
         isCloudSyncing,
         triggerCloudSync,
+        universalCloudSyncConfig,
+        updateUniversalCloudSyncConfig,
+        isUniversalCloudSyncing,
+        universalCloudSyncStatus,
+        triggerUniversalCloudSync,
+        testCloudConnection,
         githubConfig,
         updateGitHubConfig,
         isGitHubSyncing,

@@ -20,11 +20,9 @@ import {
   BookA
 } from 'lucide-react';
 import { GitHubConfig, Language } from '../../types';
-import { 
-  testGitHubConnection, 
-  getPermanentlySavedGitHubToken, 
-  saveGitHubTokenPermanently 
-} from '../../services/githubSyncService';
+import { testGitHubConnection } from '../../services/githubSyncService';
+import { safeStorage } from '../../lib/storageService';
+import { getStoredGitHubToken } from '../../data/mockData';
 
 interface GitHubSyncTabProps {
   config: GitHubConfig;
@@ -52,20 +50,12 @@ export const GitHubSyncTab: React.FC<GitHubSyncTabProps> = ({
   lang,
   showToast
 }) => {
-  const [formData, setFormData] = useState<GitHubConfig>(() => {
-    const savedToken = (config.token || getPermanentlySavedGitHubToken() || '').trim();
-    return {
-      ...config,
-      token: savedToken
-    };
-  });
+  const initialToken = (config.token && config.token.trim()) || getStoredGitHubToken();
+  const [formData, setFormData] = useState<GitHubConfig>({ ...config, token: initialToken });
 
   React.useEffect(() => {
-    const activeToken = (config.token || getPermanentlySavedGitHubToken() || formData.token || '').trim();
-    setFormData((prev) => ({
-      ...config,
-      token: activeToken || prev.token
-    }));
+    const savedToken = (config.token && config.token.trim()) || getStoredGitHubToken();
+    setFormData({ ...config, token: savedToken });
   }, [config]);
 
   const [showToken, setShowToken] = useState(false);
@@ -79,30 +69,36 @@ export const GitHubSyncTab: React.FC<GitHubSyncTabProps> = ({
   const [copiedSha, setCopiedSha] = useState(false);
   const [customCommitMsg, setCustomCommitMsg] = useState('');
 
-  const handleTokenChange = (val: string) => {
-    const updated = { ...formData, token: val };
-    setFormData(updated);
-    const clean = val.trim();
-    if (clean) {
-      saveGitHubTokenPermanently(clean);
-      updateConfig({ ...config, ...updated, token: clean });
-    }
-  };
-
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    const cleanToken = (formData.token || '').trim();
-    saveGitHubTokenPermanently(cleanToken);
-    updateConfig({ ...formData, token: cleanToken });
+    const tokenVal = formData.token ? formData.token.trim() : '';
+    if (tokenVal) {
+      try {
+        localStorage.setItem('ihas_github_token_master', tokenVal);
+        localStorage.setItem('ihas_github_token', tokenVal);
+        safeStorage.setItem('ihas_github_token_master', tokenVal);
+        safeStorage.setItem('ihas_github_token', tokenVal);
+      } catch (err) {
+        console.warn('Storage token set error:', err);
+      }
+    }
+    updateConfig({ ...formData, token: tokenVal });
     showToast(
       lang === 'bn'
-        ? 'গিটহাব এপিআই ও টোকেন পার্মানেন্টলি সংরক্ষিত হয়েছে! আর বারবার বসানোর প্রয়োজন নেই।'
-        : 'GitHub API & Token permanently saved! No need to enter again.'
+        ? 'গিটহাব টোকেন ও কনফিগারেশন স্থায়ীভাবে সংরক্ষিত হয়েছে! আর বারবার বসানোর প্রয়োজন নেই।'
+        : 'GitHub token and configuration permanently saved! No need to enter again.'
     );
   };
 
   const handleClearToken = () => {
-    saveGitHubTokenPermanently('');
+    try {
+      localStorage.removeItem('ihas_github_token_master');
+      localStorage.removeItem('ihas_github_token');
+      safeStorage.removeItem('ihas_github_token_master');
+      safeStorage.removeItem('ihas_github_token');
+    } catch (err) {
+      console.warn('Storage token remove error:', err);
+    }
     const updated = { ...formData, token: '' };
     setFormData(updated);
     updateConfig(updated);
@@ -132,7 +128,16 @@ export const GitHubSyncTab: React.FC<GitHubSyncTabProps> = ({
         repoDetails: res.repoDetails
       });
       if (res.success) {
-        showToast(lang === 'bn' ? 'গিটহাব সংযোগ সফল!' : 'GitHub connection verified!');
+        // Auto-save verified token permanently
+        try {
+          const validToken = formData.token.trim();
+          localStorage.setItem('ihas_github_token_master', validToken);
+          localStorage.setItem('ihas_github_token', validToken);
+          safeStorage.setItem('ihas_github_token_master', validToken);
+          safeStorage.setItem('ihas_github_token', validToken);
+          updateConfig({ ...formData, token: validToken });
+        } catch {}
+        showToast(lang === 'bn' ? 'গিটহাব সংযোগ সফল ও টোকেন স্থায়ীভাবে সংরক্ষিত হয়েছে!' : 'GitHub connection verified & saved permanently!');
       } else {
         showToast(lang === 'bn' ? 'সংযোগ ত্রুটি!' : 'Connection error!');
       }
@@ -402,14 +407,14 @@ export const GitHubSyncTab: React.FC<GitHubSyncTabProps> = ({
                   <span className="text-rose-500 ml-1">*</span>
                 </label>
                 {formData.token?.trim() ? (
-                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 border border-emerald-300 px-2.5 py-0.5 rounded-full flex items-center gap-1">
                     <Check className="w-3 h-3 text-emerald-600" />
-                    {lang === 'bn' ? 'টোকেন প্রস্তুত' : 'Token Set'}
+                    {lang === 'bn' ? 'টোকেন স্থায়ীভাবে সংরক্ষিত ও সক্রিয়' : 'Token Permanently Saved & Active'}
                   </span>
                 ) : (
-                  <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <span className="text-[10px] font-bold text-amber-800 bg-amber-100 border border-amber-300 px-2.5 py-0.5 rounded-full flex items-center gap-1">
                     <AlertCircle className="w-3 h-3 text-amber-600" />
-                    {lang === 'bn' ? 'টোকেন খালি (এডমিন বসাবেন)' : 'Token Empty (Enter Token)'}
+                    {lang === 'bn' ? 'টোকেন দিন (একবার দিলেই স্থায়ী হবে)' : 'Enter Token (Saved Permanently)'}
                   </span>
                 )}
               </div>
@@ -430,7 +435,7 @@ export const GitHubSyncTab: React.FC<GitHubSyncTabProps> = ({
                 type={showToken ? 'text' : 'password'}
                 placeholder="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
                 value={formData.token}
-                onChange={(e) => handleTokenChange(e.target.value)}
+                onChange={(e) => setFormData({ ...formData, token: e.target.value })}
                 className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-10 pr-24 py-2.5 text-xs text-slate-900 font-mono focus:border-emerald-500 focus:bg-white focus:outline-none transition-all"
               />
               <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
@@ -438,10 +443,10 @@ export const GitHubSyncTab: React.FC<GitHubSyncTabProps> = ({
                   <button
                     type="button"
                     onClick={handleClearToken}
-                    title={lang === 'bn' ? 'টোকেন মুছে ফেলুন' : 'Clear Token'}
+                    title={lang === 'bn' ? 'টোকেন পরিবর্তন বা মুছে ফেলুন' : 'Clear or Replace Token'}
                     className="px-2 py-1 text-[11px] font-semibold text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
                   >
-                    {lang === 'bn' ? 'মুছুন' : 'Clear'}
+                    {lang === 'bn' ? 'মুছুন / বদলান' : 'Clear / Change'}
                   </button>
                 ) : null}
                 <button
@@ -456,14 +461,16 @@ export const GitHubSyncTab: React.FC<GitHubSyncTabProps> = ({
             </div>
 
             {formData.token?.trim() ? (
-              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs text-emerald-900 flex items-start gap-2.5">
+              <div className="bg-emerald-50/90 border border-emerald-200/90 rounded-xl p-3 text-xs text-emerald-950 flex items-start gap-2.5">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                 <div className="space-y-0.5">
-                  <p className="font-bold text-[12px]">{lang === 'bn' ? '🔒 টোকেন স্থায়ীভাবে সংরক্ষিত আছে (Auto-Persistent):' : '🔒 Token Permanently Saved:'}</p>
+                  <p className="font-bold text-[12px]">
+                    {lang === 'bn' ? 'টোকেন স্থায়ীভাবে সংরক্ষিত আছে:' : 'Token is Permanently Saved:'}
+                  </p>
                   <p className="text-[11px] text-emerald-800 leading-relaxed">
                     {lang === 'bn'
-                      ? 'টোকেনটি স্থায়ীভাবে সংরক্ষিত রয়েছে—বারবার বসানোর আর কোনো প্রয়োজন নেই। অ্যাডমিন প্যানেল থেকে যেকোনো তথ্য যোগ বা পরিবর্তন করলেই তা স্বয়ংক্রিয়ভাবে গিটহাবে পুশ হয়ে কোডে আপডেট হবে। প্রয়োজন হলে ওপরের ইনপুট থেকে যেকোনো সময় টোকেন পরিবর্তন করতে পারবেন।'
-                      : 'The GitHub token is permanently stored and active. You will not need to enter it again. Any changes made in the admin panel will automatically push to GitHub.'}
+                      ? 'অ্যাডমিনকে আর বারবার টোকেন বসানোর প্রয়োজন নেই। আপনি চাইলে উপরে "মুছুন / বদলান" বাটনে ক্লিক করে এটি পরিবর্তন করতে পারবেন। অ্যাডমিন যা পরিবর্তন করবেন তা স্বয়ংক্রিয়ভাবে কোডে ও গিটহাবে পুশ হয়ে যাবে।'
+                      : 'You do not need to re-enter this token. Any change you make in the Admin panel will automatically sync directly to your GitHub repository.'}
                   </p>
                 </div>
               </div>
@@ -471,11 +478,11 @@ export const GitHubSyncTab: React.FC<GitHubSyncTabProps> = ({
               <div className="bg-amber-50/90 border border-amber-200/80 rounded-xl p-3 text-xs text-amber-900 flex items-start gap-2.5">
                 <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                 <div className="space-y-0.5">
-                  <p className="font-bold text-[12px]">{lang === 'bn' ? 'টোকেন একবার সেট করার নির্দেশনা:' : 'Set Token Once Instructions:'}</p>
+                  <p className="font-bold text-[12px]">{lang === 'bn' ? 'টোকেন সেট করার নির্দেশনা:' : 'Admin Instructions:'}</p>
                   <p className="text-[11px] text-amber-800 leading-relaxed">
                     {lang === 'bn'
-                      ? 'আপনার নিজস্ব GitHub Personal Access Token (PAT) এখানে একবার পেস্ট করুন। এটি স্বয়ংক্রিয়ভাবে স্থায়ীভাবে সংরক্ষিত হয়ে যাবে এবং পরবর্তীতে আর কখনো বসাতে হবে না।'
-                      : 'Paste your personal GitHub PAT token here once. It will be permanently stored and will not need to be re-entered.'}
+                      ? 'আপনার GitHub Personal Access Token (PAT) এখানে একবার পেস্ট করে "স্থায়ীভাবে সেভ করুন" বা "টেস্ট ও অটো-সংরক্ষণ" বাটনে ক্লিক করুন। এটি স্থায়ীভাবে সেভ হয়ে যাবে এবং বারবার বসানোর প্রয়োজন হবে না।'
+                      : 'Paste your GitHub Personal Access Token (PAT) here once. It will be permanently stored and will not need to be re-entered.'}
                   </p>
                 </div>
               </div>

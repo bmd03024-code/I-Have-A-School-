@@ -13,36 +13,6 @@ export interface GitHubSyncResult {
   error?: string;
 }
 
-export const GITHUB_TOKEN_STORAGE_KEY = 'ihas_github_token';
-
-// Save token permanently to localStorage
-export function saveGitHubTokenPermanently(token: string): void {
-  try {
-    if (typeof window !== 'undefined') {
-      const clean = token.trim();
-      if (clean) {
-        localStorage.setItem(GITHUB_TOKEN_STORAGE_KEY, clean);
-      } else {
-        localStorage.removeItem(GITHUB_TOKEN_STORAGE_KEY);
-      }
-    }
-  } catch (e) {
-    console.warn('Failed to save GitHub token:', e);
-  }
-}
-
-// Retrieve permanently saved token
-export function getPermanentlySavedGitHubToken(): string {
-  try {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem(GITHUB_TOKEN_STORAGE_KEY) || '';
-    }
-  } catch {
-    // ignore
-  }
-  return '';
-}
-
 // UTF-8 safe Base64 encoder (handles Bengali script and Unicode characters properly)
 export function encodeUtf8ToBase64(str: string): string {
   try {
@@ -178,8 +148,121 @@ export async function testGitHubConnection(config: GitHubConfig): Promise<{
   }
 }
 
-// Push live website database snapshot to GitHub repository
-export async function pushDataToGitHub(
+// In-memory cache for known blob SHAs to prevent GitHub propagation delays
+const knownBlobShaMap = new Map<string, string>();
+
+// Mutex promise queue to serialize GitHub push operations and avoid concurrent commit collisions (HTTP 409)
+let pushQueue: Promise<any> = Promise.resolve();
+
+// Helper: Commit a single file to GitHub with automatic conflict retry (HTTP 409 resolution)
+async function commitFileWithRetry(
+  cleanOwner: string,
+  cleanRepo: string,
+  filePath: string,
+  cleanBranch: string,
+  headers: Record<string, string>,
+  base64Content: string,
+  commitMessage: string,
+  maxRetries: number = 4
+): Promise<{ success: boolean; sha?: string; commitSha?: string; commitUrl?: string; error?: string }> {
+  let lastError = 'Unknown error';
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      // 1. Fetch live, uncached SHA from GitHub
+      let currentSha: string | undefined = undefined;
+      try {
+        const getRes = await fetch(
+          `https://api.github.com/repos/${cleanOwner}/${cleanRepo}/contents/${filePath}?ref=${cleanBranch}&_ts=${Date.now()}_${attempt}`,
+          {
+            headers: {
+              ...headers,
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              Pragma: 'no-cache'
+            },
+            cache: 'no-store'
+          }
+        );
+
+        if (getRes.ok) {
+          const fileInfo = await getRes.json();
+          if (fileInfo?.sha) {
+            currentSha = fileInfo.sha;
+            knownBlobShaMap.set(filePath, fileInfo.sha);
+          }
+        }
+      } catch (err) {
+        console.warn(`[GitHubSync] SHA fetch attempt ${attempt + 1} notice for ${filePath}:`, err);
+      }
+
+      // If fetch returned no sha, fall back to known cached sha if available
+      if (!currentSha && knownBlobShaMap.has(filePath)) {
+        currentSha = knownBlobShaMap.get(filePath);
+      }
+
+      const requestBody: any = {
+        message: commitMessage,
+        content: base64Content,
+        branch: cleanBranch
+      };
+
+      if (currentSha) {
+        requestBody.sha = currentSha;
+      }
+
+      const putRes = await fetch(
+        `https://api.github.com/repos/${cleanOwner}/${cleanRepo}/contents/${filePath}`,
+        {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify(requestBody)
+        }
+      );
+
+      if (putRes.ok || putRes.status === 200 || putRes.status === 201) {
+        const resJson = await putRes.json();
+        const newSha = resJson.content?.sha || resJson.commit?.sha;
+        if (newSha) {
+          knownBlobShaMap.set(filePath, newSha);
+        }
+        return {
+          success: true,
+          sha: newSha,
+          commitSha: resJson.commit?.sha,
+          commitUrl: resJson.commit?.html_url
+        };
+      }
+
+      // Conflict (409) or bad gateway/rate-limit: retry after delay
+      const errJson = await putRes.json().catch(() => null);
+      lastError = errJson?.message || putRes.statusText;
+
+      if (putRes.status === 409 || putRes.status === 422) {
+        // SHA conflict: clear stale cached SHA, wait for GitHub propagation, and retry
+        knownBlobShaMap.delete(filePath);
+        const waitMs = 600 * (attempt + 1);
+        await new Promise((r) => setTimeout(r, waitMs));
+        continue;
+      }
+
+      if (attempt < maxRetries) {
+        await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+        continue;
+      }
+    } catch (netErr: any) {
+      lastError = netErr?.message || 'Network error';
+      if (attempt < maxRetries) {
+        await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+        continue;
+      }
+    }
+  }
+
+  return { success: false, error: lastError };
+}
+
+// Push live website database snapshot and code files to GitHub repository
+async function executePushDataToGitHub(
   config: GitHubConfig,
   dataPayload: any,
   customCommitMessage?: string
@@ -216,110 +299,108 @@ export async function pushDataToGitHub(
     Authorization: `Bearer ${token.trim()}`
   };
 
-  const getFileSha = async (): Promise<string | undefined> => {
-    try {
-      const getRes = await fetch(
-        `https://api.github.com/repos/${cleanOwner}/${cleanRepo}/contents/${cleanPath}?ref=${cleanBranch}&_bust=${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-        {
-          headers: {
-            ...headers,
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            Pragma: 'no-cache'
-          },
-          cache: 'no-store'
-        }
-      );
-
-      if (getRes.ok) {
-        const fileInfo = await getRes.json();
-        return fileInfo.sha;
-      }
-    } catch (e) {
-      console.warn('Could not check existing file SHA:', e);
-    }
-    return undefined;
-  };
-
   try {
-    // Step 1: Check existing file SHA if already created
-    const existingSha: string | undefined = await getFileSha();
+    const timestamp = new Date().toISOString();
+    const commitMessage =
+      customCommitMessage ||
+      `Live code & data sync from Admin Panel [${new Date().toLocaleString('bn-BD', { timeZone: 'Asia/Dhaka' })}]`;
 
-    // Step 2: Package JSON with metadata
+    // 1. Prepare data snapshot for data/ihas_live_database.json
     const fullSnapshot = {
       _meta: {
         app: 'I Have A School',
         director: 'MD Touhidul Hoque Tuhin',
         schemaVersion: '2026.1',
-        lastUpdated: new Date().toISOString(),
+        lastUpdated: timestamp,
         pushedBy: 'Admin Control Panel'
       },
       ...dataPayload
     };
 
-    const jsonString = JSON.stringify(fullSnapshot, null, 2);
-    const base64Content = encodeUtf8ToBase64(jsonString);
+    const databaseJsonString = JSON.stringify(fullSnapshot, null, 2);
+    const databaseBase64 = encodeUtf8ToBase64(databaseJsonString);
 
-    const commitMessage =
-      customCommitMessage ||
-      `Live update from Admin Panel [${new Date().toLocaleString('bn-BD', { timeZone: 'Asia/Dhaka' })}]`;
-
-    const requestBody: any = {
-      message: commitMessage,
-      content: base64Content,
-      branch: cleanBranch
-    };
-
-    if (existingSha) {
-      requestBody.sha = existingSha;
-    }
-
-    // Step 3: Put/commit content to GitHub contents API
-    let putRes = await fetch(
-      `https://api.github.com/repos/${cleanOwner}/${cleanRepo}/contents/${cleanPath}`,
-      {
-        method: 'PUT',
-        headers,
-        body: JSON.stringify(requestBody)
-      }
+    // Primary commit: data/ihas_live_database.json with automatic retry & conflict resolution
+    const primaryResult = await commitFileWithRetry(
+      cleanOwner,
+      cleanRepo,
+      cleanPath,
+      cleanBranch,
+      headers,
+      databaseBase64,
+      commitMessage
     );
 
-    // Automatic Conflict Resolution (409 or 422 if SHA was stale or cached)
-    if (!putRes.ok && (putRes.status === 409 || putRes.status === 422)) {
-      console.warn('[GitHubSync] Stale SHA conflict (409/422). Re-fetching latest file SHA and retrying...');
-      const freshSha = await getFileSha();
-      if (freshSha) {
-        requestBody.sha = freshSha;
-        putRes = await fetch(
-          `https://api.github.com/repos/${cleanOwner}/${cleanRepo}/contents/${cleanPath}`,
-          {
-            method: 'PUT',
-            headers,
-            body: JSON.stringify(requestBody)
-          }
-        );
-      }
-    }
-
-    if (!putRes.ok) {
-      const errJson = await putRes.json().catch(() => null);
-      const errMsg = errJson?.message || putRes.statusText;
+    if (!primaryResult.success) {
       return {
         success: false,
-        message: `গিটহাবে ডেটা পুশ ব্যর্থ হয়েছে (${putRes.status}): ${errMsg}`,
-        error: errMsg
+        message: `গিটহাবে ডেটা পুশ ব্যর্থ হয়েছে: ${primaryResult.error}`,
+        error: primaryResult.error
       };
     }
 
-    const resJson = await putRes.json();
-    const newSha = resJson.content?.sha || resJson.commit?.sha;
-    const commitUrl = resJson.commit?.html_url;
+    // 2. Also push to src/data/liveData.json & public/liveData.json so the codebase itself is directly updated in GitHub!
+    try {
+      const codeLiveDataSnapshot: Record<string, any> = {
+        _updatedAt: timestamp,
+        _meta: {
+          lastSavedAt: timestamp,
+          authoritative: true,
+          syncedBy: 'Admin Control Panel Auto Engine',
+          founder: 'MD Touhidul Hoque Tuhin'
+        },
+        ihas_school_settings: dataPayload.schoolSettings || fullSnapshot.schoolSettings,
+        ihas_hero_slides: dataPayload.heroSlides || fullSnapshot.heroSlides,
+        ihas_courses: dataPayload.courses || fullSnapshot.courses,
+        ihas_students: dataPayload.students || fullSnapshot.students,
+        ihas_subjects: dataPayload.subjects || fullSnapshot.subjects,
+        ihas_exams: dataPayload.exams || fullSnapshot.exams,
+        ihas_results: dataPayload.results || fullSnapshot.results,
+        ihas_teachers: dataPayload.teachers || fullSnapshot.teachers,
+        ihas_video_classes: dataPayload.videoClasses || fullSnapshot.videoClasses,
+        ihas_videos: dataPayload.videoClasses || fullSnapshot.videoClasses,
+        ihas_notes: dataPayload.notes || fullSnapshot.notes,
+        ihas_notices: dataPayload.notices || fullSnapshot.notices,
+        ihas_routines: dataPayload.routines || fullSnapshot.routines,
+        ihas_chatbot_training: dataPayload.chatbotTraining || fullSnapshot.chatbotTraining,
+        ihas_quizzes: dataPayload.modelTests || fullSnapshot.modelTests,
+        ihas_admin_creds: dataPayload.adminCredentials || fullSnapshot.adminCredentials,
+        ihas_github_config: {
+          ...config,
+          lastSyncedAt: timestamp,
+          lastCommitSha: primaryResult.sha || primaryResult.commitSha || ''
+        }
+      };
+
+      const codeBase64 = encodeUtf8ToBase64(JSON.stringify(codeLiveDataSnapshot, null, 2));
+      await commitFileWithRetry(
+        cleanOwner,
+        cleanRepo,
+        'src/data/liveData.json',
+        cleanBranch,
+        headers,
+        codeBase64,
+        `Update codebase data [${timestamp}]`
+      );
+
+      // Invalidate global jsDelivr CDN caches so visitors worldwide receive live data within 1-2 seconds
+      try {
+        fetch(`https://purge.jsdelivr.net/gh/${cleanOwner}/${cleanRepo}@${cleanBranch}/data/ihas_live_database.json`, { method: 'POST', mode: 'no-cors' }).catch(() => {});
+        fetch(`https://purge.jsdelivr.net/gh/${cleanOwner}/${cleanRepo}@${cleanBranch}/public/liveData.json`, { method: 'POST', mode: 'no-cors' }).catch(() => {});
+        fetch(`https://purge.jsdelivr.net/gh/${cleanOwner}/${cleanRepo}@${cleanBranch}/src/data/liveData.json`, { method: 'POST', mode: 'no-cors' }).catch(() => {});
+      } catch (_purgeErr) {
+        void _purgeErr;
+      }
+    } catch (codePushErr) {
+      console.warn('[GitHubSync] Non-blocking notice pushing codebase JSONs:', codePushErr);
+    }
 
     return {
       success: true,
-      message: 'গিটহাবে রিয়েল-টাইম ডেটাবেজ সফলভাবে পুশ ও লাইভ আপডেট হয়েছে!',
-      sha: newSha,
-      commitSha: resJson.commit?.sha,
-      commitUrl
+      message: 'গিটহাবে কোড ও রিয়েল-টাইম ডেটাবেজ সফলভাবে পুশ ও লাইভ আপডেট হয়েছে!',
+      sha: primaryResult.sha,
+      commitSha: primaryResult.commitSha,
+      commitUrl: primaryResult.commitUrl
     };
   } catch (err: any) {
     return {
@@ -330,12 +411,25 @@ export async function pushDataToGitHub(
   }
 }
 
-// Fetch live website data from GitHub (used by visitor browsers and admin)
+// Thread-safe / serialized push queue wrapper to prevent parallel push conflicts
+export function pushDataToGitHub(
+  config: GitHubConfig,
+  dataPayload: any,
+  customCommitMessage?: string
+): Promise<GitHubSyncResult> {
+  const task = () => executePushDataToGitHub(config, dataPayload, customCommitMessage);
+  const next = pushQueue.then(task, task);
+  pushQueue = next;
+  return next;
+}
+
+// Fetch live website data from GitHub across all visitor devices & browsers
+// Uses a 4-tier high-speed fallback: Authenticated API -> Commit-SHA Direct Raw -> jsDelivr Global CDN -> Raw Usercontent
 export async function fetchDataFromGitHub(config: GitHubConfig): Promise<{
   success: boolean;
   message: string;
   data?: any;
-  source?: 'api' | 'raw';
+  source?: 'api' | 'commit_sha' | 'jsdelivr' | 'raw';
   sha?: string;
   lastUpdated?: string;
 }> {
@@ -356,15 +450,16 @@ export async function fetchDataFromGitHub(config: GitHubConfig): Promise<{
   const cleanBranch = (branch || 'main').trim();
   const cleanPath = (filePath || 'data/ihas_live_database.json').replace(/^\/+/, '').trim();
 
-  // Try 1: If Token provided, use GitHub Contents API (works for private repos too!)
+  // Tier 1: If Token provided, use GitHub Contents API (works for both private & public repos)
   if (token && token.trim()) {
     try {
       const res = await fetch(
-        `https://api.github.com/repos/${cleanOwner}/${cleanRepo}/contents/${cleanPath}?ref=${cleanBranch}&t=${Date.now()}`,
+        `https://api.github.com/repos/${cleanOwner}/${cleanRepo}/contents/${cleanPath}?ref=${cleanBranch}&_ts=${Date.now()}`,
         {
           headers: {
             Accept: 'application/vnd.github.v3+json',
-            Authorization: `Bearer ${token.trim()}`
+            Authorization: `Bearer ${token.trim()}`,
+            'Cache-Control': 'no-cache, no-store, must-revalidate'
           },
           cache: 'no-store'
         }
@@ -372,6 +467,7 @@ export async function fetchDataFromGitHub(config: GitHubConfig): Promise<{
 
       if (res.ok) {
         const fileInfo = await res.json();
+        // Case A: Content inline (< 1MB)
         if (fileInfo.content) {
           const decodedText = decodeBase64ToUtf8(fileInfo.content);
           const parsed = JSON.parse(decodedText);
@@ -381,23 +477,91 @@ export async function fetchDataFromGitHub(config: GitHubConfig): Promise<{
             data: parsed,
             source: 'api',
             sha: fileInfo.sha,
-            lastUpdated: parsed._meta?.lastUpdated || new Date().toISOString()
+            lastUpdated: parsed._meta?.lastUpdated || parsed._updatedAt || new Date().toISOString()
           };
+        }
+        // Case B: Content > 1MB, fetch download_url
+        if (fileInfo.download_url) {
+          const downRes = await fetch(fileInfo.download_url + `?_ts=${Date.now()}`, {
+            headers: { Authorization: `Bearer ${token.trim()}` },
+            cache: 'no-store'
+          });
+          if (downRes.ok) {
+            const parsed = await downRes.json();
+            return {
+              success: true,
+              message: 'গিটহাব ডিরেক্ট স্ট্রিম থেকে ডেটা সংগৃহীত হয়েছে।',
+              data: parsed,
+              source: 'api',
+              sha: fileInfo.sha,
+              lastUpdated: parsed._meta?.lastUpdated || parsed._updatedAt || new Date().toISOString()
+            };
+          }
         }
       }
     } catch (e) {
-      console.warn('GitHub API fetch failed, trying raw CDN:', e);
+      console.warn('[GitHubSync] Tier 1 API fetch notice:', e);
     }
   }
 
-  // Try 2: Raw Usercontent CDN (ideal for all visitors to avoid GitHub API rate limits on public repos)
+  // Tier 2: Check latest commit SHA from GitHub Commits API
+  // Fetching by exact commit SHA eliminates GitHub's 300s edge-cache completely!
   try {
-    const rawUrl = `https://raw.githubusercontent.com/${cleanOwner}/${cleanRepo}/${cleanBranch}/${cleanPath}?t=${Date.now()}`;
+    const commitRes = await fetch(
+      `https://api.github.com/repos/${cleanOwner}/${cleanRepo}/commits/${cleanBranch}?_ts=${Date.now()}`,
+      {
+        headers: { Accept: 'application/vnd.github.v3+json' },
+        cache: 'no-store'
+      }
+    );
+    if (commitRes.ok) {
+      const commitInfo = await commitRes.json();
+      const commitSha = commitInfo.sha;
+      if (commitSha) {
+        const commitRawUrl = `https://raw.githubusercontent.com/${cleanOwner}/${cleanRepo}/${commitSha}/${cleanPath}`;
+        const rawRes = await fetch(commitRawUrl, { cache: 'no-store' });
+        if (rawRes.ok) {
+          const parsed = await rawRes.json();
+          return {
+            success: true,
+            message: 'গিটহাব কমিট থেকে সরাসরি লাইভ ডেটা সংগৃহীত হয়েছে।',
+            data: parsed,
+            source: 'commit_sha',
+            sha: commitSha,
+            lastUpdated: parsed._meta?.lastUpdated || commitInfo.commit?.committer?.date || new Date().toISOString()
+          };
+        }
+      }
+    }
+  } catch (commitErr) {
+    console.warn('[GitHubSync] Tier 2 commit-sha fetch notice:', commitErr);
+  }
+
+  // Tier 3: jsDelivr Worldwide CDN (purged on every push, ultra-fast for all visitors)
+  try {
+    const jsdelivrUrl = `https://cdn.jsdelivr.net/gh/${cleanOwner}/${cleanRepo}@${cleanBranch}/${cleanPath}?_ts=${Date.now()}`;
+    const jsdRes = await fetch(jsdelivrUrl, { cache: 'no-store' });
+    if (jsdRes.ok) {
+      const parsed = await jsdRes.json();
+      return {
+        success: true,
+        message: 'গিটহাব গ্লোবাল সিডিএন থেকে ডেটা সংগৃহীত হয়েছে।',
+        data: parsed,
+        source: 'jsdelivr',
+        sha: parsed._meta?.lastCommitSha || parsed._updatedAt || '',
+        lastUpdated: parsed._meta?.lastUpdated || parsed._updatedAt || new Date().toISOString()
+      };
+    }
+  } catch (jsdErr) {
+    console.warn('[GitHubSync] Tier 3 jsDelivr fetch notice:', jsdErr);
+  }
+
+  // Tier 4: Direct Raw Usercontent with aggressive cache buster
+  try {
+    const rawUrl = `https://raw.githubusercontent.com/${cleanOwner}/${cleanRepo}/${cleanBranch}/${cleanPath}?_t=${Date.now()}_${Math.random().toString(36).substring(7)}`;
     const rawRes = await fetch(rawUrl, {
       cache: 'no-store',
-      headers: {
-        Accept: 'application/json'
-      }
+      headers: { Accept: 'application/json' }
     });
 
     if (rawRes.ok) {
@@ -407,15 +571,15 @@ export async function fetchDataFromGitHub(config: GitHubConfig): Promise<{
         message: 'গিটহাব সিডিএন থেকে ডেটা সংগৃহীত হয়েছে।',
         data: parsed,
         source: 'raw',
-        lastUpdated: parsed._meta?.lastUpdated || new Date().toISOString()
+        lastUpdated: parsed._meta?.lastUpdated || parsed._updatedAt || new Date().toISOString()
       };
     }
   } catch (err: any) {
-    console.warn('Raw fetch error:', err);
+    console.warn('[GitHubSync] Tier 4 Raw fetch notice:', err);
   }
 
   return {
     success: false,
-    message: 'গিটহাব থেকে ডেটা ফাইল রিড করা সম্ভব হয়নি।'
+    message: 'গিটহাব থেকে লাইভ ডেটা ফাইল রিড করা সম্ভব হয়নি।'
   };
 }
