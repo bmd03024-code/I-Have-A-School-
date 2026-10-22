@@ -136,7 +136,9 @@ export const GitHubSyncTab: React.FC<GitHubSyncTabProps> = ({
           safeStorage.setItem('ihas_github_token_master', validToken);
           safeStorage.setItem('ihas_github_token', validToken);
           updateConfig({ ...formData, token: validToken });
-        } catch {}
+        } catch {
+          // ignore
+        }
         showToast(lang === 'bn' ? 'গিটহাব সংযোগ সফল ও টোকেন স্থায়ীভাবে সংরক্ষিত হয়েছে!' : 'GitHub connection verified & saved permanently!');
       } else {
         showToast(lang === 'bn' ? 'সংযোগ ত্রুটি!' : 'Connection error!');

@@ -44,8 +44,32 @@ import codeLiveData from '../data/liveData.json';
 import { notifyRealtimeUpdate, subscribeRealtimeUpdate, clearAllCachesAndBroadcast, safeStorage } from '../lib/storageService';
 import { pushDataToGitHub, fetchDataFromGitHub } from '../services/githubSyncService';
 import { fetchOpenCloudData, pushToOpenCloud, testOpenCloudConnection } from '../services/cloudSyncService';
+import {
+  supabase,
+  testSupabaseTableStatus,
+  testSupabaseConnection,
+  fetchCentralDatabase,
+  saveCentralEntity,
+  saveCentralSnapshot,
+  deleteCentralEntity,
+  subscribeToCentralRealtime,
+  REQUIRED_SQL_MIGRATION
+} from '../lib/supabase';
 
 export interface AppContextType {
+  // Central Supabase Database & Realtime
+  supabaseStatus: {
+    ready: boolean;
+    tableExists: boolean;
+    realtimeConnected: boolean;
+    message: string;
+    lastSyncedAt?: string;
+    error?: string;
+  };
+  syncAllToSupabase: () => Promise<{ success: boolean; message: string; tableMissing?: boolean }>;
+  testSupabaseStatus: () => Promise<void>;
+  requiredSqlMigration: string;
+
   // Codebase Direct Sync & Authoritative Storage
   isCodeSyncing: boolean;
   codeSyncLastSaved: string | null;
@@ -197,25 +221,10 @@ export interface AppContextType {
 
 export const AppContext = createContext<AppContextType | undefined>(undefined);
 
-const syncToCodebase = (key: string, data: any) => {
-  try {
-    if (typeof window !== 'undefined' && typeof fetch === 'function') {
-      fetch('/api/sync-to-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key, data, updatedAt: new Date().toISOString() })
-      }).catch(() => {});
-    }
-  } catch {
-    // ignore
-  }
-};
-
 const persistItem = (key: string, data: any) => {
   try {
     const val = typeof data === 'string' ? data : JSON.stringify(data);
     safeStorage.setItem(key, val);
-    syncToCodebase(key, data);
   } catch (err) {
     console.warn(`[AppContext] Error persisting ${key}:`, err);
   }
@@ -324,17 +333,70 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return (codeLiveData as any)?._meta?.updatedAt || (codeLiveData as any)?._meta?.lastSavedAt || (codeLiveData as any)?._updatedAt || null;
   });
 
+  // Central Supabase status state
+  const [supabaseStatus, setSupabaseStatus] = useState<{
+    ready: boolean;
+    tableExists: boolean;
+    realtimeConnected: boolean;
+    message: string;
+    lastSyncedAt?: string;
+    error?: string;
+  }>({
+    ready: false,
+    tableExists: false,
+    realtimeConnected: false,
+    message: 'সুপারবেস ক্লাউড স্ট্যাটাস চেক করা হচ্ছে...',
+  });
+
   // Master Commit & Real-Time Sync Engine:
   // Atomically executes:
   // 1. Storage persistence (localStorage + IndexedDB)
-  // 2. Cross-tab/window BroadcastChannel, CustomEvent, and storage event ping
-  // 3. Server codebase write (/api/sync-to-code) triggering instant SSE stream to all visitors
+  // 2. Central Supabase persistent write (saveCentralEntity) - updates database for all devices
+  // 3. Cross-tab/window BroadcastChannel, CustomEvent, and storage event ping
+  // 4. Server codebase write (/api/sync-to-code) triggering instant SSE stream to all visitors
   const commitAndSync = useCallback((key: string, topic: string, data: any) => {
     persistItem(key, data);
     notifyRealtimeUpdate(topic, data);
     setCodeSyncLastSaved(new Date().toISOString());
 
-    // Instant server-side write & SSE broadcast to all active website visitors
+    // 1. Central Supabase Cloud Database write
+    saveCentralEntity(key, data)
+      .then((res) => {
+        if (res.success) {
+          const now = new Date().toISOString();
+          setSupabaseStatus((prev) => ({
+            ...prev,
+            ready: true,
+            tableExists: true,
+            message: 'সুপারবেস ক্লাউড ডেটাবেজে সফলভাবে সংরক্ষিত হয়েছে',
+            lastSyncedAt: now,
+            error: undefined,
+          }));
+        } else {
+          console.warn(`[Supabase Write Warning] key="${key}":`, res.error);
+          if (res.tableMissing) {
+            setSupabaseStatus((prev) => ({
+              ...prev,
+              ready: false,
+              tableExists: false,
+              message: 'সুপারবেস টেবিল "public.ihas_data" অনুপস্থিত। SQL Editor-এ Migration চালান।',
+              error: res.error,
+            }));
+          } else {
+            setSupabaseStatus((prev) => ({
+              ...prev,
+              ready: false,
+              message: `সুপারবেস সেভ ব্যর্থ: ${res.error || 'ত্রুটি'}`,
+              error: res.error,
+            }));
+          }
+        }
+      })
+      .catch((err) => {
+        console.warn(`[Supabase Write Exception] key="${key}":`, err);
+      });
+
+    // 2. Local dev server write & SSE broadcast
     try {
       fetch('/api/sync-to-code', {
         method: 'POST',
@@ -872,92 +934,92 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const s = data.schoolSettings || data.ihas_school_settings || data.school_settings;
       if (s) {
         safeSetIfChanged(setSchoolSettings, s);
-        persistItem('ihas_school_settings', s);
+        safeStorage.setItem('ihas_school_settings', JSON.stringify(s));
       }
 
       const slides = data.heroSlides || data.ihas_hero_slides || data.hero_slides;
       if (Array.isArray(slides)) {
         safeSetIfChanged(setHeroSlides, slides);
-        persistItem('ihas_hero_slides', slides);
+        safeStorage.setItem('ihas_hero_slides', JSON.stringify(slides));
       }
 
       const c = data.courses || data.ihas_courses;
       if (Array.isArray(c)) {
         safeSetIfChanged(setCourses, c);
-        persistItem('ihas_courses', c);
+        safeStorage.setItem('ihas_courses', JSON.stringify(c));
       }
 
       const std = data.students || data.ihas_students;
       if (Array.isArray(std)) {
         safeSetIfChanged(setStudents, std);
-        persistItem('ihas_students', std);
+        safeStorage.setItem('ihas_students', JSON.stringify(std));
       }
 
       const sub = data.subjects || data.ihas_subjects;
       if (Array.isArray(sub)) {
         safeSetIfChanged(setSubjects, sub);
-        persistItem('ihas_subjects', sub);
+        safeStorage.setItem('ihas_subjects', JSON.stringify(sub));
       }
 
       const ex = data.exams || data.ihas_exams;
       if (Array.isArray(ex)) {
         safeSetIfChanged(setExams, ex);
-        persistItem('ihas_exams', ex);
+        safeStorage.setItem('ihas_exams', JSON.stringify(ex));
       }
 
       const res = data.results || data.ihas_results;
       if (Array.isArray(res)) {
         safeSetIfChanged(setResults, res);
-        persistItem('ihas_results', res);
+        safeStorage.setItem('ihas_results', JSON.stringify(res));
       }
 
       const tch = data.teachers || data.ihas_teachers;
       if (Array.isArray(tch)) {
         safeSetIfChanged(setTeachers, tch);
-        persistItem('ihas_teachers', tch);
+        safeStorage.setItem('ihas_teachers', JSON.stringify(tch));
       }
 
       const vid = data.videoClasses || data.ihas_video_classes || data.ihas_videos || data.videos;
       if (Array.isArray(vid)) {
         safeSetIfChanged(setVideoClasses, vid);
-        persistItem('ihas_videos', vid);
-        persistItem('ihas_video_classes', vid);
+        safeStorage.setItem('ihas_videos', JSON.stringify(vid));
+        safeStorage.setItem('ihas_video_classes', JSON.stringify(vid));
       }
 
       const nts = data.notes || data.ihas_notes;
       if (Array.isArray(nts)) {
         safeSetIfChanged(setNotes, nts);
-        persistItem('ihas_notes', nts);
+        safeStorage.setItem('ihas_notes', JSON.stringify(nts));
       }
 
       const nots = data.notices || data.ihas_notices;
       if (Array.isArray(nots)) {
         safeSetIfChanged(setNotices, nots);
-        persistItem('ihas_notices', nots);
+        safeStorage.setItem('ihas_notices', JSON.stringify(nots));
       }
 
       const rts = data.routines || data.ihas_routines;
       if (Array.isArray(rts)) {
         safeSetIfChanged(setRoutines, rts);
-        persistItem('ihas_routines', rts);
+        safeStorage.setItem('ihas_routines', JSON.stringify(rts));
       }
 
       const bot = data.chatbotTraining || data.ihas_chatbot_training;
       if (Array.isArray(bot)) {
         safeSetIfChanged(setChatbotTraining, bot);
-        persistItem('ihas_chatbot_training', bot);
+        safeStorage.setItem('ihas_chatbot_training', JSON.stringify(bot));
       }
 
       const qz = data.modelTests || data.ihas_quizzes || data.quizzes;
       if (Array.isArray(qz)) {
         safeSetIfChanged(setModelTests, qz);
-        persistItem('ihas_quizzes', qz);
+        safeStorage.setItem('ihas_quizzes', JSON.stringify(qz));
       }
 
       const cr = data.adminCredentials || data.ihas_admin_creds;
       if (cr?.email && cr?.password) {
         safeSetIfChanged(setAdminCredentials, cr);
-        persistItem('ihas_admin_creds', cr);
+        safeStorage.setItem('ihas_admin_creds', JSON.stringify(cr));
       }
     } catch (e) {
       console.warn('Error applying database snapshot:', e);
@@ -1118,6 +1180,66 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     adminCredentials
   ]);
 
+  const pushToGitHub = useCallback(async (
+    customCommitMessage?: string
+  ): Promise<{ success: boolean; sha?: string; error?: string }> => {
+    setIsGitHubSyncing(true);
+    setGitHubSyncStatus((prev) => ({
+      ...prev,
+      state: 'syncing',
+      message: 'গিটহাবে রিয়েল-টাইম ডেটাবেজ পুশ করা হচ্ছে...'
+    }));
+
+    try {
+      const activeToken = (githubConfig.token && githubConfig.token.trim()) || getStoredGitHubToken();
+      const effectiveConfig: GitHubConfig = {
+        ...githubConfig,
+        token: activeToken
+      };
+      const snapshot = latestEntitiesRef.current;
+      const result = await pushDataToGitHub(effectiveConfig, snapshot, customCommitMessage);
+
+      if (result.success) {
+        const now = new Date().toISOString();
+        const updatedConfig: GitHubConfig = {
+          ...githubConfig,
+          lastSyncedAt: now,
+          lastCommitSha: result.sha || result.commitSha || '',
+          lastCommitMessage: customCommitMessage || 'Live update from Admin Panel'
+        };
+        setGithubConfig(updatedConfig);
+        persistItem('ihas_github_config', updatedConfig);
+        setGitHubSyncStatus({
+          state: 'synced',
+          message: 'সফলভাবে পুশ ও লাইভ সিঙ্ক সম্পন্ন হয়েছে',
+          lastSyncedAt: now,
+          lastCommitSha: updatedConfig.lastCommitSha
+        });
+        notifyRealtimeUpdate('github_sync', { snapshot, config: updatedConfig });
+        return { success: true, sha: updatedConfig.lastCommitSha };
+      } else {
+        setGitHubSyncStatus({
+          state: 'error',
+          message: result.message || 'পুশ ব্যর্থ হয়েছে',
+          lastSyncedAt: githubConfig.lastSyncedAt,
+          lastCommitSha: githubConfig.lastCommitSha
+        });
+        return { success: false, error: result.message };
+      }
+    } catch (err: any) {
+      const errMsg = err.message || 'অজানা ত্রুটি';
+      setGitHubSyncStatus({
+        state: 'error',
+        message: errMsg,
+        lastSyncedAt: githubConfig.lastSyncedAt,
+        lastCommitSha: githubConfig.lastCommitSha
+      });
+      return { success: false, error: errMsg };
+    } finally {
+      setIsGitHubSyncing(false);
+    }
+  }, [githubConfig]);
+
   // Master function to write the entire database snapshot directly into the codebase file (src/data/liveData.json)
   const saveAllToCodebase = useCallback(async (): Promise<{ success: boolean; message: string }> => {
     setIsCodeSyncing(true);
@@ -1195,67 +1317,107 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } finally {
       setIsCodeSyncing(false);
     }
+  }, [githubConfig, lang, pushToGitHub]);
+
+  // Master function to seed and synchronize the entire database to Supabase central database
+  const syncAllToSupabase = useCallback(async (): Promise<{
+    success: boolean;
+    message: string;
+    tableMissing?: boolean;
+  }> => {
+    try {
+      const snapshot = {
+        ihas_school_settings: latestEntitiesRef.current.schoolSettings,
+        ihas_hero_slides: latestEntitiesRef.current.heroSlides,
+        ihas_courses: latestEntitiesRef.current.courses,
+        ihas_students: latestEntitiesRef.current.students,
+        ihas_subjects: latestEntitiesRef.current.subjects,
+        ihas_exams: latestEntitiesRef.current.exams,
+        ihas_results: latestEntitiesRef.current.results,
+        ihas_teachers: latestEntitiesRef.current.teachers,
+        ihas_video_classes: latestEntitiesRef.current.videoClasses,
+        ihas_videos: latestEntitiesRef.current.videoClasses,
+        ihas_notes: latestEntitiesRef.current.notes,
+        ihas_notices: latestEntitiesRef.current.notices,
+        ihas_routines: latestEntitiesRef.current.routines,
+        ihas_chatbot_training: latestEntitiesRef.current.chatbotTraining,
+        ihas_quizzes: latestEntitiesRef.current.modelTests,
+        ihas_admin_creds: latestEntitiesRef.current.adminCredentials,
+        ihas_github_config: latestEntitiesRef.current.githubConfig,
+      };
+
+      const res = await saveCentralSnapshot(snapshot);
+      if (res.success) {
+        const now = new Date().toISOString();
+        setSupabaseStatus({
+          ready: true,
+          tableExists: true,
+          realtimeConnected: true,
+          message: 'সুপারবেস ক্লাউড ডেটাবেজে সম্পূর্ণ ওয়েবসাইট ডেটা সফলভাবে পুশ সম্পন্ন হয়েছে!',
+          lastSyncedAt: now,
+        });
+        return {
+          success: true,
+          message: lang === 'bn'
+            ? 'সুপারবেস ক্লাউড ডেটাবেজে সকল তথ্য সফলভাবে সংরক্ষিত হয়েছে!'
+            : 'All data successfully saved to central Supabase cloud database!',
+        };
+      } else {
+        if (res.tableMissing) {
+          setSupabaseStatus({
+            ready: false,
+            tableExists: false,
+            realtimeConnected: false,
+            message: 'সুপারবেসে "public.ihas_data" টেবিল তৈরি হয়নি। SQL Editor-এ গিয়ে স্ক্রিপ্টটি রান করুন।',
+            error: res.error,
+          });
+          return {
+            success: false,
+            tableMissing: true,
+            message: lang === 'bn'
+              ? 'সুপারবেস টেবিল "ihas_data" পাওয়া যায়নি। অনুগ্রহ করে Supabase SQL Editor-এ Migration চালান।'
+              : 'Supabase table "ihas_data" not found. Please run the SQL Migration script in Supabase.',
+          };
+        }
+        setSupabaseStatus((prev) => ({
+          ...prev,
+          ready: false,
+          message: `সুপারবেস সেভ ব্যর্থ: ${res.error || 'ত্রুটি'}`,
+          error: res.error,
+        }));
+        return {
+          success: false,
+          message: `সুপারবেস ক্লাউড সেভ ত্রুটি: ${res.error || 'অজানা সমস্যা'}`,
+        };
+      }
+    } catch (e: any) {
+      return {
+        success: false,
+        message: `ব্যর্থ: ${e?.message || 'সমস্যা হয়েছে'}`,
+      };
+    }
   }, [lang]);
 
-  const pushToGitHub = useCallback(async (
-    customCommitMessage?: string
-  ): Promise<{ success: boolean; sha?: string; error?: string }> => {
-    setIsGitHubSyncing(true);
-    setGitHubSyncStatus((prev) => ({
-      ...prev,
-      state: 'syncing',
-      message: 'গিটহাবে রিয়েল-টাইম ডেটাবেজ পুশ করা হচ্ছে...'
-    }));
-
+  const testSupabaseStatus = useCallback(async () => {
     try {
-      const activeToken = (githubConfig.token && githubConfig.token.trim()) || getStoredGitHubToken();
-      const effectiveConfig: GitHubConfig = {
-        ...githubConfig,
-        token: activeToken
-      };
-      const snapshot = latestEntitiesRef.current;
-      const result = await pushDataToGitHub(effectiveConfig, snapshot, customCommitMessage);
-
-      if (result.success) {
-        const now = new Date().toISOString();
-        const updatedConfig: GitHubConfig = {
-          ...githubConfig,
-          lastSyncedAt: now,
-          lastCommitSha: result.sha || result.commitSha || '',
-          lastCommitMessage: customCommitMessage || 'Live update from Admin Panel'
-        };
-        setGithubConfig(updatedConfig);
-        persistItem('ihas_github_config', updatedConfig);
-        setGitHubSyncStatus({
-          state: 'synced',
-          message: 'সফলভাবে পুশ ও লাইভ সিঙ্ক সম্পন্ন হয়েছে',
-          lastSyncedAt: now,
-          lastCommitSha: updatedConfig.lastCommitSha
-        });
-        notifyRealtimeUpdate('github_sync', { snapshot, config: updatedConfig });
-        return { success: true, sha: updatedConfig.lastCommitSha };
-      } else {
-        setGitHubSyncStatus({
-          state: 'error',
-          message: result.message || 'পুশ ব্যর্থ হয়েছে',
-          lastSyncedAt: githubConfig.lastSyncedAt,
-          lastCommitSha: githubConfig.lastCommitSha
-        });
-        return { success: false, error: result.message };
-      }
+      const res = await testSupabaseTableStatus();
+      setSupabaseStatus((prev) => ({
+        ...prev,
+        ready: res.ready,
+        tableExists: res.tableExists,
+        message: res.message,
+        error: res.error,
+      }));
     } catch (err: any) {
-      const errMsg = err.message || 'অজানা ত্রুটি';
-      setGitHubSyncStatus({
-        state: 'error',
-        message: errMsg,
-        lastSyncedAt: githubConfig.lastSyncedAt,
-        lastCommitSha: githubConfig.lastCommitSha
-      });
-      return { success: false, error: errMsg };
-    } finally {
-      setIsGitHubSyncing(false);
+      setSupabaseStatus((prev) => ({
+        ...prev,
+        ready: false,
+        tableExists: false,
+        message: `সংযোগ ত্রুটি: ${err?.message || 'অজানা ত্রুটি'}`,
+        error: err?.message,
+      }));
     }
-  }, [githubConfig]);
+  }, []);
 
   const pullFromGitHub = useCallback(async (
     force: boolean = false
@@ -1467,8 +1629,141 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [safeSetIfChanged]);
 
-  // Initial Database Hydration from server /api/live-data -> /api/sync-to-code -> live GitHub -> static fallback
+  // Initial Database Hydration: Supabase central database -> server /api/live-data -> live GitHub -> static fallback
   const [isInitialLoading, setIsInitialLoading] = useState(true);
+
+  // Supabase Realtime Listener for instant cross-browser & cross-device synchronization
+  useEffect(() => {
+    const unsubscribe = subscribeToCentralRealtime(
+      (key, value) => {
+        try {
+          if (!key) return;
+          console.log(`[Supabase Realtime] Inbound change event on key "${key}"`);
+
+          switch (key) {
+            case 'ihas_school_settings':
+              if (value) {
+                safeSetIfChanged(setSchoolSettings, value);
+                safeStorage.setItem('ihas_school_settings', JSON.stringify(value));
+              }
+              break;
+            case 'ihas_hero_slides':
+              if (Array.isArray(value)) {
+                safeSetIfChanged(setHeroSlides, value);
+                safeStorage.setItem('ihas_hero_slides', JSON.stringify(value));
+              }
+              break;
+            case 'ihas_courses':
+              if (Array.isArray(value)) {
+                safeSetIfChanged(setCourses, value);
+                safeStorage.setItem('ihas_courses', JSON.stringify(value));
+              }
+              break;
+            case 'ihas_students':
+              if (Array.isArray(value)) {
+                safeSetIfChanged(setStudents, value);
+                safeStorage.setItem('ihas_students', JSON.stringify(value));
+              }
+              break;
+            case 'ihas_subjects':
+              if (Array.isArray(value)) {
+                safeSetIfChanged(setSubjects, value);
+                safeStorage.setItem('ihas_subjects', JSON.stringify(value));
+              }
+              break;
+            case 'ihas_exams':
+              if (Array.isArray(value)) {
+                safeSetIfChanged(setExams, value);
+                safeStorage.setItem('ihas_exams', JSON.stringify(value));
+              }
+              break;
+            case 'ihas_results':
+              if (Array.isArray(value)) {
+                safeSetIfChanged(setResults, value);
+                safeStorage.setItem('ihas_results', JSON.stringify(value));
+              }
+              break;
+            case 'ihas_teachers':
+              if (Array.isArray(value)) {
+                safeSetIfChanged(setTeachers, value);
+                safeStorage.setItem('ihas_teachers', JSON.stringify(value));
+              }
+              break;
+            case 'ihas_video_classes':
+            case 'ihas_videos':
+              if (Array.isArray(value)) {
+                safeSetIfChanged(setVideoClasses, value);
+                safeStorage.setItem('ihas_videos', JSON.stringify(value));
+                safeStorage.setItem('ihas_video_classes', JSON.stringify(value));
+              }
+              break;
+            case 'ihas_notes':
+              if (Array.isArray(value)) {
+                safeSetIfChanged(setNotes, value);
+                safeStorage.setItem('ihas_notes', JSON.stringify(value));
+              }
+              break;
+            case 'ihas_notices':
+              if (Array.isArray(value)) {
+                safeSetIfChanged(setNotices, value);
+                safeStorage.setItem('ihas_notices', JSON.stringify(value));
+              }
+              break;
+            case 'ihas_routines':
+              if (Array.isArray(value)) {
+                safeSetIfChanged(setRoutines, value);
+                safeStorage.setItem('ihas_routines', JSON.stringify(value));
+              }
+              break;
+            case 'ihas_chatbot_training':
+              if (Array.isArray(value)) {
+                safeSetIfChanged(setChatbotTraining, value);
+                safeStorage.setItem('ihas_chatbot_training', JSON.stringify(value));
+              }
+              break;
+            case 'ihas_quizzes':
+              if (Array.isArray(value)) {
+                safeSetIfChanged(setModelTests, value);
+                safeStorage.setItem('ihas_quizzes', JSON.stringify(value));
+              }
+              break;
+            case 'ihas_admin_creds':
+              if (value?.email && value?.password) {
+                safeSetIfChanged(setAdminCredentials, value);
+                safeStorage.setItem('ihas_admin_creds', JSON.stringify(value));
+              }
+              break;
+            case 'ihas_github_config':
+              if (value) {
+                safeSetIfChanged(setGithubConfig, value);
+                safeStorage.setItem('ihas_github_config', JSON.stringify(value));
+              }
+              break;
+            default:
+              break;
+          }
+
+          setCodeSyncLastSaved(new Date().toISOString());
+        } catch (subErr) {
+          console.warn('[Supabase Realtime Payload Error]:', subErr);
+        }
+      },
+      (status, err) => {
+        setSupabaseStatus((prev) => ({
+          ...prev,
+          realtimeConnected: status === 'SUBSCRIBED',
+          message: status === 'SUBSCRIBED'
+            ? 'সুপারবেস রিয়েল-টাইম চ্যানেল সংযুক্ত (লাইভ সিঙ্ক চালু)'
+            : prev.message,
+          error: err || prev.error,
+        }));
+      }
+    );
+
+    return () => {
+      unsubscribe();
+    };
+  }, [safeSetIfChanged]);
 
   useEffect(() => {
     let isMounted = true;
@@ -1476,14 +1771,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try {
         let liveData: any = null;
 
-        // Step 1: Check live server endpoint
+        // Step 0: Check Supabase central authoritative database first
         try {
-          const res = await fetch('/api/live-data', { cache: 'no-store' });
-          if (res.ok) {
-            liveData = await res.json();
+          const sbRes = await fetchCentralDatabase();
+          if (sbRes.success && sbRes.data && Object.keys(sbRes.data).length > 0) {
+            liveData = sbRes.data;
+            if (isMounted) {
+              setSupabaseStatus({
+                ready: true,
+                tableExists: true,
+                realtimeConnected: true,
+                message: 'সুপারবেস ক্লাউড ডেটাবেজ থেকে সর্বশেষ লাইভ তথ্য সফলভাবে লোড হয়েছে।',
+                lastSyncedAt: sbRes.data._updatedAt || new Date().toISOString(),
+              });
+            }
+          } else if (sbRes.tableMissing) {
+            if (isMounted) {
+              setSupabaseStatus({
+                ready: false,
+                tableExists: false,
+                realtimeConnected: false,
+                message: 'সুপারবেস প্রজেক্ট কানেক্টেড, কিন্তু "public.ihas_data" টেবিল তৈরি প্রয়োজন (SQL Migration চালান)।',
+                error: 'TABLE_MISSING',
+              });
+            }
           }
-        } catch (_apiErr) {
-          void _apiErr;
+        } catch (sbErr) {
+          console.warn('[Supabase Initial Fetch Notice]:', sbErr);
+        }
+
+        // Step 1: Check live server endpoint
+        if (!liveData || typeof liveData !== 'object' || Object.keys(liveData).length === 0) {
+          try {
+            const res = await fetch('/api/live-data', { cache: 'no-store' });
+            if (res.ok) {
+              liveData = await res.json();
+            }
+          } catch (_apiErr) {
+            void _apiErr;
+          }
         }
 
         if (!liveData || typeof liveData !== 'object' || Object.keys(liveData).length === 0) {
@@ -1996,7 +2322,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isCodeSyncing,
         codeSyncStatus,
         codeSyncLastSaved,
-        saveAllToCodebase
+        saveAllToCodebase,
+        supabaseStatus,
+        syncAllToSupabase,
+        testSupabaseStatus,
+        requiredSqlMigration: REQUIRED_SQL_MIGRATION
       }}
     >
       {children}

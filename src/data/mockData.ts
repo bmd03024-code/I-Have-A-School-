@@ -662,7 +662,9 @@ export const getStoredGitHubToken = (): string => {
         try {
           const parsed = JSON.parse(cfgRaw);
           if (parsed?.token && parsed.token.trim()) return parsed.token.trim();
-        } catch {}
+        } catch {
+          // ignore
+        }
       }
     }
   } catch {

@@ -7,23 +7,94 @@ import path from 'node:path';
 
 // Set of active SSE client responses for instant sub-100ms real-time broadcasting
 const sseClients = new Set<any>();
+let heartbeatTimer: NodeJS.Timeout | null = null;
 
-// Heartbeat timer to keep SSE connections alive
-setInterval(() => {
-  for (const client of sseClients) {
-    try {
-      client.write(': ping\n\n');
-    } catch {
-      sseClients.delete(client);
+let cachedDatabase: Record<string, any> = {};
+let writeQueue: Promise<any> = Promise.resolve();
+
+function getOrLoadDatabase(): Record<string, any> {
+  if (Object.keys(cachedDatabase).length > 0) {
+    return cachedDatabase;
+  }
+  const targets = [
+    path.resolve(process.cwd(), 'src/data/liveData.json'),
+    path.resolve(process.cwd(), 'data/ihas_live_database.json'),
+    path.resolve(process.cwd(), 'public/liveData.json')
+  ];
+  for (const t of targets) {
+    if (fs.existsSync(t)) {
+      try {
+        const raw = fs.readFileSync(t, 'utf-8');
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
+          cachedDatabase = parsed;
+          return cachedDatabase;
+        }
+      } catch {
+        // ignore parse errors and try next
+      }
     }
   }
-}, 15000);
+  cachedDatabase = {};
+  return cachedDatabase;
+}
+
+function queueSaveDatabase(data: Record<string, any>) {
+  cachedDatabase = { ...getOrLoadDatabase(), ...data };
+  const task = async () => {
+    try {
+      const jsonString = JSON.stringify(cachedDatabase, null, 2);
+      const dataFilePath = path.resolve(process.cwd(), 'src/data/liveData.json');
+      const publicDataFilePath = path.resolve(process.cwd(), 'public/liveData.json');
+      const rootDataFilePath = path.resolve(process.cwd(), 'data/ihas_live_database.json');
+
+      const srcDir = path.dirname(dataFilePath);
+      if (!fs.existsSync(srcDir)) fs.mkdirSync(srcDir, { recursive: true });
+      await fs.promises.writeFile(dataFilePath, jsonString, 'utf-8');
+
+      try {
+        const pubDir = path.dirname(publicDataFilePath);
+        if (!fs.existsSync(pubDir)) fs.mkdirSync(pubDir, { recursive: true });
+        await fs.promises.writeFile(publicDataFilePath, jsonString, 'utf-8');
+      } catch {
+        // ignore public write error
+      }
+
+      try {
+        const rootDir = path.dirname(rootDataFilePath);
+        if (!fs.existsSync(rootDir)) fs.mkdirSync(rootDir, { recursive: true });
+        await fs.promises.writeFile(rootDataFilePath, jsonString, 'utf-8');
+      } catch {
+        // ignore data write error
+      }
+    } catch (err) {
+      console.error('[CodeSync Write Error]:', err);
+    }
+  };
+  writeQueue = writeQueue.then(task, task);
+  return writeQueue;
+}
 
 // Plugin to automatically sync and write admin changes directly into codebase and broadcast real-time updates
 function codeSyncPlugin() {
   return {
     name: 'code-sync-plugin',
     configureServer(server: any) {
+      if (!heartbeatTimer) {
+        heartbeatTimer = setInterval(() => {
+          for (const client of sseClients) {
+            try {
+              client.write(': ping\n\n');
+            } catch {
+              sseClients.delete(client);
+            }
+          }
+        }, 15000);
+        if (typeof heartbeatTimer.unref === 'function') {
+          heartbeatTimer.unref();
+        }
+      }
+
       // 1. Live SSE Stream endpoint for all visitor browsers and open tabs
       server.middlewares.use('/api/live-stream', (req: any, res: any) => {
         res.setHeader('Content-Type', 'text/event-stream');
@@ -51,7 +122,7 @@ function codeSyncPlugin() {
       });
 
       // 2. Direct Live Data endpoint with strict zero-cache headers
-      server.middlewares.use('/api/live-data', async (req: any, res: any) => {
+      server.middlewares.use('/api/live-data', (req: any, res: any) => {
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
@@ -64,29 +135,14 @@ function codeSyncPlugin() {
           return;
         }
 
-        try {
-          const liveDbPath = path.resolve(process.cwd(), 'data/ihas_live_database.json');
-          const dataFilePath = path.resolve(process.cwd(), 'src/data/liveData.json');
-          const target = fs.existsSync(liveDbPath) ? liveDbPath : dataFilePath;
-
-          if (fs.existsSync(target)) {
-            const content = await fs.promises.readFile(target, 'utf-8');
-            res.setHeader('Content-Type', 'application/json');
-            res.statusCode = 200;
-            res.end(content);
-            return;
-          }
-        } catch (_e) {
-          void _e;
-        }
-
+        const db = getOrLoadDatabase();
         res.setHeader('Content-Type', 'application/json');
         res.statusCode = 200;
-        res.end(JSON.stringify({}));
+        res.end(JSON.stringify(db));
       });
 
-      // 3. Sync to Code (POST & GET) with multi-file persistence and SSE broadcast
-      server.middlewares.use('/api/sync-to-code', async (req: any, res: any) => {
+      // 3. Sync to Code (POST & GET) with serialized multi-file persistence and SSE broadcast
+      server.middlewares.use('/api/sync-to-code', (req: any, res: any) => {
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
         res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -103,77 +159,48 @@ function codeSyncPlugin() {
           req.on('data', (chunk: any) => {
             body += chunk;
           });
-          req.on('end', async () => {
+          req.on('end', () => {
             try {
               const payload = JSON.parse(body);
-              const dataFilePath = path.resolve(process.cwd(), 'src/data/liveData.json');
-              const publicDataFilePath = path.resolve(process.cwd(), 'public/liveData.json');
-              const rootDataFilePath = path.resolve(process.cwd(), 'data/ihas_live_database.json');
-
-              let existing: Record<string, any> = {};
-              if (fs.existsSync(dataFilePath)) {
-                try {
-                  const raw = await fs.promises.readFile(dataFilePath, 'utf-8');
-                  existing = JSON.parse(raw);
-                } catch {
-                  existing = {};
-                }
-              }
-
+              const db = getOrLoadDatabase();
               const timestamp = new Date().toISOString();
+              let updated: Record<string, any> = {};
 
-              // Merge single key updates or full snapshots
+              // Merge single key updates or full snapshots safely without dropping other keys
               if (payload.snapshot && typeof payload.snapshot === 'object') {
-                existing = { 
-                  ...existing, 
+                updated = { 
+                  ...db, 
                   ...payload.snapshot, 
                   _updatedAt: timestamp,
                   _meta: {
-                    ...(existing._meta || {}),
+                    ...(db._meta || {}),
+                    ...(payload.snapshot._meta || {}),
                     authoritative: true,
                     lastSavedAt: timestamp,
                     syncedBy: 'Admin Control Panel Auto Engine'
                   }
                 };
               } else if (payload.key) {
-                existing[payload.key] = payload.data;
-                existing._updatedAt = timestamp;
-                if (!existing._meta) existing._meta = {};
-                existing._meta.lastSavedAt = timestamp;
-                existing._meta.lastUpdatedKey = payload.key;
+                updated = {
+                  ...db,
+                  [payload.key]: payload.data,
+                  _updatedAt: timestamp,
+                  _meta: {
+                    ...(db._meta || {}),
+                    authoritative: true,
+                    lastSavedAt: timestamp,
+                    lastUpdatedKey: payload.key,
+                    syncedBy: 'Admin Control Panel Auto Engine'
+                  }
+                };
               } else {
-                existing = { ...existing, ...payload, _updatedAt: timestamp };
+                updated = { ...db, ...payload, _updatedAt: timestamp };
               }
 
-              const jsonString = JSON.stringify(existing, null, 2);
-
-              // Write to src/data/liveData.json
-              await fs.promises.writeFile(dataFilePath, jsonString, 'utf-8');
-
-              // Write to public/liveData.json
-              try {
-                const publicDir = path.resolve(process.cwd(), 'public');
-                if (!fs.existsSync(publicDir)) {
-                  fs.mkdirSync(publicDir, { recursive: true });
-                }
-                await fs.promises.writeFile(publicDataFilePath, jsonString, 'utf-8');
-              } catch (publicErr) {
-                console.warn('[CodeSync Warning] Failed to sync public/liveData.json:', publicErr);
-              }
-
-              // Also write to data/ihas_live_database.json
-              try {
-                const dataDir = path.resolve(process.cwd(), 'data');
-                if (!fs.existsSync(dataDir)) {
-                  fs.mkdirSync(dataDir, { recursive: true });
-                }
-                await fs.promises.writeFile(rootDataFilePath, jsonString, 'utf-8');
-              } catch (dataErr) {
-                console.warn('[CodeSync Warning] Failed to sync data/ihas_live_database.json:', dataErr);
-              }
+              queueSaveDatabase(updated);
 
               // Broadcast instant SSE event to all connected visitor browsers
-              const broadcastPayload = `data: ${JSON.stringify({ type: 'database_update', data: existing, timestamp })}\n\n`;
+              const broadcastPayload = `data: ${JSON.stringify({ type: 'database_update', data: updated, timestamp })}\n\n`;
               for (const client of sseClients) {
                 try {
                   client.write(broadcastPayload);
@@ -197,21 +224,10 @@ function codeSyncPlugin() {
             }
           });
         } else if (req.method === 'GET' || req.method === 'HEAD') {
-          try {
-            const dataFilePath = path.resolve(process.cwd(), 'src/data/liveData.json');
-            if (fs.existsSync(dataFilePath)) {
-              const content = await fs.promises.readFile(dataFilePath, 'utf-8');
-              res.setHeader('Content-Type', 'application/json');
-              res.statusCode = 200;
-              res.end(req.method === 'HEAD' ? '' : content);
-              return;
-            }
-          } catch (_e) {
-            void _e;
-          }
+          const db = getOrLoadDatabase();
           res.setHeader('Content-Type', 'application/json');
           res.statusCode = 200;
-          res.end(req.method === 'HEAD' ? '' : JSON.stringify({}));
+          res.end(req.method === 'HEAD' ? '' : JSON.stringify(db));
         } else {
           res.statusCode = 404;
           res.end();
@@ -247,7 +263,7 @@ export default defineConfig(async ({ mode }): Promise<UserConfig> => {
       strictPort: true,
       allowedHosts: true,
       watch: {
-        ignored: ['**/src/data/liveData.json', '**/public/liveData.json', '**/liveData.json']
+        ignored: ['**/src/data/liveData.json', '**/public/liveData.json', '**/data/ihas_live_database.json', '**/data/**', '**/liveData.json']
       }
     },
     envPrefix: ['VITE_', 'NEXT_PUBLIC_'],

@@ -1,4 +1,375 @@
 {
+  "_updatedAt": "2026-10-22T09:41:13.892Z",
+  "_meta": {
+    "lastSavedAt": "2026-10-22T09:41:13.892Z",
+    "authoritative": true,
+    "syncedBy": "Admin Control Panel Auto Engine",
+    "founder": "MD Touhidul Hoque Tuhin",
+    "platform": "I Have A School",
+    "lastUpdatedKey": "test_probe",
+    "updatedAt": "2026-10-22T09:41:11.989Z"
+  },
+  "ihas_school_settings": {
+    "instituteNameEn": "I Have A School",
+    "instituteNameBn": "আই হ্যাভ এ স্কুল",
+    "taglineEn": "Learn, Grow, Succeed - By MD Touhidul Hoque Tuhin",
+    "taglineBn": "মানসম্মত শিক্ষা ও আত্মবিশ্বাস অর্জনের সেরা অনলাইন একাডেমি",
+    "logoUrl": "https://images.unsplash.com/photo-1546410531-bb4caa6b424d?q=80&w=240&auto=format&fit=crop",
+    "headmasterSignatureUrl": "https://upload.wikimedia.org/wikipedia/commons/3/3a/Jon_Kirsch%27s_signature.png",
+    "officialSealUrl": "https://cdn-icons-png.flaticon.com/512/992/992001.png",
+    "phone": "+880 1580-370062",
+    "whatsapp": "8801580370062",
+    "email": "tuhinsir@gmail.com",
+    "addressEn": "House 42, Road 11, Dhanmondi, Dhaka-1209, Bangladesh",
+    "addressBn": "বাড়ি ৪২, রোড ১১, ধানমন্ডি, ঢাকা-১২০৯, বাংলাদেশ",
+    "facebookUrl": "https://www.facebook.com/touhidulhoque.tuhin",
+    "youtubeUrl": "https://youtube.com/@ihaveaschool?si=KO9IqCprs_uX0PEY",
+    "telegramUrl": "https://t.me",
+    "tiktokUrl": "https://www.tiktok.com/@touhidulhoque.tuhin",
+    "messengerUrl": "https://m.me/ihaveaschool",
+    "founderNameBn": "মো. তৌহিদুল হক তুহিন",
+    "founderNameEn": "MD Touhidul Hoque Tuhin",
+    "footerDescriptionBn": "মো. তৌহিদুল হক তুহিন স্যার পরিচালিত একটি আধুনিক ও বিশ্বস্ত শিক্ষামূলক প্ল্যাটফর্ম। এখানে মানসম্মত কোর্স, নিয়মিত শিক্ষামূলক পোস্ট, ফ্রি ভিডিও ক্লাস, সাজেশন, ক্লাস রুটিন, মডেল টেস্ট ও ফলাফল দেখা যায়।",
+    "footerDescriptionEn": "Educational mentorship initiative led by MD Touhidul Hoque Tuhin to empower students across Bangladesh with intuitive English mastery.",
+    "learningHubLinks": [
+      {
+        "id": "lh-1",
+        "titleBn": "মানসম্মত কোর্সসমূহ",
+        "titleEn": "Quality Courses",
+        "url": "/courses"
+      },
+      {
+        "id": "lh-2",
+        "titleBn": "ফ্রি ভিডিও ক্লাস",
+        "titleEn": "Free Video Classes",
+        "url": "/classes"
+      },
+      {
+        "id": "lh-3",
+        "titleBn": "হাতে লেখা নোটস ও শিট",
+        "titleEn": "Lecture Notes & PDFs",
+        "url": "/notes"
+      },
+      {
+        "id": "lh-4",
+        "titleBn": "পরীক্ষার ফাইনাল সাজেশন",
+        "titleEn": "Exam Suggestions",
+        "url": "/suggestions"
+      },
+      {
+        "id": "lh-5",
+        "titleBn": "অনলাইন মডেল টেস্ট কুইজ",
+        "titleEn": "Online Model Tests",
+        "url": "/model-tests"
+      }
+    ],
+    "servicesLinks": [
+      {
+        "id": "srv-1",
+        "titleBn": "ফলাফল ও মার্কশিট প্রিন্ট",
+        "titleEn": "Marksheet & Results",
+        "url": "/results"
+      },
+      {
+        "id": "srv-2",
+        "titleBn": "১০ লাখ শব্দের ডিকশনারি",
+        "titleEn": "1M Words Dictionary",
+        "url": "/dictionary"
+      },
+      {
+        "id": "srv-3",
+        "titleBn": "সায়েন্টিফিক ক্যালকুলেটর",
+        "titleEn": "Scientific Calculator",
+        "url": "#calc"
+      },
+      {
+        "id": "srv-4",
+        "titleBn": "শিক্ষক পরিচিতি ও আইডি কার্ড",
+        "titleEn": "Faculty & ID Cards",
+        "url": "/teachers"
+      },
+      {
+        "id": "srv-5",
+        "titleBn": "ক্লাস ও পরীক্ষার রুটিন",
+        "titleEn": "Class Routines",
+        "url": "/routines"
+      }
+    ]
+  },
+  "ihas_hero_slides": [
+    {
+      "id": "slide-1",
+      "titleEn": "Master English with Tuhin Sir",
+      "titleBn": "তুহিন স্যারের সাথে ইংরেজি শিখুন সহজ নিয়মে",
+      "subtitleEn": "From zero fundamentals to academic GPA 5.00 and BCS excellence with proven logical techniques.",
+      "subtitleBn": "মুখস্থ নয়, যৌক্তিক নিয়ম ও নিয়মিত প্র্যাকটিসের মাধ্যমে এইচএসসি ও এডমিশন পরীক্ষায় নিশ্চিত করুন সর্বোচ্চ ফলাফল।",
+      "imageUrl": "https://images.unsplash.com/photo-1524178232363-1fb2b075b655?q=80&w=1400&auto=format&fit=crop",
+      "buttonTextEn": "Explore Courses",
+      "buttonTextBn": "কোর্সসমূহ দেখুন",
+      "buttonUrl": "/courses",
+      "active": true
+    },
+    {
+      "id": "slide-2",
+      "titleEn": "HSC 2026 & Spoken English Special Batch",
+      "titleBn": "এইচএসসি ২০২৬ ও স্পোকেন ইংলিশ স্পেশাল ব্যাচে ভর্তি চলছে",
+      "subtitleEn": "Admission is currently ongoing! Join interactive live classes, get exclusive handwritten lecture notes.",
+      "subtitleBn": "সীমিত আসন সংখ্যা! জুম লাইভ ক্লাসে অংশ নিন এবং প্রতিটি ক্লাসের পর পান রঙিন লেকচার শিট।",
+      "imageUrl": "https://images.unsplash.com/photo-1523240795612-9a054b0db644?q=80&w=1400&auto=format&fit=crop",
+      "buttonTextEn": "Direct WhatsApp Admission",
+      "buttonTextBn": "হোয়াটসঅ্যাপে সরাসরি ভর্তি",
+      "buttonUrl": "/courses",
+      "active": true
+    },
+    {
+      "id": "slide-3",
+      "titleEn": "Free Video Lectures & PDF Resources",
+      "titleBn": "১০০+ ফ্রি ভিডিও লেকচার ও পিডিএফ ডাউনলোড",
+      "subtitleEn": "Access 100+ free rule-wise video classes, model tests, and download printable cheat-sheets anytime.",
+      "subtitleBn": "যেকোনো সময় যেকোনো ডিভাইস থেকে দেখুন ফ্রিতে সাজানো টপিক-ভিত্তিক ভিডিও ক্লাস ও সাজেশন।",
+      "imageUrl": "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?q=80&w=1400&auto=format&fit=crop",
+      "buttonTextEn": "Download Free Notes",
+      "buttonTextBn": "ফ্রি নোটস ডাউনলোড",
+      "buttonUrl": "/notes",
+      "active": true
+    }
+  ],
+  "ihas_courses": [
+    {
+      "id": "course-1",
+      "titleEn": "Complete English Grammar Mastery 2026",
+      "titleBn": "কমপ্লিট ইংলিশ গ্রামার মাস্টারকোর্স ২০২৬",
+      "subtitleEn": "From zero fundamentals to advanced grammatical precision for HSC, Admission & BCS.",
+      "subtitleBn": "এক কোর্সেই এইচএসসি, এডমিশন ও বিসিএস পরীক্ষার ১০০% গ্রামার প্রস্তুতি তৌহিদুল হক তুহিন স্যারের সাথে।",
+      "category": "Grammar Foundation",
+      "level": "All Levels",
+      "durationEn": "3 Months (48 Live Classes)",
+      "durationBn": "৩ মাস (৪৮টি লাইভ ক্লাস)",
+      "lecturesCount": 48,
+      "price": 1500,
+      "originalPrice": 3000,
+      "isFeatured": true,
+      "bannerImage": "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?q=80&w=800&auto=format&fit=crop",
+      "descriptionEn": "A master curriculum designed by Tuhin Sir covering 100% Right Forms of Verbs, Conditionals, Transformations, Modifiers, Connectors, Prepositions, and Narration with 1000+ board question practices.",
+      "descriptionBn": "এইচএসসি ও বিভিন্ন প্রতিযোগিতামূলক পরীক্ষার জন্য তৌহিদুল হক তুহিন স্যারের বিশেষ সিলেবাস। রাইট ফর্ম অফ ভার্বস, প্রিপজিশন, ন্যারেশন ও মডিফায়ারের ১০০% নির্ভুল সমাধান।",
+      "featuresEn": [
+        "48 Interactive Live Classes with Tuhin Sir",
+        "Exclusive Hand-written Lecture Notes (PDF)",
+        "Chapter-end MCQ Model Tests & Solutions",
+        "Dedicated WhatsApp Discussion Group"
+      ],
+      "featuresBn": [
+        "৪৮টি ইন্টারঅ্যাক্টিভ লাইভ জুম ক্লাস",
+        "রঙিন হাতে লেখা লেকচার নোটস ও শিট (পিডিএফ)",
+        "প্রতি অধ্যায় শেষে ১০০ মার্কের বোর্ড স্ট্যান্ডার্ড মডেল টেস্ট",
+        "তুহিন স্যারের সাথে সরাসরি ২৪/৭ হোয়াটসঅ্যাপ সলভিং গ্রুপ"
+      ]
+    },
+    {
+      "id": "course-2",
+      "titleEn": "Spoken English & Fluency Accelerator",
+      "titleBn": "স্পোকেন ইংলিশ ও ফ্লুয়েন্সি এক্সিলারেটর",
+      "subtitleEn": "Break the fear of English speaking and speak fluently with real-life daily conversational drills.",
+      "subtitleBn": "ইংরেজি বলার জড়তা ও ভয় দূর করে আত্মবিশ্বাসের সাথে ফ্লুয়েন্টলি কথা বলার বৈপ্লবিক স্পোকেন মেথড।",
+      "category": "Spoken English",
+      "level": "Beginner",
+      "durationEn": "2.5 Months (30 Sessions)",
+      "durationBn": "২.৫ মাস (৩০টি সেশন)",
+      "lecturesCount": 30,
+      "price": 1200,
+      "originalPrice": 2500,
+      "isFeatured": true,
+      "bannerImage": "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?q=80&w=800&auto=format&fit=crop",
+      "descriptionEn": "Specially created for students and job aspirants who hesitate while speaking English. Master 500+ daily sentence patterns and natural accent techniques.",
+      "descriptionBn": "যাঁরা ব্যাকরণ জানলেও কথা বলতে গিয়ে আটকে যান বা আত্মবিশ্বাস পান না, তাঁদের জন্য তুহিন স্যারের প্র্যাকটিক্যাল স্পোকেন ফর্মুলা।",
+      "featuresEn": [
+        "30 Fluency Drill Sessions with Peer Practice",
+        "500+ Daily Conversational Formulae E-Book",
+        "Audio Accent & Pronunciation Guide",
+        "Mock Interview & Presentation Training"
+      ],
+      "featuresBn": [
+        "৩০টি স্পোকেন ড্রিলিং ক্লাস",
+        "দৈনন্দিন ৫০০+ বাক্যের রেডিমেড স্পোকেন স্ট্রাকচার বুক",
+        "ন্যাচারাল ব্রিটিশ ও আমেরিকান প্রোনাউন্সিয়েশন গাইড",
+        "রিয়েল-লাইফ প্রেজেন্টেশন ও ইন্টারভিউ মক সেশন"
+      ]
+    },
+    {
+      "id": "course-3",
+      "titleEn": "HSC English 1st & 2nd Paper Complete Booster",
+      "titleBn": "এইচএসসি ইংরেজি ১ম ও ২য় পত্র পূর্ণাঙ্গ বুস্টার ব্যাচ",
+      "subtitleEn": "Target GPA 5.00 in English with proven board-standard answers and shortcut strategies.",
+      "subtitleBn": "এইচএসসি ২০২৬ ও ২০২৫ ব্যাচের শিক্ষার্থীদের ইংরেজিতে জিপিএ ৫.০০ নিশ্চিত করার সুপার স্পেশাল ব্যাচ।",
+      "category": "HSC & SSC",
+      "level": "Intermediate",
+      "durationEn": "4 Months (56 Classes)",
+      "durationBn": "৪ মাস (৫৬টি ক্লাস)",
+      "lecturesCount": 56,
+      "price": 1800,
+      "originalPrice": 3500,
+      "bannerImage": "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?q=80&w=800&auto=format&fit=crop",
+      "descriptionEn": "Targeted course for HSC candidates covering both 1st Paper and 2nd Paper.",
+      "descriptionBn": "এইচএসসি ১ম ও ২য় পত্রের পূর্ণাঙ্গ সিলেবাসের লাইন বাই লাইন ব্যাখ্যা ও রিভিশন কোর্স।",
+      "featuresEn": [
+        "56 Comprehensive Live Classes",
+        "HSC Super Suggestion 2026 PDF Book",
+        "Handwritten Sample Formal Letters & Paragraphs",
+        "Weekly 100-Mark Model Test Evaluation"
+      ],
+      "featuresBn": [
+        "৫৬টি পূর্ণাঙ্গ লাইভ ক্লাস",
+        "এইচএসসি সুপার এক্সক্লুসিভ সাজেশন ২০২৬ বুক",
+        "তুহিন স্যারের হাতে লেখা মডেল প্যারাগ্রাফ ও কম্পোজিশন",
+        "সাপ্তাহিক বোর্ড স্ট্যান্ডার্ড ওএমআর মডেল টেস্ট"
+      ]
+    }
+  ],
+  "ihas_students": [
+    {
+      "id": "std-1",
+      "academicYear": "2026",
+      "courseId": "course-1",
+      "roll": "101",
+      "nameEn": "Ahsan Habib",
+      "nameBn": "আহসান হাবিব",
+      "fatherNameEn": "Rafiqul Islam",
+      "fatherNameBn": "রফিকুল ইসলাম",
+      "motherNameEn": "Nasreen Begum",
+      "motherNameBn": "নাসরিন বেগম",
+      "address": "ধানমন্ডি, ঢাকা",
+      "phone": "01711223344",
+      "admissionDate": "2026-01-15"
+    },
+    {
+      "id": "std-2",
+      "academicYear": "2026",
+      "courseId": "course-1",
+      "roll": "102",
+      "nameEn": "Farhana Yeasmin",
+      "nameBn": "ফারহানা ইয়াসমিন",
+      "fatherNameEn": "Anwar Hossain",
+      "fatherNameBn": "আনোয়ার হোসেন",
+      "motherNameEn": "Shirin Akter",
+      "motherNameBn": "শিরিন আক্তার",
+      "address": "মিরপুর-১০, ঢাকা",
+      "phone": "01822334455",
+      "admissionDate": "2026-01-18"
+    },
+    {
+      "id": "std-3",
+      "academicYear": "2026",
+      "courseId": "course-3",
+      "roll": "201",
+      "nameEn": "Tanvir Ahmed",
+      "nameBn": "তানভীর আহমেদ",
+      "fatherNameEn": "Jahangir Alam",
+      "fatherNameBn": "জাহাঙ্গীর আলম",
+      "motherNameEn": "Rehana Parvin",
+      "motherNameBn": "রেহানা পারভীন",
+      "address": "উত্তরা, ঢাকা",
+      "phone": "01933445566",
+      "admissionDate": "2026-02-01"
+    }
+  ],
+  "ihas_subjects": [
+    {
+      "id": "sub-1",
+      "courseId": "course-1",
+      "name": "Right Form of Verbs",
+      "fullMarks": 100,
+      "passMarks": 40
+    },
+    {
+      "id": "sub-2",
+      "courseId": "course-1",
+      "name": "Appropriate Prepositions",
+      "fullMarks": 100,
+      "passMarks": 40
+    },
+    {
+      "id": "sub-3",
+      "courseId": "course-1",
+      "name": "Modifiers & Connectors",
+      "fullMarks": 100,
+      "passMarks": 40
+    },
+    {
+      "id": "sub-4",
+      "courseId": "course-3",
+      "name": "English 1st Paper",
+      "fullMarks": 100,
+      "passMarks": 40
+    },
+    {
+      "id": "sub-5",
+      "courseId": "course-3",
+      "name": "English 2nd Paper",
+      "fullMarks": 100,
+      "passMarks": 40
+    }
+  ],
+  "ihas_exams": [
+    {
+      "id": "exam-1",
+      "courseId": "course-1",
+      "name": "First Term Model Exam",
+      "examType": "Term Exam",
+      "date": "2026-03-10"
+    },
+    {
+      "id": "exam-2",
+      "courseId": "course-1",
+      "name": "Midterm Evaluation Test",
+      "examType": "Midterm",
+      "date": "2026-06-15"
+    },
+    {
+      "id": "exam-3",
+      "courseId": "course-3",
+      "name": "HSC Pre-Test Model Exam",
+      "examType": "Pre-Test",
+      "date": "2026-04-20"
+    }
+  ],
+  "ihas_results": [
+    {
+      "id": "res-1",
+      "academicYear": "2026",
+      "courseId": "course-1",
+      "examId": "exam-1",
+      "studentRoll": "101",
+      "subjectMarks": {
+        "sub-1": 92,
+        "sub-2": 88,
+        "sub-3": 95
+      },
+      "totalMarks": 275,
+      "totalFullMarks": 300,
+      "percentage": 91.67,
+      "gpa": 5,
+      "grade": "A+",
+      "createdDate": "2026-03-15"
+    },
+    {
+      "id": "res-2",
+      "academicYear": "2026",
+      "courseId": "course-1",
+      "examId": "exam-1",
+      "studentRoll": "102",
+      "subjectMarks": {
+        "sub-1": 84,
+        "sub-2": 79,
+        "sub-3": 86
+      },
+      "totalMarks": 249,
+      "totalFullMarks": 300,
+      "percentage": 83,
+      "gpa": 4.8,
+      "grade": "A",
+      "createdDate": "2026-03-15"
+    }
+  ],
   "ihas_teachers": [
     {
       "id": "tch-1",
@@ -14,13 +385,32 @@
       "joiningDate": "2015-01-01",
       "signatureUrl": "https://upload.wikimedia.org/wikipedia/commons/3/3a/Jon_Kirsch%27s_signature.png",
       "address": "Hadi Fakir hat, Mireshrai, Chattogram "
+    },
+    {
+      "id": "tch-2",
+      "nameEn": "Prof. Mahfuzur Rahman",
+      "nameBn": "প্রফেসর মাহফুজুর রহমান",
+      "designationEn": "Senior Advisor & Spoken English Trainer",
+      "designationBn": "সিনিয়র উপদেষ্টা ও স্পোকেন ইংলিশ ট্রেইনার",
+      "qualification": "M.A. in ELT, British Council Certified",
+      "phone": "+880 1819-223344",
+      "email": "mahfuz.ihas@gmail.com",
+      "photoUrl": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=400&auto=format&fit=crop",
+      "joiningDate": "2018-05-10"
+    },
+    {
+      "id": "tch-3",
+      "nameEn": "Sharmin Sultana",
+      "nameBn": "শারমিন সুলতানা",
+      "designationEn": "Assistant Teacher (Grammar & Writing)",
+      "designationBn": "সহকারী শিক্ষিকা (গ্রামার ও রাইটিং)",
+      "qualification": "B.A. (Hons), M.A. in English (DU)",
+      "phone": "+880 1912-889900",
+      "email": "sharmin.ihas@gmail.com",
+      "photoUrl": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=400&auto=format&fit=crop",
+      "joiningDate": "2020-03-01"
     }
   ],
-  "_updatedAt": "2026-10-22T02:08:40.875Z",
-  "_meta": {
-    "lastSavedAt": "2026-10-22T02:08:40.875Z",
-    "lastUpdatedKey": "ihas_video_classes"
-  },
   "ihas_video_classes": [
     {
       "id": "vid-1792498350265",
@@ -38,6 +428,38 @@
       "views": "1.2K",
       "publishedDate": "Just now",
       "level": "All Levels"
+    },
+    {
+      "id": "vid-1",
+      "titleEn": "Right Form of Verbs: 7 Magical Rules That Always Come in Exams",
+      "titleBn": "রাইট ফর্ম অফ ভার্বস: ৭টি জাদুকরী নিয়ম যা পরীক্ষায় আসবেই",
+      "descriptionEn": "In this high-yield lecture, Tuhin Sir demonstrates how to solve 95% of Right Form of Verbs questions in HSC and job exams.",
+      "descriptionBn": "এইচএসসি ও চাকরির পরীক্ষায় আসা রাইট ফর্ম অফ ভার্বস এর ব্যতিক্রমী সকল নিয়ম অত্যন্ত সহজ ও জাদুকরী উপায়ে শিখুন।",
+      "category": "Grammar Hacks",
+      "duration": "28:45",
+      "youtubeId": "kJQP7kiw5Fk",
+      "videoUrl": "https://www.youtube.com/watch?v=kJQP7kiw5Fk",
+      "thumbnailUrl": "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?q=80&w=600&auto=format&fit=crop",
+      "views": "45.2K",
+      "publishedDate": "3 days ago",
+      "level": "HSC / SSC / Job",
+      "videoPlatform": "youtube"
+    },
+    {
+      "id": "vid-2",
+      "titleEn": "How to Speak Fluent English Without Hesitation (Bangla to English)",
+      "titleBn": "কোনো জড়তা ছাড়াই অনর্গল ইংরেজিতে কথা বলার সহজ ফর্মুলা",
+      "descriptionEn": "Learn the natural formula to speak English daily even if you have no speaking partner.",
+      "descriptionBn": "কথা বলার কোনো পার্টনার ছাড়াই কীভাবে নিজে নিজে প্রতিদিন স্পোকেন ইংলিশ প্র্যাকটিস করবেন তার সহজ ও কার্যকর কৌশল।",
+      "category": "Spoken English",
+      "duration": "22:15",
+      "youtubeId": "1G4isv_Fylg",
+      "videoUrl": "https://www.youtube.com/watch?v=1G4isv_Fylg",
+      "thumbnailUrl": "https://images.unsplash.com/photo-1475721027785-f74eccf877e2?q=80&w=600&auto=format&fit=crop",
+      "views": "88.5K",
+      "publishedDate": "1 week ago",
+      "level": "Beginner to Intermediate",
+      "videoPlatform": "youtube"
     }
   ],
   "ihas_videos": [
@@ -57,6 +479,217 @@
       "views": "1.2K",
       "publishedDate": "Just now",
       "level": "All Levels"
+    },
+    {
+      "id": "vid-1",
+      "titleEn": "Right Form of Verbs: 7 Magical Rules That Always Come in Exams",
+      "titleBn": "রাইট ফর্ম অফ ভার্বস: ৭টি জাদুকরী নিয়ম যা পরীক্ষায় আসবেই",
+      "descriptionEn": "In this high-yield lecture, Tuhin Sir demonstrates how to solve 95% of Right Form of Verbs questions in HSC and job exams.",
+      "descriptionBn": "এইচএসসি ও চাকরির পরীক্ষায় আসা রাইট ফর্ম অফ ভার্বস এর ব্যতিক্রমী সকল নিয়ম অত্যন্ত সহজ ও জাদুকরী উপায়ে শিখুন।",
+      "category": "Grammar Hacks",
+      "duration": "28:45",
+      "youtubeId": "kJQP7kiw5Fk",
+      "videoUrl": "https://www.youtube.com/watch?v=kJQP7kiw5Fk",
+      "thumbnailUrl": "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?q=80&w=600&auto=format&fit=crop",
+      "views": "45.2K",
+      "publishedDate": "3 days ago",
+      "level": "HSC / SSC / Job",
+      "videoPlatform": "youtube"
+    },
+    {
+      "id": "vid-2",
+      "titleEn": "How to Speak Fluent English Without Hesitation (Bangla to English)",
+      "titleBn": "কোনো জড়তা ছাড়াই অনর্গল ইংরেজিতে কথা বলার সহজ ফর্মুলা",
+      "descriptionEn": "Learn the natural formula to speak English daily even if you have no speaking partner.",
+      "descriptionBn": "কথা বলার কোনো পার্টনার ছাড়াই কীভাবে নিজে নিজে প্রতিদিন স্পোকেন ইংলিশ প্র্যাকটিস করবেন তার সহজ ও কার্যকর কৌশল।",
+      "category": "Spoken English",
+      "duration": "22:15",
+      "youtubeId": "1G4isv_Fylg",
+      "videoUrl": "https://www.youtube.com/watch?v=1G4isv_Fylg",
+      "thumbnailUrl": "https://images.unsplash.com/photo-1475721027785-f74eccf877e2?q=80&w=600&auto=format&fit=crop",
+      "views": "88.5K",
+      "publishedDate": "1 week ago",
+      "level": "Beginner to Intermediate",
+      "videoPlatform": "youtube"
     }
-  ]
+  ],
+  "ihas_notes": [
+    {
+      "id": "note-1",
+      "titleEn": "Right Form of Verbs: 40 Golden Rules Sheet",
+      "titleBn": "রাইট ফর্ম অফ ভার্বস: ৪০টি গোল্ডেন রুলস শিট",
+      "subject": "English 2nd Paper",
+      "category": "Grammar Sheets",
+      "pages": 12,
+      "fileSize": "2.4 MB",
+      "downloads": 14200,
+      "date": "Oct 2026",
+      "descriptionEn": "Complete concise guide prepared by MD Touhidul Hoque Tuhin.",
+      "descriptionBn": "এইচএসসি ও চাকরির পরীক্ষায় শতভাগ কমন উপযোগী ৪০টি গোল্ডেন রুলস ও বিগত বছরের প্রশ্ন সমাধান।",
+      "tags": [
+        "Right Form of Verbs",
+        "HSC 2026",
+        "Grammar"
+      ],
+      "sampleContent": [
+        "Rule 1: As well as, with, along with, together with দ্বারা দুটি subject যুক্ত হলে প্রথম subject অনুযায়ী verb বসে।",
+        "Rule 2: \"One of the + plural noun\" সবসময় SINGULAR verb গ্রহণ করে।",
+        "Rule 3: \"A number of\" plural verb নেয়, কিন্তু \"The number of\" singular verb নেয়।"
+      ],
+      "fileUrl": "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
+      "fileType": "pdf"
+    },
+    {
+      "id": "note-2",
+      "titleEn": "Top 250 Appropriate Prepositions with Bengali Meaning",
+      "titleBn": "টপ ২৫০টি এপ্রোপ্রিয়েট প্রিপজিশন (অর্থ ও উদাহরণসহ)",
+      "subject": "Vocabulary & Grammar",
+      "category": "Handwritten Notes",
+      "pages": 18,
+      "fileSize": "3.8 MB",
+      "downloads": 21500,
+      "date": "Sep 2026",
+      "descriptionEn": "Alphabetically organized appropriate prepositions with authentic Bengali explanations.",
+      "descriptionBn": "সহজে মনে রাখার টেকনিকসহ বর্ণানুক্রমিক ২৫০টি মোস্ট ইম্পরট্যান্ট প্রিপজিশন তালিকা।",
+      "tags": [
+        "Prepositions",
+        "BCS",
+        "Admission",
+        "Handwritten"
+      ],
+      "sampleContent": [
+        "Abide by (মেনে চলা) - You must abide by the school rules.",
+        "Abound in (প্রচুর পরিমাণে থাকা) - Fish abounds in our rivers.",
+        "Blind of (এক চোখে অন্ধ) vs Blind to (দোষের প্রতি অন্ধ)"
+      ],
+      "fileUrl": "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
+      "fileType": "pdf"
+    }
+  ],
+  "ihas_notices": [
+    {
+      "id": "not-1",
+      "titleEn": "HSC 2026 Exclusive Intensive English Batch: Admission Open",
+      "titleBn": "এইচএসসি ২০২৬ স্পেশাল ইনটেনসিভ ইংলিশ ব্যাচে ভর্তি চলছে",
+      "date": "18 Oct 2026",
+      "category": "Admission",
+      "isPinned": true,
+      "contentEn": "Registration is now open for the HSC 2026 Comprehensive English 1st & 2nd Paper Batch conducted directly by MD Touhidul Hoque Tuhin Sir.",
+      "contentBn": "মো. তৌহিদুল হক তুহিন স্যার পরিচালিত এইচএসসি ২০২৬ সালের শিক্ষার্থীদের জন্য বিশেষ পূর্ণাঙ্গ ইংরেজি ব্যাচের ভর্তি কার্যক্রম শুরু হয়েছে। আসন সংখ্যা সীমিত, অবিলম্বে ভর্তি নিশ্চিত করুন।"
+    },
+    {
+      "id": "not-2",
+      "titleEn": "Monthly Model Test Schedule for All Batches Published",
+      "titleBn": "সকল ব্যাচের মাসিক মূল্যায়ন ও মডেল টেস্ট পরীক্ষার রুটিন প্রকাশ",
+      "date": "15 Oct 2026",
+      "category": "Routine",
+      "isPinned": true,
+      "contentEn": "The monthly evaluation exam for all enrolled students will commence from next Friday.",
+      "contentBn": "আগামী শুক্রবার থেকে সকল ব্যাচের শিক্ষার্থীদের মাসিক অনলাইন ও অফলাইন মডেল টেস্ট পরীক্ষা শুরু হবে। নির্ধারিত রুটিন অনুসারে উপস্থিত থাকার নির্দেশ দেওয়া হচ্ছে।"
+    }
+  ],
+  "ihas_routines": [
+    {
+      "id": "rtn-1",
+      "titleEn": "HSC 2026 Live Master Class Routine",
+      "titleBn": "এইচএসসি ২০২৬ লাইভ মাস্টার ক্লাস রুটিন",
+      "academicYear": "2026",
+      "category": "Class Routine",
+      "imageUrl": "https://images.unsplash.com/photo-1506784983877-45594efa4cbe?q=80&w=1200&auto=format&fit=crop",
+      "uploadedDate": "2026-10-18",
+      "notes": "শনি, সোম ও বুধবার রাত ৮:৩০ মিনিটে লাইভ ক্লাস অনুষ্ঠিত হয়।"
+    },
+    {
+      "id": "rtn-2",
+      "titleEn": "Monthly Model Test & Assessment Exam Routine",
+      "titleBn": "মাসিক মডেল টেস্ট ও মূল্যায়ন পরীক্ষা রুটিন",
+      "academicYear": "2026",
+      "category": "Exam Routine",
+      "imageUrl": "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?q=80&w=1200&auto=format&fit=crop",
+      "uploadedDate": "2026-10-15",
+      "notes": "পরীক্ষার্থীদের নির্ধারিত সময়ের ১০ মিনিট পূর্বে ক্লাসরুমে উপস্থিত হতে হবে।"
+    }
+  ],
+  "ihas_chatbot_training": [
+    {
+      "id": "train-1",
+      "year": "2026",
+      "topic": "এইচএসসি ২০২৬ ও স্পোকেন ব্যাচ ভর্তি নির্দেশিকা",
+      "content": "আই হ্যাভ এ স্কুল (I Have A School) প্ল্যাটফর্মে এমডি তৌহিদুল হক তুহিন স্যারের বিশেষ নির্দেশনায় ভর্তি কার্যক্রম পরিচালিত হয়।\nকোর্স ফি ও ভর্তি নিয়মাবলী:\n১. কমপ্লিট ইংলিশ গ্রামার ফাউন্ডেশন: ১৫০০ টাকা।\n২. স্পোকেন ইংলিশ ও ফ্লুয়েন্সি বুস্টার: ১২০০ টাকা।\n৩. এইচএসসি ২০২৬ ১ম ও ২য় পত্র পূর্ণাঙ্গ একাডেমিক ব্যাচ: ১৮০০ টাকা।\nভর্তির মাধ্যম: বিকাশ ও নগদ পার্সোনাল নাম্বারে পেমেন্ট করে ট্রানজেকশন আইডি সহ হোয়াটসঅ্যাপ হেল্পলাইনে কনফার্ম করতে হবে।\nলাইভ ক্লাস শিডিউল: প্রতি শনি, সোম ও বুধবার রাত ৮:৩০ মিনিটে অনুষ্ঠিত হয়।\nলেকচার শিট: প্রতিটি ক্লাসের পর হাতে লেখা পিডিএফ শিট ওয়েবসাইট থেকে ফ্রিতে ডাউনলোড করা যাবে।",
+      "wordCount": 88,
+      "createdAt": "2026-10-18"
+    },
+    {
+      "id": "train-2",
+      "year": "2026",
+      "topic": "এইচএসসি ইংরেজি ২য় পত্র গোল্ডেন গ্রামার রুলস",
+      "content": "রাইট ফর্ম অফ ভার্বস এবং মডিফায়ার সংক্রান্ত স্পেশাল টেকনিক:\n১. বাক্যে \"It is high time\" বা \"It is time\" থাকলে এবং পরে Subject আসলে সবসময় Past Indefinite (V2) বসে।\n২. With a view to, look forward to, be used to, get used to, cannot help, would you mind ইত্যাদির পর verb+ing যুক্ত হয়।\n৩. As well as, along with, together with, accompanied by দ্বারা দুটি subject যুক্ত হলে প্রথম subject অনুযায়ী verb নির্ধারণ করা হয়।\n৪. কোনো বাক্যে lest থাকলে পরবর্তী clause-এ should/might বসে।\n৫. Modifiers করার সময় লক্ষ্য রাখতে হবে Noun-এর পূর্বে সাধারণত Adjective বা Noun-adjective বসে pre-modifier হিসেবে কাজ করে।",
+      "wordCount": 96,
+      "createdAt": "2026-10-18"
+    }
+  ],
+  "ihas_quizzes": [
+    {
+      "id": "test-1",
+      "title": "Grammar Precision Challenge: Right Forms of Verbs & Prepositions",
+      "category": "Basic Grammar Test",
+      "durationMinutes": 10,
+      "totalMarks": 10,
+      "questions": [
+        {
+          "id": 1,
+          "question": "Neither the headmaster nor the assistant teachers _______ present in the meeting.",
+          "options": [
+            "was",
+            "were",
+            "is",
+            "has been"
+          ],
+          "correctAnswer": 1,
+          "explanation": "When subjects are joined by \"neither... nor\", the verb agrees with the subject closest to it. Here, \"assistant teachers\" is plural, so the verb is \"were\"."
+        },
+        {
+          "id": 2,
+          "question": "It is high time we _______ our bad habits and worked sincerely.",
+          "options": [
+            "change",
+            "changed",
+            "have changed",
+            "will change"
+          ],
+          "correctAnswer": 1,
+          "explanation": "After \"It is high time\" followed by a subject, past simple tense (V2) is used."
+        },
+        {
+          "id": 3,
+          "question": "The criminal was accused _______ committing forgery and theft.",
+          "options": [
+            "for",
+            "with",
+            "of",
+            "in"
+          ],
+          "correctAnswer": 2,
+          "explanation": "The appropriate preposition with \"accuse\" is \"of\" (accuse somebody of something)."
+        }
+      ]
+    }
+  ],
+  "ihas_admin_creds": {
+    "email": "tuhinsir@gmail.com",
+    "password": "tuhinsir1234"
+  },
+  "ihas_github_config": {
+    "enabled": true,
+    "token": "",
+    "owner": "bmd03024-code",
+    "repo": "I-Have-A-School-",
+    "branch": "main",
+    "filePath": "data/ihas_live_database.json",
+    "autoPushOnChange": true,
+    "autoPollIntervalSec": 20,
+    "lastSyncedAt": "",
+    "lastCommitSha": "",
+    "lastCommitMessage": "Authoritative codebase synchronization"
+  }
 }

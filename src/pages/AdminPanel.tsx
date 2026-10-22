@@ -150,11 +150,16 @@ export const AdminPanel: React.FC = () => {
     codeSyncStatus,
     codeSyncLastSaved,
     saveAllToCodebase,
+    supabaseStatus,
+    syncAllToSupabase,
     showToast
   } = useApp();
 
   const handleSaveAllToCodebase = async () => {
     const res = await saveAllToCodebase();
+    if (supabaseStatus.tableExists) {
+      syncAllToSupabase().catch(() => {});
+    }
     showToast(res.message);
   };
 
@@ -1113,6 +1118,25 @@ export const AdminPanel: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Supabase Central Database Status Badge */}
+            <button
+              type="button"
+              onClick={() => setActiveTab('google_cloud')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 border text-xs font-semibold rounded-xl shadow-xs transition-all ${
+                supabaseStatus.tableExists
+                  ? 'bg-emerald-950/80 border-emerald-500/40 text-emerald-300 hover:bg-emerald-900/80'
+                  : 'bg-amber-950/80 border-amber-500/40 text-amber-300 hover:bg-amber-900/80'
+              }`}
+              title="Supabase Central Cloud Database"
+            >
+              <Database className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">সুপারবেস:</span>
+              <span className="font-mono text-[11px]">
+                {supabaseStatus.tableExists ? 'লাইভ সিঙ্ক চালু ✓' : 'SQL Migration প্রয়োজন !'}
+              </span>
+              <span className={`w-2 h-2 rounded-full ${supabaseStatus.tableExists ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400 animate-ping'}`} />
+            </button>
+
             {/* Real-Time Codebase Auto-Sync Status Badge */}
             <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 text-xs font-semibold rounded-xl shadow-xs">
               <span className={`w-2 h-2 rounded-full ${codeSyncStatus === 'saving' ? 'bg-amber-400 animate-ping' : 'bg-emerald-400 animate-pulse'}`} />

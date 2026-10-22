@@ -14,7 +14,9 @@ import {
   Flame, 
   ExternalLink,
   ShieldCheck,
-  Server
+  Server,
+  Copy,
+  AlertTriangle
 } from 'lucide-react';
 import { GoogleCloudConfig, Language } from '../../types';
 import { useApp } from '../../context/AppContext';
@@ -46,8 +48,17 @@ export const GoogleCloudTab: React.FC<GoogleCloudTabProps> = ({
     isUniversalCloudSyncing,
     universalCloudSyncStatus,
     triggerUniversalCloudSync,
-    testCloudConnection
+    testCloudConnection,
+    supabaseStatus,
+    syncAllToSupabase,
+    testSupabaseStatus,
+    requiredSqlMigration
   } = useApp();
+
+  const [isPushingSupabase, setIsPushingSupabase] = useState(false);
+  const [copiedSql, setCopiedSql] = useState(false);
+  const [isTestingSupabase, setIsTestingSupabase] = useState(false);
+  const [showSqlEditorModal, setShowSqlEditorModal] = useState(false);
 
   const [cloudForm, setCloudForm] = useState(universalCloudSyncConfig);
   const [testResult, setTestResult] = useState<{
@@ -150,7 +161,168 @@ export const GoogleCloudTab: React.FC<GoogleCloudTabProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Top Banner: Independent Architecture without Firebase, Supabase or Google Cloud */}
+      {/* Primary Authoritative Central Database: Supabase */}
+      <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xs space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-100">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600">
+              <Database className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-lg font-black text-slate-900">
+                  {lang === 'bn' ? 'সুপারবেস (Supabase) সেন্ট্রাল ডেটাবেজ ও রিয়েল-টাইম ইঞ্জিন' : 'Supabase Central Database & Realtime Engine'}
+                </h3>
+                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                  supabaseStatus.tableExists 
+                    ? 'bg-emerald-100 text-emerald-800' 
+                    : 'bg-amber-100 text-amber-800'
+                }`}>
+                  {supabaseStatus.tableExists ? 'সক্রিয় (Active)' : 'মাইগ্রেশন প্রয়োজন (Migration Needed)'}
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                প্রজেক্ট URL: <code className="font-mono font-bold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded">https://gdopjlajrlexmuccpctg.supabase.co</code>
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={async () => {
+                setIsTestingSupabase(true);
+                await testSupabaseStatus();
+                setIsTestingSupabase(false);
+                showToast(lang === 'bn' ? 'সুপারবেস স্ট্যাটাস আপডেট হয়েছে' : 'Supabase status updated');
+              }}
+              disabled={isTestingSupabase}
+              className="px-3.5 py-2 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all flex items-center gap-1.5"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isTestingSupabase ? 'animate-spin' : ''}`} />
+              <span>{lang === 'bn' ? 'কানেকশন চেক' : 'Check Status'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={async () => {
+                setIsPushingSupabase(true);
+                const res = await syncAllToSupabase();
+                setIsPushingSupabase(false);
+                showToast(res.message);
+              }}
+              disabled={isPushingSupabase}
+              className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-all flex items-center gap-1.5 shadow-sm"
+            >
+              <Zap className={`w-3.5 h-3.5 ${isPushingSupabase ? 'animate-bounce' : ''}`} />
+              <span>{isPushingSupabase ? 'আপলোড হচ্ছে...' : (lang === 'bn' ? 'সকল ডেটা সুপারবেসে পুশ করুন' : 'Push All to Supabase')}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Status details grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1">
+            <span className="text-[10px] uppercase font-bold text-slate-500">টেবিল স্ট্যাটাস (public.ihas_data)</span>
+            <div className="flex items-center gap-2 text-xs font-bold">
+              {supabaseStatus.tableExists ? (
+                <span className="text-emerald-600 flex items-center gap-1">
+                  <CheckCircle2 className="w-4 h-4" /> টেবিল উপস্থিত ও সক্রিয়
+                </span>
+              ) : (
+                <span className="text-amber-600 flex items-center gap-1">
+                  <AlertTriangle className="w-4 h-4" /> টেবিল নেই (SQL চালান)
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1">
+            <span className="text-[10px] uppercase font-bold text-slate-500">রিয়েল-টাইম রেপ্লিকেশন (WebSocket)</span>
+            <div className="flex items-center gap-2 text-xs font-bold">
+              {supabaseStatus.realtimeConnected ? (
+                <span className="text-emerald-600 flex items-center gap-1">
+                  <CheckCircle2 className="w-4 h-4" /> লাইভ ব্রডকাস্ট কানেক্টেড
+                </span>
+              ) : (
+                <span className="text-slate-600 flex items-center gap-1">
+                  <Activity className="w-4 h-4" /> স্ট্যান্ডবাই / চ্যানেল সক্রিয়
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1">
+            <span className="text-[10px] uppercase font-bold text-slate-500">সর্বশেষ সফল সিঙ্ক</span>
+            <div className="text-xs font-bold text-slate-800">
+              {supabaseStatus.lastSyncedAt
+                ? new Date(supabaseStatus.lastSyncedAt).toLocaleString('bn-BD')
+                : 'অপেক্ষমাণ (Pending)'}
+            </div>
+          </div>
+        </div>
+
+        {/* If table is missing or user wants to view migration */}
+        <div className="rounded-2xl border border-indigo-100 bg-indigo-50/60 p-5 space-y-3">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-indigo-600" />
+              <h4 className="text-xs font-bold text-indigo-950">
+                {lang === 'bn'
+                  ? 'সুপারবেস ডেটাবেজ সেটআপ নির্দেশিকা (SQL Migration Script)'
+                  : 'Supabase Database Setup Guide (SQL Migration Script)'}
+              </h4>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                navigator.clipboard.writeText(requiredSqlMigration);
+                setCopiedSql(true);
+                showToast(lang === 'bn' ? 'SQL স্ক্রিপ্ট ক্লিপবোর্ডে কপি হয়েছে!' : 'SQL script copied to clipboard!');
+                setTimeout(() => setCopiedSql(false), 2500);
+              }}
+              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all"
+            >
+              {copiedSql ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+              <span>{copiedSql ? 'কপি হয়েছে!' : 'স্ক্রিপ্ট কপি করুন'}</span>
+            </button>
+          </div>
+
+          <ol className="text-xs text-slate-600 space-y-1 list-decimal list-inside font-medium leading-relaxed">
+            <li>
+              Supabase ড্যাশবোর্ডে যান:{' '}
+              <a
+                href="https://supabase.com/dashboard/project/gdopjlajrlexmuccpctg/sql"
+                target="_blank"
+                rel="noreferrer"
+                className="text-indigo-600 hover:underline font-bold inline-flex items-center gap-1"
+              >
+                SQL Editor খুলুন <ExternalLink className="w-3 h-3" />
+              </a>
+            </li>
+            <li>উপরে <strong>"স্ক্রিপ্ট কপি করুন"</strong> বাটনে ক্লিক করুন।</li>
+            <li>Supabase SQL Editor-এ পেস্ট করে <strong>"Run"</strong> বাটনে চাপ দিন।</li>
+            <li>এরপর উপরে <strong>"সকল ডেটা সুপারবেসে পুশ করুন"</strong> বাটনে চাপ দিলে আপনার সকল বিদ্যমান ডাটা এক ক্লিকে ক্লাউডে লাইভ হয়ে যাবে!</li>
+          </ol>
+
+          <div className="mt-2">
+            <button
+              type="button"
+              onClick={() => setShowSqlEditorModal(!showSqlEditorModal)}
+              className="text-[11px] font-bold text-indigo-700 hover:text-indigo-900 underline cursor-pointer"
+            >
+              {showSqlEditorModal ? 'SQL স্ক্রিপ্ট লুকান' : 'SQL স্ক্রিপ্ট দেখতে ক্লিক করুন'}
+            </button>
+            {showSqlEditorModal && (
+              <pre className="mt-2 p-3 bg-slate-900 text-emerald-400 font-mono text-[11px] rounded-xl overflow-x-auto max-h-56 select-all">
+                {requiredSqlMigration}
+              </pre>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Secondary Multi-Sync Engine Banner */}
       <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-3xl border border-indigo-500/30 p-6 sm:p-8 shadow-xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
 
