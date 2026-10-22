@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Award, Mail, Phone, GraduationCap, Printer, X, QrCode, ShieldCheck } from 'lucide-react';
+import { Mail, Phone, GraduationCap, Printer, X } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Teacher } from '../types';
 

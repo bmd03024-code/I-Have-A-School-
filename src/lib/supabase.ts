@@ -78,7 +78,7 @@ export async function testSupabaseTableStatus(): Promise<{
   }
 
   try {
-    const { data, error } = await clientInstance.from('ihas_data').select('key').limit(1);
+    const { error } = await clientInstance.from('ihas_data').select('key').limit(1);
 
     if (error) {
       if (error.code === 'PGRST205' || error.message.includes('Could not find the table')) {

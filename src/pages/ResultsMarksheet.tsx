@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Printer, Award, CheckCircle2, School, User, Calendar, FileText, ArrowRight } from 'lucide-react';
+import { Search, Printer, FileText } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { StudentResult, Student, CourseSubject, Course, CourseExam } from '../types';
 

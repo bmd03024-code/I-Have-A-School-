@@ -150,6 +150,7 @@ export const AdminPanel: React.FC = () => {
     codeSyncStatus,
     codeSyncLastSaved,
     saveAllToCodebase,
+    markLocalEdit,
     supabaseStatus,
     syncAllToSupabase,
     showToast
@@ -212,6 +213,7 @@ export const AdminPanel: React.FC = () => {
   // Settings form state with Auto-Save
   const [settingsForm, setSettingsForm] = useState(schoolSettings);
   const [autoSaveStatus, setAutoSaveStatus] = useState<string>('');
+  const [isSavingSettings, setIsSavingSettings] = useState<boolean>(false);
   const lastSavedSettingsRef = useRef<string>(JSON.stringify(schoolSettings));
   const isEditingSettingsRef = useRef<boolean>(false);
 
@@ -219,8 +221,29 @@ export const AdminPanel: React.FC = () => {
   useEffect(() => {
     const incomingJson = JSON.stringify(schoolSettings);
     if (incomingJson !== lastSavedSettingsRef.current && !isEditingSettingsRef.current) {
-      lastSavedSettingsRef.current = incomingJson;
-      setSettingsForm(schoolSettings);
+      // Guard against downgrading custom uploaded base64 data URLs to default placeholder URLs
+      const currentSig = settingsForm.headmasterSignatureUrl;
+      const currentLogo = settingsForm.logoUrl;
+      const currentSeal = settingsForm.officialSealUrl;
+      const defaultSig = DEFAULT_SCHOOL_SETTINGS.headmasterSignatureUrl;
+      const defaultLogo = DEFAULT_SCHOOL_SETTINGS.logoUrl;
+      const defaultSeal = DEFAULT_SCHOOL_SETTINGS.officialSealUrl;
+
+      const protectedSettings = {
+        ...schoolSettings,
+        headmasterSignatureUrl: (schoolSettings.headmasterSignatureUrl && schoolSettings.headmasterSignatureUrl !== defaultSig)
+          ? schoolSettings.headmasterSignatureUrl
+          : (currentSig || schoolSettings.headmasterSignatureUrl),
+        logoUrl: (schoolSettings.logoUrl && schoolSettings.logoUrl !== defaultLogo)
+          ? schoolSettings.logoUrl
+          : (currentLogo || schoolSettings.logoUrl),
+        officialSealUrl: (schoolSettings.officialSealUrl && schoolSettings.officialSealUrl !== defaultSeal)
+          ? schoolSettings.officialSealUrl
+          : (currentSeal || schoolSettings.officialSealUrl),
+      };
+
+      lastSavedSettingsRef.current = JSON.stringify(protectedSettings);
+      setSettingsForm(protectedSettings);
     }
   }, [schoolSettings]);
 
@@ -234,6 +257,7 @@ export const AdminPanel: React.FC = () => {
     isEditingSettingsRef.current = true;
     const timer = setTimeout(() => {
       lastSavedSettingsRef.current = currentJson;
+      markLocalEdit();
       updateSchoolSettings(settingsForm);
       isEditingSettingsRef.current = false;
       setAutoSaveStatus(lang === 'bn' ? 'অটো-সেভ সম্পন্ন' : 'Auto-Saved');
@@ -244,7 +268,7 @@ export const AdminPanel: React.FC = () => {
     }, 600);
 
     return () => clearTimeout(timer);
-  }, [settingsForm, updateSchoolSettings, githubConfig.enabled, githubConfig.autoPushOnChange, githubConfig.token, pushToGitHub, lang]);
+  }, [settingsForm, updateSchoolSettings, markLocalEdit, githubConfig.enabled, githubConfig.autoPushOnChange, githubConfig.token, pushToGitHub, lang]);
 
   // Footer Learning Hub and Services Link Management States
   const [newLearningTitleBn, setNewLearningTitleBn] = useState('');
@@ -543,12 +567,34 @@ export const AdminPanel: React.FC = () => {
   };
 
   // Save Settings
-  const handleSaveSettings = (e: React.FormEvent) => {
-    e.preventDefault();
-    updateSchoolSettings(settingsForm);
-    showToast(lang === 'bn' ? 'প্রতিষ্ঠান সেটিংস ও সিল/স্বাক্ষর সংরক্ষিত হয়েছে!' : 'Settings updated successfully!');
-    if (githubConfig.enabled && githubConfig.autoPushOnChange && githubConfig.token) {
-      pushToGitHub('Updated institution branding, contacts & footer');
+  const handleSaveSettings = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setIsSavingSettings(true);
+    markLocalEdit();
+    try {
+      const currentForm = { ...settingsForm };
+      lastSavedSettingsRef.current = JSON.stringify(currentForm);
+      isEditingSettingsRef.current = false;
+
+      // 1. Force update school settings in AppContext and localStorage
+      updateSchoolSettings(currentForm, true);
+
+      // 2. Persist directly to codebase liveData files
+      await saveAllToCodebase({ ihas_school_settings: currentForm });
+
+      // 3. Central Supabase Cloud Database write (if configured)
+      saveCentralEntity('ihas_school_settings', currentForm).catch(() => {});
+
+      // 4. If GitHub sync enabled, push to GitHub
+      if (githubConfig.enabled && githubConfig.autoPushOnChange && githubConfig.token) {
+        pushToGitHub('Updated institution branding, logo, signature & seal').catch(() => {});
+      }
+
+      showToast(lang === 'bn' ? 'প্রতিষ্ঠান সেটিংস, লোগো, সিল ও স্বাক্ষর সফলভাবে সংরক্ষিত হয়েছে!' : 'Settings, logo, seal, and signature saved successfully!');
+    } catch (err: any) {
+      showToast(lang === 'bn' ? `সংরক্ষণ ত্রুটি: ${err?.message || 'সমস্যা হয়েছে'}` : 'Failed to save settings.');
+    } finally {
+      setIsSavingSettings(false);
     }
   };
 
@@ -1312,10 +1358,20 @@ export const AdminPanel: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleSaveSettings}
-                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 shrink-0"
+                  disabled={isSavingSettings}
+                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 shrink-0"
                 >
-                  <Save className="w-4 h-4" />
-                  <span>{lang === 'bn' ? 'সকল পরিবর্তন সংরক্ষণ করুন' : 'Save All Changes'}</span>
+                  {isSavingSettings ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>{lang === 'bn' ? 'সংরক্ষণ হচ্ছে...' : 'Saving...'}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4" />
+                      <span>{lang === 'bn' ? 'সকল পরিবর্তন সংরক্ষণ করুন' : 'Save All Changes'}</span>
+                    </>
+                  )}
                 </button>
               </div>
             </div>
@@ -1511,14 +1567,10 @@ export const AdminPanel: React.FC = () => {
                               e,
                               (val) => {
                                 isEditingSettingsRef.current = true;
-                                setSettingsForm((prev) => {
-                                  const updated = { ...prev, logoUrl: val };
-                                  lastSavedSettingsRef.current = JSON.stringify(updated);
-                                  updateSchoolSettings(updated);
-                                  return updated;
-                                });
+                                markLocalEdit();
+                                setSettingsForm((prev) => ({ ...prev, logoUrl: val }));
                               },
-                              lang === 'bn' ? 'লোগো সফলভাবে আপলোড হয়েছে!' : 'Logo uploaded successfully!'
+                              lang === 'bn' ? 'লোগো সফলভাবে আপলোড হয়েছে! স্থায়ীভাবে সেভ করতে "সকল পরিবর্তন সংরক্ষণ করুন" বাটনে চাপুন।' : 'Logo uploaded! Click Save All Changes to persist.'
                             )
                           }
                           className="hidden"
@@ -1546,14 +1598,10 @@ export const AdminPanel: React.FC = () => {
                               e,
                               (val) => {
                                 isEditingSettingsRef.current = true;
-                                setSettingsForm((prev) => {
-                                  const updated = { ...prev, headmasterSignatureUrl: val };
-                                  lastSavedSettingsRef.current = JSON.stringify(updated);
-                                  updateSchoolSettings(updated);
-                                  return updated;
-                                });
+                                markLocalEdit();
+                                setSettingsForm((prev) => ({ ...prev, headmasterSignatureUrl: val }));
                               },
-                              lang === 'bn' ? 'স্বাক্ষর আপলোড হয়েছে!' : 'Signature uploaded!'
+                              lang === 'bn' ? 'প্রধান শিক্ষকের স্বাক্ষর আপলোড হয়েছে! স্থায়ীভাবে সেভ করতে "সকল পরিবর্তন সংরক্ষণ করুন" বাটনে চাপুন।' : 'Signature uploaded! Click Save All Changes to persist.'
                             )
                           }
                           className="hidden"
@@ -1581,14 +1629,10 @@ export const AdminPanel: React.FC = () => {
                               e,
                               (val) => {
                                 isEditingSettingsRef.current = true;
-                                setSettingsForm((prev) => {
-                                  const updated = { ...prev, officialSealUrl: val };
-                                  lastSavedSettingsRef.current = JSON.stringify(updated);
-                                  updateSchoolSettings(updated);
-                                  return updated;
-                                });
+                                markLocalEdit();
+                                setSettingsForm((prev) => ({ ...prev, officialSealUrl: val }));
                               },
-                              lang === 'bn' ? 'অফিসিয়াল সিল আপলোড হয়েছে!' : 'Official seal uploaded!'
+                              lang === 'bn' ? 'অফিসিয়াল সিল আপলোড হয়েছে! স্থায়ীভাবে সেভ করতে "সকল পরিবর্তন সংরক্ষণ করুন" বাটনে চাপুন।' : 'Official seal uploaded! Click Save All Changes to persist.'
                             )
                           }
                           className="hidden"

@@ -74,7 +74,8 @@ export interface AppContextType {
   isCodeSyncing: boolean;
   codeSyncLastSaved: string | null;
   codeSyncStatus: 'idle' | 'saving' | 'saved' | 'error';
-  saveAllToCodebase: () => Promise<{ success: boolean; message: string }>;
+  saveAllToCodebase: (customOverrides?: Record<string, any>) => Promise<{ success: boolean; message: string }>;
+  markLocalEdit: () => void;
 
   // Language Toggle
   lang: Language;
@@ -90,7 +91,7 @@ export interface AppContextType {
 
   // School Settings & Branding
   schoolSettings: SchoolSettings;
-  updateSchoolSettings: (settings: SchoolSettings) => void;
+  updateSchoolSettings: (settings: SchoolSettings, force?: boolean) => void;
 
   // Hero Slides
   heroSlides: HeroSlide[];
@@ -417,9 +418,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return getPersistedItem('ihas_school_settings', DEFAULT_SCHOOL_SETTINGS);
   });
 
-  const updateSchoolSettings = useCallback((newSettings: SchoolSettings) => {
+  const markLocalEdit = useCallback(() => {
+    lastLocalEditTimeRef.current = Date.now();
+  }, []);
+
+  const updateSchoolSettings = useCallback((newSettings: SchoolSettings, force: boolean = false) => {
+    lastLocalEditTimeRef.current = Date.now();
     setSchoolSettings((prev) => {
-      if (isEqual(prev, newSettings)) return prev;
+      if (!force && isEqual(prev, newSettings)) return prev;
       commitAndSync('ihas_school_settings', 'schoolSettings', newSettings);
       return newSettings;
     });
@@ -940,15 +946,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         : (data._meta?.lastSavedAt ? new Date(data._meta?.lastSavedAt).getTime() : 0);
       const timeSinceLastLocalEdit = Date.now() - lastLocalEditTimeRef.current;
 
-      // Protect recent local edits (within 15 seconds) from being overwritten by older snapshots
-      if (lastLocalEditTimeRef.current > 0 && timeSinceLastLocalEdit < 15000 && incomingTime > 0 && incomingTime <= lastLocalEditTimeRef.current) {
-        return;
+      // Protect recent local edits (within 120 seconds) from being overwritten by older snapshots
+      if (lastLocalEditTimeRef.current > 0 && timeSinceLastLocalEdit < 120000) {
+        if (incomingTime <= lastLocalEditTimeRef.current) {
+          return;
+        }
       }
 
       const s = data.schoolSettings || data.ihas_school_settings || data.school_settings;
-      if (s) {
-        safeSetIfChanged(setSchoolSettings, s);
-        safeStorage.setItem('ihas_school_settings', JSON.stringify(s));
+      if (s && typeof s === 'object') {
+        const defaultSig = DEFAULT_SCHOOL_SETTINGS.headmasterSignatureUrl;
+        const defaultLogo = DEFAULT_SCHOOL_SETTINGS.logoUrl;
+        const defaultSeal = DEFAULT_SCHOOL_SETTINGS.officialSealUrl;
+
+        const currentSettings = latestEntitiesRef.current.schoolSettings;
+        const mergedSettings: SchoolSettings = {
+          ...currentSettings,
+          ...s,
+          headmasterSignatureUrl: (s.headmasterSignatureUrl && s.headmasterSignatureUrl !== defaultSig)
+            ? s.headmasterSignatureUrl
+            : (currentSettings.headmasterSignatureUrl || s.headmasterSignatureUrl || defaultSig),
+          logoUrl: (s.logoUrl && s.logoUrl !== defaultLogo)
+            ? s.logoUrl
+            : (currentSettings.logoUrl || s.logoUrl || defaultLogo),
+          officialSealUrl: (s.officialSealUrl && s.officialSealUrl !== defaultSeal)
+            ? s.officialSealUrl
+            : (currentSettings.officialSealUrl || s.officialSealUrl || defaultSeal),
+        };
+
+        safeSetIfChanged(setSchoolSettings, mergedSettings);
+        safeStorage.setItem('ihas_school_settings', JSON.stringify(mergedSettings));
       }
 
       const slides = data.heroSlides || data.ihas_hero_slides || data.hero_slides;
@@ -1255,28 +1282,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [githubConfig]);
 
   // Master function to write the entire database snapshot directly into the codebase file (src/data/liveData.json)
-  const saveAllToCodebase = useCallback(async (): Promise<{ success: boolean; message: string }> => {
+  const saveAllToCodebase = useCallback(async (customOverrides?: Record<string, any>): Promise<{ success: boolean; message: string }> => {
     setIsCodeSyncing(true);
     setCodeSyncStatus('saving');
+    lastLocalEditTimeRef.current = Date.now();
     try {
+      if (customOverrides) {
+        if (customOverrides.ihas_school_settings) {
+          latestEntitiesRef.current.schoolSettings = customOverrides.ihas_school_settings;
+          safeStorage.setItem('ihas_school_settings', JSON.stringify(customOverrides.ihas_school_settings));
+          setSchoolSettings(customOverrides.ihas_school_settings);
+        }
+      }
+
       const snapshot = {
-        ihas_school_settings: latestEntitiesRef.current.schoolSettings,
-        ihas_hero_slides: latestEntitiesRef.current.heroSlides,
-        ihas_courses: latestEntitiesRef.current.courses,
-        ihas_students: latestEntitiesRef.current.students,
-        ihas_subjects: latestEntitiesRef.current.subjects,
-        ihas_exams: latestEntitiesRef.current.exams,
-        ihas_results: latestEntitiesRef.current.results,
-        ihas_teachers: latestEntitiesRef.current.teachers,
-        ihas_video_classes: latestEntitiesRef.current.videoClasses,
-        ihas_videos: latestEntitiesRef.current.videoClasses,
-        ihas_notes: latestEntitiesRef.current.notes,
-        ihas_notices: latestEntitiesRef.current.notices,
-        ihas_routines: latestEntitiesRef.current.routines,
-        ihas_chatbot_training: latestEntitiesRef.current.chatbotTraining,
-        ihas_quizzes: latestEntitiesRef.current.modelTests,
-        ihas_admin_creds: latestEntitiesRef.current.adminCredentials,
-        ihas_github_config: latestEntitiesRef.current.githubConfig,
+        ihas_school_settings: customOverrides?.ihas_school_settings || latestEntitiesRef.current.schoolSettings,
+        ihas_hero_slides: customOverrides?.ihas_hero_slides || latestEntitiesRef.current.heroSlides,
+        ihas_courses: customOverrides?.ihas_courses || latestEntitiesRef.current.courses,
+        ihas_students: customOverrides?.ihas_students || latestEntitiesRef.current.students,
+        ihas_subjects: customOverrides?.ihas_subjects || latestEntitiesRef.current.subjects,
+        ihas_exams: customOverrides?.ihas_exams || latestEntitiesRef.current.exams,
+        ihas_results: customOverrides?.ihas_results || latestEntitiesRef.current.results,
+        ihas_teachers: customOverrides?.ihas_teachers || latestEntitiesRef.current.teachers,
+        ihas_video_classes: customOverrides?.ihas_video_classes || latestEntitiesRef.current.videoClasses,
+        ihas_videos: customOverrides?.ihas_videos || latestEntitiesRef.current.videoClasses,
+        ihas_notes: customOverrides?.ihas_notes || latestEntitiesRef.current.notes,
+        ihas_notices: customOverrides?.ihas_notices || latestEntitiesRef.current.notices,
+        ihas_routines: customOverrides?.ihas_routines || latestEntitiesRef.current.routines,
+        ihas_chatbot_training: customOverrides?.ihas_chatbot_training || latestEntitiesRef.current.chatbotTraining,
+        ihas_quizzes: customOverrides?.ihas_quizzes || latestEntitiesRef.current.modelTests,
+        ihas_admin_creds: customOverrides?.ihas_admin_creds || latestEntitiesRef.current.adminCredentials,
+        ihas_github_config: customOverrides?.ihas_github_config || latestEntitiesRef.current.githubConfig,
         _meta: {
           authoritative: true,
           platform: 'I Have A School',
@@ -2348,6 +2384,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         codeSyncStatus,
         codeSyncLastSaved,
         saveAllToCodebase,
+        markLocalEdit,
         supabaseStatus,
         syncAllToSupabase,
         testSupabaseStatus,
