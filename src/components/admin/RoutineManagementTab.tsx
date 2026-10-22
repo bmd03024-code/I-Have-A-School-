@@ -59,7 +59,8 @@ export const RoutineManagementTab: React.FC<RoutineManagementTabProps> = ({
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    const target = e.target;
+    const file = target.files?.[0];
     if (file) {
       try {
         const dataUrl = await readFileAsDataUrl(file);
@@ -67,6 +68,8 @@ export const RoutineManagementTab: React.FC<RoutineManagementTabProps> = ({
         showToast(lang === 'bn' ? 'রুটিনের ছবি সফলভাবে আপলোড হয়েছে!' : 'Routine image uploaded successfully!');
       } catch {
         showToast(lang === 'bn' ? 'ছবি পড়তে সমস্যা হয়েছে।' : 'Failed to read image file.');
+      } finally {
+        target.value = '';
       }
     }
   };

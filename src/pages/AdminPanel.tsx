@@ -524,16 +524,20 @@ export const AdminPanel: React.FC = () => {
     }
   };
 
-  // Generic File Upload Handlers (Reading to Data URL)
+  // Generic File Upload Handlers (Reading to Data URL with canvas compression)
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, setter: (val: string) => void, msg?: string) => {
-    const file = e.target.files?.[0];
+    const target = e.target;
+    const file = target.files?.[0];
     if (file) {
       try {
         const dataUrl = await readFileAsDataUrl(file);
         setter(dataUrl);
         showToast(msg || (lang === 'bn' ? 'ফাইল সফলভাবে আপলোড হয়েছে!' : 'File uploaded successfully!'));
-      } catch {
+      } catch (err) {
+        console.error('File upload error:', err);
         showToast(lang === 'bn' ? 'ফাইল আপলোড করতে সমস্যা হয়েছে।' : 'Error uploading file.');
+      } finally {
+        target.value = '';
       }
     }
   };
@@ -788,7 +792,8 @@ export const AdminPanel: React.FC = () => {
 
   // Direct Thumbnail Image Upload from local device
   const handleCustomVideoThumbUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    const target = e.target;
+    const file = target.files?.[0];
     if (file) {
       try {
         const dataUrl = await readFileAsDataUrl(file);
@@ -796,6 +801,8 @@ export const AdminPanel: React.FC = () => {
         showToast(lang === 'bn' ? 'থাম্বনেইল ছবি সফলভাবে আপলোড হয়েছে!' : 'Custom thumbnail uploaded!');
       } catch {
         showToast(lang === 'bn' ? 'ছবি আপলোড করতে সমস্যা হয়েছে।' : 'Error uploading thumbnail.');
+      } finally {
+        target.value = '';
       }
     }
   };
@@ -1496,7 +1503,26 @@ export const AdminPanel: React.FC = () => {
                       <label className="cursor-pointer px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors">
                         <Upload className="w-3.5 h-3.5" />
                         <span>{lang === 'bn' ? 'ফাইল বেছে নিন' : 'Choose File'}</span>
-                        <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, (val) => setSettingsForm({ ...settingsForm, logoUrl: val }))} className="hidden" />
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) =>
+                            handleFileChange(
+                              e,
+                              (val) => {
+                                isEditingSettingsRef.current = true;
+                                setSettingsForm((prev) => {
+                                  const updated = { ...prev, logoUrl: val };
+                                  lastSavedSettingsRef.current = JSON.stringify(updated);
+                                  updateSchoolSettings(updated);
+                                  return updated;
+                                });
+                              },
+                              lang === 'bn' ? 'লোগো সফলভাবে আপলোড হয়েছে!' : 'Logo uploaded successfully!'
+                            )
+                          }
+                          className="hidden"
+                        />
                       </label>
                       {settingsForm.logoUrl && (
                         <img src={settingsForm.logoUrl} alt="Logo preview" className="w-10 h-10 object-contain rounded border bg-slate-50 p-1" />
@@ -1512,7 +1538,26 @@ export const AdminPanel: React.FC = () => {
                       <label className="cursor-pointer px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors">
                         <Upload className="w-3.5 h-3.5" />
                         <span>{lang === 'bn' ? 'স্বাক্ষর ফাইল নিন' : 'Choose Sign'}</span>
-                        <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, (val) => setSettingsForm({ ...settingsForm, headmasterSignatureUrl: val }), 'স্বাক্ষর আপলোড হয়েছে!')} className="hidden" />
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) =>
+                            handleFileChange(
+                              e,
+                              (val) => {
+                                isEditingSettingsRef.current = true;
+                                setSettingsForm((prev) => {
+                                  const updated = { ...prev, headmasterSignatureUrl: val };
+                                  lastSavedSettingsRef.current = JSON.stringify(updated);
+                                  updateSchoolSettings(updated);
+                                  return updated;
+                                });
+                              },
+                              lang === 'bn' ? 'স্বাক্ষর আপলোড হয়েছে!' : 'Signature uploaded!'
+                            )
+                          }
+                          className="hidden"
+                        />
                       </label>
                       {settingsForm.headmasterSignatureUrl && (
                         <img src={settingsForm.headmasterSignatureUrl} alt="Signature preview" className="h-10 w-20 object-contain rounded border bg-white" />
@@ -1528,7 +1573,26 @@ export const AdminPanel: React.FC = () => {
                       <label className="cursor-pointer px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors">
                         <Upload className="w-3.5 h-3.5" />
                         <span>{lang === 'bn' ? 'সিল ফাইল নিন' : 'Choose Seal'}</span>
-                        <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, (val) => setSettingsForm({ ...settingsForm, officialSealUrl: val }), 'অফিসিয়াল সিল আপলোড হয়েছে!')} className="hidden" />
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) =>
+                            handleFileChange(
+                              e,
+                              (val) => {
+                                isEditingSettingsRef.current = true;
+                                setSettingsForm((prev) => {
+                                  const updated = { ...prev, officialSealUrl: val };
+                                  lastSavedSettingsRef.current = JSON.stringify(updated);
+                                  updateSchoolSettings(updated);
+                                  return updated;
+                                });
+                              },
+                              lang === 'bn' ? 'অফিসিয়াল সিল আপলোড হয়েছে!' : 'Official seal uploaded!'
+                            )
+                          }
+                          className="hidden"
+                        />
                       </label>
                       {settingsForm.officialSealUrl && (
                         <img src={settingsForm.officialSealUrl} alt="Seal preview" className="w-10 h-10 object-contain rounded border bg-white" />
@@ -2500,7 +2564,7 @@ export const AdminPanel: React.FC = () => {
                       <label className="cursor-pointer px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold flex items-center gap-1.5 transition-colors">
                         <Upload className="w-3.5 h-3.5" />
                         <span>{lang === 'bn' ? 'ছবি নির্বাচন করুন' : 'Choose Photo'}</span>
-                        <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, (val) => setNewStudent({ ...newStudent, photoUrl: val }))} className="hidden" />
+                        <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, (val) => setNewStudent((prev) => ({ ...prev, photoUrl: val })))} className="hidden" />
                       </label>
                       {newStudent.photoUrl && (
                         <img src={newStudent.photoUrl} alt="preview" className="w-10 h-10 object-cover rounded-xl border border-emerald-400" />

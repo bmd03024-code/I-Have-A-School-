@@ -402,7 +402,7 @@ export function readFileAsDataUrl(file: File): Promise<string> {
         return reject(new Error('Failed to read file as string'));
       }
 
-      // If it's not an image (or SVG/GIF), return raw data URL
+      // If it's not an image (or SVG/GIF), return raw data URL immediately
       if (!file.type.startsWith('image/') || file.type.includes('svg') || file.type.includes('gif')) {
         return resolve(rawResult);
       }
@@ -411,7 +411,8 @@ export function readFileAsDataUrl(file: File): Promise<string> {
       const img = new Image();
       img.onload = () => {
         try {
-          const maxDim = 1280;
+          // 1080px max dimension ensures high clarity while keeping base64 under ~60-120KB
+          const maxDim = 1080;
           let width = img.width;
           let height = img.height;
 
@@ -434,8 +435,28 @@ export function readFileAsDataUrl(file: File): Promise<string> {
             return resolve(rawResult);
           }
 
+          // Clear canvas with transparent pixels
+          ctx.clearRect(0, 0, width, height);
           ctx.drawImage(img, 0, 0, width, height);
-          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.82);
+
+          // For PNG images (such as seals, signatures, and transparent logos), preserve transparency
+          const isPng = file.type.includes('png');
+          let compressedDataUrl: string;
+
+          if (isPng) {
+            // Test if WebP is supported with transparency compression, else PNG
+            try {
+              compressedDataUrl = canvas.toDataURL('image/webp', 0.85);
+              if (!compressedDataUrl.startsWith('data:image/webp')) {
+                compressedDataUrl = canvas.toDataURL('image/png');
+              }
+            } catch {
+              compressedDataUrl = canvas.toDataURL('image/png');
+            }
+          } else {
+            compressedDataUrl = canvas.toDataURL('image/jpeg', 0.80);
+          }
+
           resolve(compressedDataUrl);
         } catch {
           // If canvas fails, fallback to raw result

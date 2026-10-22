@@ -348,6 +348,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     message: 'সুপারবেস ক্লাউড স্ট্যাটাস চেক করা হচ্ছে...',
   });
 
+  // Track exact timestamp of user/admin local edits to guard against stale incoming network snapshots
+  const lastLocalEditTimeRef = useRef<number>(0);
+
   // Master Commit & Real-Time Sync Engine:
   // Atomically executes:
   // 1. Storage persistence (localStorage + IndexedDB)
@@ -355,6 +358,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // 3. Cross-tab/window BroadcastChannel, CustomEvent, and storage event ping
   // 4. Server codebase write (/api/sync-to-code) triggering instant SSE stream to all visitors
   const commitAndSync = useCallback((key: string, topic: string, data: any) => {
+    lastLocalEditTimeRef.current = Date.now();
     persistItem(key, data);
     notifyRealtimeUpdate(topic, data);
     setCodeSyncLastSaved(new Date().toISOString());
@@ -931,6 +935,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const applyDatabaseSnapshot = useCallback((data: any) => {
     if (!data || typeof data !== 'object') return;
     try {
+      const incomingTime = data._updatedAt 
+        ? new Date(data._updatedAt).getTime() 
+        : (data._meta?.lastSavedAt ? new Date(data._meta?.lastSavedAt).getTime() : 0);
+      const timeSinceLastLocalEdit = Date.now() - lastLocalEditTimeRef.current;
+
+      // Protect recent local edits (within 15 seconds) from being overwritten by older snapshots
+      if (lastLocalEditTimeRef.current > 0 && timeSinceLastLocalEdit < 15000 && incomingTime > 0 && incomingTime <= lastLocalEditTimeRef.current) {
+        return;
+      }
+
       const s = data.schoolSettings || data.ihas_school_settings || data.school_settings;
       if (s) {
         safeSetIfChanged(setSchoolSettings, s);
@@ -1525,13 +1539,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, intervalSec * 1000);
 
     const handleFocus = () => {
+      // Guard: Do NOT pull and overwrite state if admin is logged in or actively editing
+      // (e.g., when returning from the system file picker dialog to upload an image)
+      if (isAdminLoggedIn || Date.now() - lastLocalEditTimeRef.current < 25000) {
+        return;
+      }
+
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
         pullFromGitHub(false).catch(() => {});
         fetch('/api/sync-to-code', { cache: 'no-store' })
           .then((r) => (r.ok ? r.json() : null))
           .then((data) => {
             if (data && typeof data === 'object' && Object.keys(data).length > 0) {
-              applyDatabaseSnapshot(data);
+              const incomingTime = data._updatedAt 
+                ? new Date(data._updatedAt).getTime() 
+                : (data._meta?.lastSavedAt ? new Date(data._meta?.lastSavedAt).getTime() : 0);
+              if (incomingTime > lastLocalEditTimeRef.current) {
+                applyDatabaseSnapshot(data);
+              }
             }
           })
           .catch(() => {});

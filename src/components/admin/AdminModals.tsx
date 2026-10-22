@@ -13,13 +13,22 @@ export const EditSlideModal: React.FC<{
 }> = ({ slide, lang, onSave, onClose }) => {
   const [form, setForm] = useState<HeroSlide>(slide || {} as HeroSlide);
 
+  React.useEffect(() => {
+    if (slide) setForm(slide);
+  }, [slide]);
+
   if (!slide) return null;
 
   const handleImageFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    const target = e.target;
+    const file = target.files?.[0];
     if (file) {
-      const dataUrl = await readFileAsDataUrl(file);
-      setForm({ ...form, imageUrl: dataUrl });
+      try {
+        const dataUrl = await readFileAsDataUrl(file);
+        setForm((prev) => ({ ...prev, imageUrl: dataUrl }));
+      } finally {
+        target.value = '';
+      }
     }
   };
 
@@ -118,13 +127,22 @@ export const EditCourseModal: React.FC<{
 }> = ({ course, lang, onSave, onClose }) => {
   const [form, setForm] = useState<Course>(course || {} as Course);
 
+  React.useEffect(() => {
+    if (course) setForm(course);
+  }, [course]);
+
   if (!course) return null;
 
   const handleBannerFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    const target = e.target;
+    const file = target.files?.[0];
     if (file) {
-      const dataUrl = await readFileAsDataUrl(file);
-      setForm({ ...form, bannerImage: dataUrl });
+      try {
+        const dataUrl = await readFileAsDataUrl(file);
+        setForm((prev) => ({ ...prev, bannerImage: dataUrl }));
+      } finally {
+        target.value = '';
+      }
     }
   };
 
@@ -235,13 +253,22 @@ export const EditStudentModal: React.FC<{
 }> = ({ student, courses, lang, onSave, onClose }) => {
   const [form, setForm] = useState<Student>(student || {} as Student);
 
+  React.useEffect(() => {
+    if (student) setForm(student);
+  }, [student]);
+
   if (!student) return null;
 
   const handlePhotoFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    const target = e.target;
+    const file = target.files?.[0];
     if (file) {
-      const dataUrl = await readFileAsDataUrl(file);
-      setForm({ ...form, photoUrl: dataUrl });
+      try {
+        const dataUrl = await readFileAsDataUrl(file);
+        setForm((prev) => ({ ...prev, photoUrl: dataUrl }));
+      } finally {
+        target.value = '';
+      }
     }
   };
 
@@ -381,13 +408,22 @@ export const EditTeacherModal: React.FC<{
 }> = ({ teacher, lang, onSave, onClose }) => {
   const [form, setForm] = useState<Teacher>(teacher || {} as Teacher);
 
+  React.useEffect(() => {
+    if (teacher) setForm(teacher);
+  }, [teacher]);
+
   if (!teacher) return null;
 
   const handlePhotoFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    const target = e.target;
+    const file = target.files?.[0];
     if (file) {
-      const dataUrl = await readFileAsDataUrl(file);
-      setForm({ ...form, photoUrl: dataUrl });
+      try {
+        const dataUrl = await readFileAsDataUrl(file);
+        setForm((prev) => ({ ...prev, photoUrl: dataUrl }));
+      } finally {
+        target.value = '';
+      }
     }
   };
 
@@ -510,16 +546,23 @@ export const EditVideoClassModal: React.FC<{
   const [isResolvingThumb, setIsResolvingThumb] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
+  React.useEffect(() => {
+    if (video) setForm(video);
+  }, [video]);
+
   if (!video) return null;
 
   const handleCustomThumbFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    const target = e.target;
+    const file = target.files?.[0];
     if (file) {
       try {
         const dataUrl = await readFileAsDataUrl(file);
-        setForm({ ...form, thumbnailUrl: dataUrl });
+        setForm((prev) => ({ ...prev, thumbnailUrl: dataUrl }));
       } catch (err) {
         console.error('Thumbnail upload failed:', err);
+      } finally {
+        target.value = '';
       }
     }
   };
