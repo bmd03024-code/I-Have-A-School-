@@ -1013,52 +1013,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // Non-blocking on Vercel
       }
 
-      // 2. Direct Auto-Push to GitHub Repository (Runs reliably on Vercel and Production!)
-      const activeToken = cleanGitHubToken((githubConfig.token && githubConfig.token.trim()) || getStoredGitHubToken());
-      if (githubConfig.enabled && githubConfig.autoPushOnChange && activeToken) {
-        setGitHubSyncStatus((prev) => ({
-          ...prev,
-          state: 'syncing',
-          message: 'গিটহাবে স্বয়ংক্রিয়ভাবে পুশ ও লাইভ আপডেট হচ্ছে...'
-        }));
-
-        try {
-          const pushRes = await pushDataToGitHub(
-            { ...githubConfig, token: activeToken },
-            latestEntitiesRef.current,
-            `Auto-update from Admin Panel [${new Date().toLocaleTimeString('bn-BD')}]`
-          );
-          if (pushRes.success) {
-            const now = new Date().toISOString();
-            const updatedConfig: GitHubConfig = {
-              ...githubConfig,
-              lastSyncedAt: now,
-              lastCommitSha: pushRes.sha || pushRes.commitSha || ''
-            };
-            setGithubConfig(updatedConfig);
-            persistItem('ihas_github_config', updatedConfig);
-            setGitHubSyncStatus({
-              state: 'synced',
-              message: 'গিটহাবে স্বয়ংক্রিয় পুশ সম্পন্ন ও হোস্টিং রিডিপ্লয় ট্রিগার হয়েছে ✓',
-              lastSyncedAt: now,
-              lastCommitSha: updatedConfig.lastCommitSha
-            });
-          } else {
-            setGitHubSyncStatus((prev) => ({
-              ...prev,
-              state: 'error',
-              message: pushRes.message || 'স্বয়ংক্রিয় পুশ ব্যর্থ হয়েছে'
-            }));
-          }
-        } catch (pushErr: any) {
-          console.warn('[AutoPush] Background push error:', pushErr);
-          setGitHubSyncStatus((prev) => ({
-            ...prev,
-            state: 'error',
-            message: pushErr?.message || 'পুশ নেটওয়ার্ক ত্রুটি'
-          }));
-        }
-      }
+      // Auto-push is disabled: changes will only be pushed to GitHub when the Admin clicks the Push button
     }, 700);
 
     return () => clearTimeout(autoSyncTimer);
@@ -1226,44 +1181,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setCodeSyncLastSaved(now);
       setCodeSyncStatus('saved');
 
-      // 3. Directly push to GitHub repository if PAT is available
-      const activeToken = cleanGitHubToken((githubConfig.token && githubConfig.token.trim()) || getStoredGitHubToken());
-      let gitHubPushed = false;
-      let gitHubErrorMessage = '';
-
-      if (activeToken) {
-        try {
-          const pushRes = await pushToGitHub(
-            customOverrides?.ihas_school_settings ? 'Admin updated school settings & branding' : 'Admin saved database changes'
-          );
-          if (pushRes && pushRes.success) {
-            gitHubPushed = true;
-          } else if (pushRes && pushRes.error) {
-            gitHubErrorMessage = pushRes.error;
-          }
-        } catch (pushErr: any) {
-          gitHubErrorMessage = pushErr?.message || 'গিটহাব পুশ করতে সমস্যা হয়েছে';
-        }
-      }
-
-      let message = '';
-      if (gitHubPushed) {
-        message = lang === 'bn'
-          ? 'সকল পরিবর্তন সফলভাবে লোকাল স্টোরেজ এবং সরাসরি গিটহাবে পুশ হয়েছে! Vercel স্বয়ংক্রিয়ভাবে রিডিপ্লয় হচ্ছে।'
-          : 'Changes saved locally and pushed to GitHub! Vercel auto-deploy triggered.';
-      } else if (activeToken && gitHubErrorMessage) {
-        message = lang === 'bn'
-          ? `পরিবর্তন লোকালি সংরক্ষিত হয়েছে। তবে গিটহাব পুশে সমস্যা: ${gitHubErrorMessage}`
-          : `Saved locally. GitHub push issue: ${gitHubErrorMessage}`;
-      } else {
-        message = lang === 'bn'
-          ? 'সকল পরিবর্তন লোকাল স্টোরেজে সফলভাবে সংরক্ষিত হয়েছে! (সরাসরি লাইভ হোস্টিংয়ে পুশ করতে ১১ নং ট্যাব থেকে গিটহাব টোকেন সেট করুন)'
-          : 'All changes saved locally! (Set GitHub token in Tab 11 for auto-push)';
-      }
-
+      // Manual Push Mode: Auto-push is disabled.
+      // Changes are only pushed to GitHub when Admin explicitly clicks the Push button.
       return {
         success: true,
-        message
+        message: lang === 'bn'
+          ? 'সকল পরিবর্তন সফলভাবে লোকাল মেমরিতে সংরক্ষিত হয়েছে! সম্পূর্ণ পরিবর্তন শেষে গিটহাবে লাইভ করতে উপরে "গিটহাবে পুশ করুন" বাটনে ক্লিক করুন।'
+          : 'All changes saved locally! Click the "Push to GitHub" button at the top when you are ready to publish.'
       };
     } catch (err: any) {
       console.error('[saveAllToCodebase Error]:', err);
@@ -1275,7 +1199,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } finally {
       setIsCodeSyncing(false);
     }
-  }, [githubConfig, lang, pushToGitHub]);
+  }, [lang]);
 
   const pullFromGitHub = useCallback(async (
     force: boolean = false

@@ -107,8 +107,8 @@ export const GitHubSyncTab: React.FC<GitHubSyncTabProps> = ({
     updateConfig(updated);
     showToast(
       lang === 'bn'
-        ? 'গিটহাব টোকেন ও রিপোজিটরি কনফিগারেশন স্থায়ীভাবে সংরক্ষিত হয়েছে! এখন যেকোনো আপডেটে স্বয়ংক্রিয় পুশ হবে।'
-        : 'GitHub token & repo configuration permanently saved! Auto-push is now active.'
+        ? 'গিটহাব টোকেন ও রিপোজিটরি কনফিগারেশন সংরক্ষিত হয়েছে! পরিবর্তন শেষে পুশ বাটনে ক্লিক করলেই গিটহাবে পুশ হবে।'
+        : 'GitHub token & repo config saved! Click the Push button when you want to deploy.'
     );
   };
 
@@ -246,8 +246,10 @@ export const GitHubSyncTab: React.FC<GitHubSyncTabProps> = ({
               {lang === 'bn' ? 'রিয়েল-টাইম ব্রাউজার ব্রডকাস্ট' : 'Real-time Browser Broadcast'}
             </span>
             {config.enabled && (
-              <span className="bg-blue-100 text-blue-800 text-[10px] font-bold px-2 py-0.5 rounded">
-                AUTO-PUSH {config.autoPushOnChange ? 'ON' : 'OFF'}
+              <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
+                config.autoPushOnChange ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
+              }`}>
+                {config.autoPushOnChange ? 'AUTO-PUSH: ON' : (lang === 'bn' ? 'ম্যানুয়াল পুশ মোড' : 'MANUAL PUSH MODE')}
               </span>
             )}
           </div>
@@ -595,22 +597,27 @@ export const GitHubSyncTab: React.FC<GitHubSyncTabProps> = ({
 
           {/* Auto-Push & Interval Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-            <div className="p-4 rounded-2xl bg-emerald-50/50 border border-emerald-100 flex items-center justify-between">
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
               <div>
-                <div className="font-bold text-slate-800">
-                  {lang === 'bn' ? 'স্বয়ংক্রিয় পুশ (Auto-push on Admin Save)' : 'Auto-Push on Admin Save'}
+                <div className="font-bold text-slate-800 flex items-center gap-2">
+                  <span>{lang === 'bn' ? 'স্বয়ংক্রিয় পুশ (Auto-Push)' : 'Auto-Push on Admin Save'}</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                    formData.autoPushOnChange ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
+                  }`}>
+                    {formData.autoPushOnChange ? (lang === 'bn' ? 'চালু' : 'Enabled') : (lang === 'bn' ? 'বন্ধ (ম্যানুয়াল পুশ মোড)' : 'Disabled (Manual Push Mode)')}
+                  </span>
                 </div>
-                <div className="text-[11px] text-slate-500">
+                <div className="text-[11px] text-slate-500 mt-1 leading-relaxed">
                   {lang === 'bn'
-                    ? 'এডমিন যেকোনো পরিবর্তন সেভ করলেই স্বয়ংক্রিয়ভাবে গিটহাবে পুশ হবে।'
-                    : 'Automatically push updates to GitHub when saving edits in admin panel.'}
+                    ? 'বন্ধ থাকলে অ্যাডমিন পরিবর্তন সেভ করার পর "গিটহাবে পুশ করুন" বাটনে ক্লিক করলেই কেবল গিটহাবে পুশ হবে।'
+                    : 'When disabled, changes will only push to GitHub when you click the Push button.'}
                 </div>
               </div>
               <input
                 type="checkbox"
                 checked={formData.autoPushOnChange}
                 onChange={(e) => setFormData({ ...formData, autoPushOnChange: e.target.checked })}
-                className="w-4 h-4 text-emerald-600 rounded"
+                className="w-4 h-4 text-emerald-600 rounded cursor-pointer"
               />
             </div>
 

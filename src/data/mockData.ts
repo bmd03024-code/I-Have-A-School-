@@ -676,7 +676,7 @@ export const getStoredGitHubToken = (): string => {
 };
 
 // Default GitHub Configuration - Token is permanently saved once entered
-// Note: lastSyncedAt must be empty string initially so visitor browsers pull the fresh remote database on first visit
+// Note: autoPushOnChange is false by default: changes are pushed only when admin clicks the Push button
 export const DEFAULT_GITHUB_CONFIG: GitHubConfig = {
   enabled: true,
   token: getStoredGitHubToken(),
@@ -684,10 +684,10 @@ export const DEFAULT_GITHUB_CONFIG: GitHubConfig = {
   repo: import.meta.env.VITE_GITHUB_REPO || 'I-Have-A-School-',
   branch: 'main',
   filePath: 'data/ihas_live_database.json',
-  autoPushOnChange: true,
+  autoPushOnChange: false,
   autoPollIntervalSec: 20,
   lastSyncedAt: '',
   lastCommitSha: '',
-  lastCommitMessage: 'Initial GitHub sync setup'
+  lastCommitMessage: 'Manual push mode enabled'
 };
 

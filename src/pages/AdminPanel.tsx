@@ -154,6 +154,23 @@ export const AdminPanel: React.FC = () => {
     showToast(res.message);
   };
 
+  const handleManualPushToGitHub = async () => {
+    const res = await pushToGitHub('Admin finalized all edits and manually pushed to GitHub');
+    if (res.success) {
+      showToast(
+        lang === 'bn'
+          ? 'গিটহাবে ৩টি ফাইল সফলভাবে পুশ সম্পন্ন হয়েছে! Vercel স্বয়ংক্রিয়ভাবে লাইভ রিডিপ্লয় হচ্ছে।'
+          : 'All changes successfully pushed to GitHub! Vercel auto-deploy initiated.'
+      );
+    } else {
+      showToast(
+        lang === 'bn'
+          ? `গিটহাব পুশ ব্যর্থ হয়েছে: ${res.error || 'অনুগ্রহ করে টোকেন ও রিপোজিটরি পারমিশন চেক করুন'}`
+          : `Push failed: ${res.error || 'Please check GitHub token and repo permissions'}`
+      );
+    }
+  };
+
   // Login form state
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
@@ -249,15 +266,12 @@ export const AdminPanel: React.FC = () => {
       markLocalEdit();
       updateSchoolSettings(settingsForm);
       isEditingSettingsRef.current = false;
-      setAutoSaveStatus(lang === 'bn' ? 'অটো-সেভ সম্পন্ন' : 'Auto-Saved');
+      setAutoSaveStatus(lang === 'bn' ? 'লোকাল সেভ সম্পন্ন' : 'Saved Locally');
       setTimeout(() => setAutoSaveStatus(''), 2500);
-      if (githubConfig.enabled && githubConfig.autoPushOnChange && githubConfig.token) {
-        pushToGitHub('Auto-saved institution settings & footer').catch(() => {});
-      }
     }, 600);
 
     return () => clearTimeout(timer);
-  }, [settingsForm, updateSchoolSettings, markLocalEdit, githubConfig.enabled, githubConfig.autoPushOnChange, githubConfig.token, pushToGitHub, lang]);
+  }, [settingsForm, updateSchoolSettings, markLocalEdit, lang]);
 
   // Footer Learning Hub and Services Link Management States
   const [newLearningTitleBn, setNewLearningTitleBn] = useState('');
@@ -1152,7 +1166,7 @@ export const AdminPanel: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* GitHub Token & Auto-Publish Status Badge */}
+            {/* GitHub Token & Manual Push Mode Badge */}
             <button
               type="button"
               onClick={() => setActiveTab('github_sync')}
@@ -1160,36 +1174,38 @@ export const AdminPanel: React.FC = () => {
                 isGitHubSyncing
                   ? 'bg-amber-950/80 border-amber-500/60 text-amber-300 hover:bg-amber-900/80 animate-pulse'
                   : githubConfig.token
-                  ? 'bg-emerald-950/80 border-emerald-500/40 text-emerald-300 hover:bg-emerald-900/80'
+                  ? 'bg-slate-800 border-emerald-500/40 text-emerald-300 hover:bg-slate-750'
                   : 'bg-rose-950/80 border-rose-500/40 text-rose-300 hover:bg-rose-900/80'
               }`}
-              title="GitHub Token & Auto-Publish Status"
+              title="GitHub Manual Push Mode Status"
             >
               <GitBranch className={`w-3.5 h-3.5 ${isGitHubSyncing ? 'animate-spin' : ''}`} />
-              <span className="hidden sm:inline">{lang === 'bn' ? 'গিটহাব অটো-পুশ:' : 'GitHub Auto-Push:'}</span>
+              <span className="hidden sm:inline">{lang === 'bn' ? 'গিটহাব মোড:' : 'GitHub:'}</span>
               <span className="font-mono text-[11px]">
                 {isGitHubSyncing
                   ? (lang === 'bn' ? 'পুশ হচ্ছে...' : 'Pushing...')
                   : githubConfig.token
-                  ? (lang === 'bn' ? 'সংযুক্ত ও সক্রিয় ✓' : 'Active & Connected ✓')
+                  ? (lang === 'bn' ? 'ম্যানুয়াল পুশ প্রস্তুত ✓' : 'Manual Push Ready ✓')
                   : (lang === 'bn' ? 'টোকেন দিন !' : 'Token Required !')}
               </span>
               <span className={`w-2 h-2 rounded-full ${isGitHubSyncing ? 'bg-amber-400 animate-ping' : githubConfig.token ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400 animate-ping'}`} />
             </button>
 
-            {/* GitHub Live Push Button */}
-            {githubConfig.token && (
-              <button
-                type="button"
-                onClick={() => pushToGitHub()}
-                disabled={isGitHubSyncing}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600/90 hover:bg-emerald-600 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-all shadow-xs"
-                title="Push Database to GitHub Now"
-              >
-                <Zap className={`w-3.5 h-3.5 ${isGitHubSyncing ? 'animate-bounce' : ''}`} />
-                <span className="hidden sm:inline">{isGitHubSyncing ? (lang === 'bn' ? 'গিটহাবে সেভ হচ্ছে...' : 'Pushing...') : (lang === 'bn' ? 'গিটহাব পুশ' : 'GitHub Push')}</span>
-              </button>
-            )}
+            {/* Standout GitHub Manual Push Button (Only pushes when clicked) */}
+            <button
+              type="button"
+              onClick={handleManualPushToGitHub}
+              disabled={isGitHubSyncing}
+              className="flex items-center gap-2 px-3.5 py-1.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500 hover:from-emerald-500 hover:to-teal-400 disabled:opacity-50 text-white text-xs font-black rounded-xl transition-all shadow-md active:scale-95 border border-emerald-400/50"
+              title={lang === 'bn' ? 'সম্পূর্ণ পরিবর্তন হয়ে গেলে গিটহাবে পুশ করতে এখানে ক্লিক করুন' : 'Click to push all finalized changes to GitHub'}
+            >
+              <Zap className={`w-3.5 h-3.5 text-amber-300 ${isGitHubSyncing ? 'animate-bounce' : ''}`} />
+              <span>
+                {isGitHubSyncing 
+                  ? (lang === 'bn' ? 'গিটহাবে পুশ হচ্ছে...' : 'Pushing to GitHub...') 
+                  : (lang === 'bn' ? '🚀 গিটহাবে পুশ করুন' : '🚀 Push to GitHub')}
+              </span>
+            </button>
 
             {/* Real-Time Codebase Auto-Sync Status Badge */}
             <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 text-xs font-semibold rounded-xl shadow-xs">
@@ -1420,12 +1436,12 @@ export const AdminPanel: React.FC = () => {
                 {githubConfig.token && (
                   <button
                     type="button"
-                    onClick={() => pushToGitHub()}
+                    onClick={handleManualPushToGitHub}
                     disabled={isGitHubSyncing}
                     className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-xs font-bold rounded-xl text-white transition-colors flex items-center gap-1.5 shadow-xs"
                   >
-                    <Zap className="w-3.5 h-3.5" />
-                    <span>{isGitHubSyncing ? (lang === 'bn' ? 'পুশ হচ্ছে...' : 'Pushing...') : (lang === 'bn' ? 'গিটহাবে পুশ' : 'Push Now')}</span>
+                    <Zap className="w-3.5 h-3.5 text-amber-300" />
+                    <span>{isGitHubSyncing ? (lang === 'bn' ? 'গিটহাবে পুশ হচ্ছে...' : 'Pushing...') : (lang === 'bn' ? '🚀 গিটহাবে পুশ করুন' : '🚀 Push to GitHub')}</span>
                   </button>
                 )}
               </div>
@@ -1819,14 +1835,26 @@ export const AdminPanel: React.FC = () => {
                 </div>
               </div>
 
-              {/* Save All Core Settings Button */}
-              <div className="flex justify-end pt-1">
+              {/* Save All Core Settings & Manual Push Action Buttons */}
+              <div className="flex flex-wrap items-center justify-end gap-3 pt-1">
                 <button
                   type="submit"
-                  className="px-8 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold text-xs rounded-xl shadow-lg transition-all flex items-center gap-2"
+                  disabled={isSavingSettings}
+                  className="px-7 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 disabled:opacity-50 text-white font-extrabold text-xs rounded-xl shadow-lg transition-all flex items-center gap-2 cursor-pointer"
                 >
                   <Save className="w-4 h-4" />
-                  <span>{lang === 'bn' ? 'প্রতিষ্ঠান ও যোগাযোগ তথ্য সংরক্ষণ করুন' : 'Save Core Information'}</span>
+                  <span>{isSavingSettings ? (lang === 'bn' ? 'সংরক্ষণ হচ্ছে...' : 'Saving...') : (lang === 'bn' ? 'প্রতিষ্ঠান ও যোগাযোগ তথ্য সংরক্ষণ করুন' : 'Save Core Information')}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleManualPushToGitHub}
+                  disabled={isGitHubSyncing}
+                  className="px-6 py-3 bg-gradient-to-r from-slate-900 to-slate-800 hover:from-slate-800 hover:to-slate-750 border border-slate-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer"
+                  title={lang === 'bn' ? 'সকল পরিবর্তন শেষে গিটহাবে পুশ করুন' : 'Push all finalized changes to GitHub'}
+                >
+                  <Zap className={`w-4 h-4 text-amber-400 ${isGitHubSyncing ? 'animate-bounce' : ''}`} />
+                  <span>{isGitHubSyncing ? (lang === 'bn' ? 'গিটহাবে পুশ হচ্ছে...' : 'Pushing...') : (lang === 'bn' ? '🚀 সম্পূর্ণ পরিবর্তন শেষে গিটহাবে পুশ করুন' : '🚀 Push Final Changes to GitHub')}</span>
                 </button>
               </div>
             </form>
