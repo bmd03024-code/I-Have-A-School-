@@ -1162,20 +1162,24 @@ export const AdminPanel: React.FC = () => {
               type="button"
               onClick={() => setActiveTab('github_sync')}
               className={`flex items-center gap-1.5 px-3 py-1.5 border text-xs font-semibold rounded-xl shadow-xs transition-all ${
-                githubConfig.token
+                isGitHubSyncing
+                  ? 'bg-amber-950/80 border-amber-500/60 text-amber-300 hover:bg-amber-900/80 animate-pulse'
+                  : githubConfig.token
                   ? 'bg-emerald-950/80 border-emerald-500/40 text-emerald-300 hover:bg-emerald-900/80'
-                  : 'bg-amber-950/80 border-amber-500/40 text-amber-300 hover:bg-amber-900/80'
+                  : 'bg-rose-950/80 border-rose-500/40 text-rose-300 hover:bg-rose-900/80'
               }`}
               title="GitHub Token & Auto-Publish Status"
             >
-              <GitBranch className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">{lang === 'bn' ? 'গিটহাব টোকেন:' : 'GitHub Token:'}</span>
+              <GitBranch className={`w-3.5 h-3.5 ${isGitHubSyncing ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">{lang === 'bn' ? 'গিটহাব অটো-পুশ:' : 'GitHub Auto-Push:'}</span>
               <span className="font-mono text-[11px]">
-                {githubConfig.token
-                  ? (lang === 'bn' ? 'সংযুক্ত ও অটো-পাবলিশ চালু ✓' : 'Active & Auto-Publish ✓')
+                {isGitHubSyncing
+                  ? (lang === 'bn' ? 'পুশ হচ্ছে...' : 'Pushing...')
+                  : githubConfig.token
+                  ? (lang === 'bn' ? 'সংযুক্ত ও সক্রিয় ✓' : 'Active & Connected ✓')
                   : (lang === 'bn' ? 'টোকেন দিন !' : 'Token Required !')}
               </span>
-              <span className={`w-2 h-2 rounded-full ${githubConfig.token ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400 animate-ping'}`} />
+              <span className={`w-2 h-2 rounded-full ${isGitHubSyncing ? 'bg-amber-400 animate-ping' : githubConfig.token ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400 animate-ping'}`} />
             </button>
 
             {/* GitHub Live Push Button */}

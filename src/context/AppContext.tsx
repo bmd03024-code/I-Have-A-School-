@@ -37,7 +37,7 @@ import {
 } from '../data/mockData';
 import codeLiveData from '../data/liveData.json';
 import { notifyRealtimeUpdate, subscribeRealtimeUpdate, clearAllCachesAndBroadcast, safeStorage } from '../lib/storageService';
-import { pushDataToGitHub, fetchDataFromGitHub } from '../services/githubSyncService';
+import { pushDataToGitHub, fetchDataFromGitHub, cleanGitHubToken } from '../services/githubSyncService';
 
 export interface AppContextType {
   // Codebase Direct Sync & Authoritative Storage
@@ -728,10 +728,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   const updateGitHubConfig = (cfg: GitHubConfig) => {
-    const cleanToken = cfg.token ? cfg.token.trim() : '';
+    const cleanToken = cleanGitHubToken(cfg.token);
+    const cleanOwner = (cfg.owner || 'bmd03024-code').trim();
+    let cleanRepo = (cfg.repo || 'I-Have-A-School-').trim();
+    if (cleanOwner.toLowerCase() === 'bmd03024-code' && (cleanRepo === 'I-Have-A-School' || cleanRepo.toLowerCase() === 'i-have-a-school')) {
+      cleanRepo = 'I-Have-A-School-';
+    }
+
     if (cleanToken) {
       try {
         localStorage.setItem('ihas_github_token_master', cleanToken);
+        localStorage.setItem('ihas_github_token', cleanToken);
+        safeStorage.setItem('ihas_github_token_master', cleanToken);
         safeStorage.setItem('ihas_github_token', cleanToken);
       } catch (e) {
         console.warn('Storage token write notice:', e);
@@ -739,6 +747,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } else {
       try {
         localStorage.removeItem('ihas_github_token_master');
+        localStorage.removeItem('ihas_github_token');
+        safeStorage.removeItem('ihas_github_token_master');
         safeStorage.removeItem('ihas_github_token');
       } catch (e) {
         console.warn('Storage token remove notice:', e);
@@ -746,7 +756,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     const updatedCfg: GitHubConfig = {
       ...cfg,
-      token: cleanToken
+      token: cleanToken,
+      owner: cleanOwner,
+      repo: cleanRepo
     };
     setGithubConfig(updatedCfg);
     persistItem('ihas_github_config', updatedCfg);
@@ -952,6 +964,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setCodeSyncStatus('saving');
     const autoSyncTimer = setTimeout(async () => {
+      // 1. Local Dev Server Codebase File Write (for local dev persistence, non-blocking on Vercel)
       try {
         const snapshot = {
           ihas_school_settings: latestEntitiesRef.current.schoolSettings,
@@ -970,7 +983,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           ihas_chatbot_training: latestEntitiesRef.current.chatbotTraining,
           ihas_quizzes: latestEntitiesRef.current.modelTests,
           ihas_admin_creds: latestEntitiesRef.current.adminCredentials,
-          ihas_github_config: latestEntitiesRef.current.githubConfig,
+          ihas_github_config: {
+            ...latestEntitiesRef.current.githubConfig,
+            token: '' // Never write raw PAT into repository files
+          },
           _meta: {
             authoritative: true,
             platform: 'I Have A School',
@@ -980,42 +996,70 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
         };
 
-        const res = await fetch('/api/sync-to-code', {
+        fetch('/api/sync-to-code', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ snapshot })
-        });
-
-        if (res.ok) {
-          const now = new Date().toISOString();
-          setCodeSyncLastSaved(now);
-          setCodeSyncStatus('saved');
-
-          // Auto-push live changes directly to GitHub repository if token is present
-          const activeToken = (githubConfig.token && githubConfig.token.trim()) || getStoredGitHubToken();
-          if (githubConfig.enabled && githubConfig.autoPushOnChange && activeToken) {
-            pushDataToGitHub({ ...githubConfig, token: activeToken }, latestEntitiesRef.current)
-              .then((pushRes) => {
-                if (pushRes.success) {
-                  setGitHubSyncStatus({
-                    state: 'synced',
-                    message: 'গিটহাবে স্বয়ংক্রিয়ভাবে কোড ও ডেটা পুশ সম্পন্ন হয়েছে',
-                    lastSyncedAt: new Date().toISOString(),
-                    lastCommitSha: pushRes.sha || pushRes.commitSha
-                  });
-                }
-              })
-              .catch((pushErr) => {
-                console.warn('[AutoPush] Background push notice:', pushErr);
-              });
-          }
-        } else {
-          setCodeSyncStatus('error');
-        }
+        })
+          .then((res) => {
+            if (res.ok) {
+              const now = new Date().toISOString();
+              setCodeSyncLastSaved(now);
+              setCodeSyncStatus('saved');
+            }
+          })
+          .catch(() => {});
       } catch {
-        setCodeSyncStatus('error');
+        // Non-blocking on Vercel
       }
-    }, 450);
+
+      // 2. Direct Auto-Push to GitHub Repository (Runs reliably on Vercel and Production!)
+      const activeToken = cleanGitHubToken((githubConfig.token && githubConfig.token.trim()) || getStoredGitHubToken());
+      if (githubConfig.enabled && githubConfig.autoPushOnChange && activeToken) {
+        setGitHubSyncStatus((prev) => ({
+          ...prev,
+          state: 'syncing',
+          message: 'গিটহাবে স্বয়ংক্রিয়ভাবে পুশ ও লাইভ আপডেট হচ্ছে...'
+        }));
+
+        try {
+          const pushRes = await pushDataToGitHub(
+            { ...githubConfig, token: activeToken },
+            latestEntitiesRef.current,
+            `Auto-update from Admin Panel [${new Date().toLocaleTimeString('bn-BD')}]`
+          );
+          if (pushRes.success) {
+            const now = new Date().toISOString();
+            const updatedConfig: GitHubConfig = {
+              ...githubConfig,
+              lastSyncedAt: now,
+              lastCommitSha: pushRes.sha || pushRes.commitSha || ''
+            };
+            setGithubConfig(updatedConfig);
+            persistItem('ihas_github_config', updatedConfig);
+            setGitHubSyncStatus({
+              state: 'synced',
+              message: 'গিটহাবে স্বয়ংক্রিয় পুশ সম্পন্ন ও হোস্টিং রিডিপ্লয় ট্রিগার হয়েছে ✓',
+              lastSyncedAt: now,
+              lastCommitSha: updatedConfig.lastCommitSha
+            });
+          } else {
+            setGitHubSyncStatus((prev) => ({
+              ...prev,
+              state: 'error',
+              message: pushRes.message || 'স্বয়ংক্রিয় পুশ ব্যর্থ হয়েছে'
+            }));
+          }
+        } catch (pushErr: any) {
+          console.warn('[AutoPush] Background push error:', pushErr);
+          setGitHubSyncStatus((prev) => ({
+            ...prev,
+            state: 'error',
+            message: pushErr?.message || 'পুশ নেটওয়ার্ক ত্রুটি'
+          }));
+        }
+      }
+    }, 700);
 
     return () => clearTimeout(autoSyncTimer);
   }, [
@@ -1033,7 +1077,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     routines,
     chatbotTraining,
     modelTests,
-    adminCredentials
+    adminCredentials,
+    githubConfig.enabled,
+    githubConfig.autoPushOnChange,
+    githubConfig.token
   ]);
 
   const pushToGitHub = useCallback(async (
@@ -1043,15 +1090,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setGitHubSyncStatus((prev) => ({
       ...prev,
       state: 'syncing',
-      message: 'গিটহাবে রিয়েল-টাইম ডেটাবেজ পুশ করা হচ্ছে...'
+      message: 'গিটহাবে ৩টি ফাইল অ্যাটমিক পুশ করা হচ্ছে...'
     }));
 
     try {
-      const activeToken = (githubConfig.token && githubConfig.token.trim()) || getStoredGitHubToken();
+      const activeToken = cleanGitHubToken((githubConfig.token && githubConfig.token.trim()) || getStoredGitHubToken());
+      if (!activeToken) {
+        const errMsg = lang === 'bn'
+          ? 'গিটহাব পার্সোনাল অ্যাক্সেস টোকেন (PAT) পাওয়া যায়নি। দয়া করে এডমিন প্যানেলের ১১ নং ট্যাব থেকে টোকেন সেট ও সেভ করুন।'
+          : 'GitHub Personal Access Token is required. Please set it in Admin Panel tab 11.';
+        setGitHubSyncStatus({
+          state: 'error',
+          message: errMsg,
+          lastSyncedAt: githubConfig.lastSyncedAt,
+          lastCommitSha: githubConfig.lastCommitSha
+        });
+        return { success: false, error: errMsg };
+      }
+
       const effectiveConfig: GitHubConfig = {
         ...githubConfig,
-        token: activeToken
+        token: activeToken,
+        owner: (githubConfig.owner && githubConfig.owner.trim()) || 'bmd03024-code',
+        repo: (githubConfig.repo && githubConfig.repo.trim()) || 'I-Have-A-School-'
       };
+
       const snapshot = latestEntitiesRef.current;
       const result = await pushDataToGitHub(effectiveConfig, snapshot, customCommitMessage);
 
@@ -1067,7 +1130,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         persistItem('ihas_github_config', updatedConfig);
         setGitHubSyncStatus({
           state: 'synced',
-          message: 'সফলভাবে পুশ ও লাইভ সিঙ্ক সম্পন্ন হয়েছে',
+          message: 'সফলভাবে পুশ ও লাইভ সিঙ্ক সম্পন্ন হয়েছে (হোস্টিং রিডিপ্লয় ট্রিগার হয়েছে) ✓',
           lastSyncedAt: now,
           lastCommitSha: updatedConfig.lastCommitSha
         });
@@ -1094,7 +1157,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } finally {
       setIsGitHubSyncing(false);
     }
-  }, [githubConfig]);
+  }, [githubConfig, lang]);
 
   // Master function to write the entire database snapshot directly into the codebase file (src/data/liveData.json)
   const saveAllToCodebase = useCallback(async (customOverrides?: Record<string, any>): Promise<{ success: boolean; message: string }> => {

@@ -637,19 +637,32 @@ export const INITIAL_CHATBOT_TRAINING: ChatbotTrainingItem[] = [
 
 // Helper to retrieve securely saved GitHub token across all reloads
 export const getStoredGitHubToken = (): string => {
+  const sanitize = (val: any): string => {
+    if (!val || typeof val !== 'string') return '';
+    let cleaned = val.trim();
+    cleaned = cleaned.replace(/^["']|["']$/g, '').trim();
+    if (cleaned.toLowerCase().startsWith('bearer ')) {
+      cleaned = cleaned.slice(7).trim();
+    } else if (cleaned.toLowerCase().startsWith('token ')) {
+      cleaned = cleaned.slice(6).trim();
+    }
+    return cleaned;
+  };
+
   try {
     if (typeof window !== 'undefined') {
-      const master = localStorage.getItem('ihas_github_token_master');
-      if (master && master.trim()) return master.trim();
-      const session = sessionStorage.getItem('ihas_github_token_master');
-      if (session && session.trim()) return session.trim();
-      const legacy = localStorage.getItem('ihas_github_token');
-      if (legacy && legacy.trim()) return legacy.trim();
+      const master = sanitize(localStorage.getItem('ihas_github_token_master'));
+      if (master) return master;
+      const session = sanitize(sessionStorage.getItem('ihas_github_token_master'));
+      if (session) return session;
+      const safe = sanitize(localStorage.getItem('ihas_github_token'));
+      if (safe) return safe;
       const cfgRaw = localStorage.getItem('ihas_github_config');
       if (cfgRaw) {
         try {
           const parsed = JSON.parse(cfgRaw);
-          if (parsed?.token && parsed.token.trim()) return parsed.token.trim();
+          const t = sanitize(parsed?.token);
+          if (t) return t;
         } catch {
           // ignore
         }
@@ -658,7 +671,8 @@ export const getStoredGitHubToken = (): string => {
   } catch {
     // ignore
   }
-  return (typeof process !== 'undefined' && process.env?.VITE_GITHUB_TOKEN) || import.meta.env.VITE_GITHUB_TOKEN || '';
+  const envToken = (typeof process !== 'undefined' && process.env?.VITE_GITHUB_TOKEN) || import.meta.env.VITE_GITHUB_TOKEN || '';
+  return sanitize(envToken);
 };
 
 // Default GitHub Configuration - Token is permanently saved once entered

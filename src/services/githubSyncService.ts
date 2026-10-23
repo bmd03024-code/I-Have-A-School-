@@ -1,5 +1,5 @@
 // GitHub REST API Synchronization Service for I Have A School
-// Supports real-time database pushes from Admin Panel and cross-browser live updates
+// Supports atomic commits, real-time database pushes from Admin Panel, and cross-browser live updates
 
 import { GitHubConfig } from '../types';
 
@@ -11,6 +11,33 @@ export interface GitHubSyncResult {
   commitUrl?: string;
   data?: any;
   error?: string;
+}
+
+// Token sanitizer: removes extra whitespace, wrapping quotes, and unintentional 'Bearer'/'token' prefixes
+export function cleanGitHubToken(token?: string): string {
+  if (!token) return '';
+  let cleaned = token.trim();
+  cleaned = cleaned.replace(/^["']|["']$/g, '').trim();
+  if (cleaned.toLowerCase().startsWith('bearer ')) {
+    cleaned = cleaned.slice(7).trim();
+  } else if (cleaned.toLowerCase().startsWith('token ')) {
+    cleaned = cleaned.slice(6).trim();
+  }
+  return cleaned;
+}
+
+// Normalize owner and repository name (handles trailing hyphens and case)
+export function normalizeRepoInfo(owner?: string, repo?: string): { owner: string; repo: string } {
+  let cleanOwner = (owner || 'bmd03024-code').trim();
+  let cleanRepo = (repo || 'I-Have-A-School-').trim();
+
+  if (cleanOwner.toLowerCase() === 'bmd03024-code') {
+    cleanOwner = 'bmd03024-code';
+    if (cleanRepo === 'I-Have-A-School' || cleanRepo.toLowerCase() === 'i-have-a-school') {
+      cleanRepo = 'I-Have-A-School-';
+    }
+  }
+  return { owner: cleanOwner, repo: cleanRepo };
 }
 
 // UTF-8 safe Base64 encoder (handles Bengali script and Unicode characters properly)
@@ -49,46 +76,38 @@ export async function testGitHubConnection(config: GitHubConfig): Promise<{
   message: string;
   repoDetails?: any;
   fileExists?: boolean;
+  canPush?: boolean;
 }> {
-  const { token, owner, repo, branch, filePath } = config;
-
-  if (!owner || !repo) {
-    return {
-      success: false,
-      message: 'গিটহাব ওনার (Owner) এবং রিপোজিটরির নাম (Repo) পূরণ করা আবশ্যক।'
-    };
-  }
-
-  const cleanOwner = owner.trim();
-  let cleanRepo = repo.trim();
-  if (cleanOwner.toLowerCase() === 'bmd03024-code' && cleanRepo === 'I-Have-A-School') {
-    cleanRepo = 'I-Have-A-School-';
-  }
+  const { owner: rawOwner, repo: rawRepo, token, branch, filePath } = config;
+  const { owner: cleanOwner, repo: cleanRepo } = normalizeRepoInfo(rawOwner, rawRepo);
+  const cleanToken = cleanGitHubToken(token);
   const cleanBranch = (branch || 'main').trim();
   const cleanPath = (filePath || 'data/ihas_live_database.json').replace(/^\/+/, '').trim();
 
-  const headers: Record<string, string> = {
-    Accept: 'application/vnd.github.v3+json'
-  };
-
-  if (token && token.trim()) {
-    headers.Authorization = `Bearer ${token.trim()}`;
+  if (!cleanToken) {
+    return {
+      success: false,
+      message: 'গিটহাব পার্সোনাল অ্যাক্সেস টোকেন (PAT) প্রদান করা হয়নি।'
+    };
   }
 
+  const headers: Record<string, string> = {
+    Accept: 'application/vnd.github.v3+json',
+    Authorization: `Bearer ${cleanToken}`
+  };
+
   try {
-    // 1. Verify Repository exists
+    // 1. Verify Repository and check permissions
     let repoRes = await fetch(`https://api.github.com/repos/${cleanOwner}/${cleanRepo}`, {
       headers
     });
 
     if (!repoRes.ok && repoRes.status === 404 && !cleanRepo.endsWith('-')) {
-      // Auto-fallback check if repo has trailing hyphen
       const altRes = await fetch(`https://api.github.com/repos/${cleanOwner}/${cleanRepo}-`, {
         headers
       });
       if (altRes.ok) {
         repoRes = altRes;
-        cleanRepo = `${cleanRepo}-`;
       }
     }
 
@@ -96,13 +115,13 @@ export async function testGitHubConnection(config: GitHubConfig): Promise<{
       if (repoRes.status === 404) {
         return {
           success: false,
-          message: `রিপোজিটরি '${cleanOwner}/${cleanRepo}' খুঁজে পাওয়া যায়নি। দ্রষ্টব্য: আপনার গিটহাব রিপোজিটরির নাম 'I-Have-A-School-' (শেষে হাইফেন '-' সহ)।`
+          message: `রিপোজিটরি '${cleanOwner}/${cleanRepo}' খুঁজে পাওয়া যায়নি। রিপোজিটরি নাম ও ওনার সঠিক কিনা যাচাই করুন।`
         };
       }
       if (repoRes.status === 401) {
         return {
           success: false,
-          message: 'GitHub Personal Access Token টি ভুল বা মেয়াদোত্তীর্ণ। সঠিক টোকেন প্রদান করুন।'
+          message: 'GitHub Personal Access Token টি ভুল, অবৈধ বা মেয়াদোত্তীর্ণ। সঠিক টোকেন প্রদান করুন।'
         };
       }
       return {
@@ -112,6 +131,7 @@ export async function testGitHubConnection(config: GitHubConfig): Promise<{
     }
 
     const repoData = await repoRes.json();
+    const canPush = Boolean(repoData.permissions?.push || repoData.permissions?.admin);
 
     // 2. Check if data file exists in repo
     let fileExists = false;
@@ -124,19 +144,26 @@ export async function testGitHubConnection(config: GitHubConfig): Promise<{
         fileExists = true;
       }
     } catch {
-      // not critical if file doesn't exist yet; it will be created on first push
+      // not critical if file doesn't exist yet
+    }
+
+    let message = '';
+    if (canPush) {
+      message = `গিটহাব রিপোজিটরি '${repoData.full_name}' সফলভাবে কানেক্টেড এবং পুশ পারমিশন সক্রিয় (Full Write & Auto-Deploy Access)!`;
+    } else {
+      message = `গিটহাব রিপোজিটরি কানেক্টেড, কিন্তু পুশ পারমিশন নেই। টোকেন তৈরি করার সময় 'repo' স্কোপ নির্বাচন করুন।`;
     }
 
     return {
-      success: true,
-      message: fileExists
-        ? `গিটহাব রিপোজিটরি '${repoData.full_name}' ও ডেটা ফাইল '${cleanPath}' সফলভাবে কানেক্টেড!`
-        : `গিটহাব রিপোজিটরি '${repoData.full_name}' কানেক্টেড! প্রথম পুশের পর ফাইল তৈরি হবে।`,
+      success: canPush,
+      canPush,
+      message,
       repoDetails: {
         fullName: repoData.full_name,
         private: repoData.private,
         defaultBranch: repoData.default_branch,
-        updatedAt: repoData.updated_at
+        updatedAt: repoData.updated_at,
+        canPush
       },
       fileExists
     };
@@ -148,13 +175,139 @@ export async function testGitHubConnection(config: GitHubConfig): Promise<{
   }
 }
 
-// In-memory cache for known blob SHAs to prevent GitHub propagation delays
+// In-memory cache for known blob SHAs to speed up individual file fallback
 const knownBlobShaMap = new Map<string, string>();
 
-// Mutex promise queue to serialize GitHub push operations and avoid concurrent commit collisions (HTTP 409)
+// Mutex promise queue to serialize GitHub push operations and avoid concurrent commit collisions
 let pushQueue: Promise<any> = Promise.resolve();
 
-// Helper: Commit a single file to GitHub with automatic conflict retry (HTTP 409 resolution)
+// Atomic Multi-file Commit using Git Database API
+// Commits all 3 files (data/ihas_live_database.json, src/data/liveData.json, public/liveData.json)
+// in ONE SINGLE COMMIT so Vercel triggers EXACTLY ONE auto-deployment!
+async function commitMultipleFilesAtomic(
+  cleanOwner: string,
+  cleanRepo: string,
+  cleanBranch: string,
+  headers: Record<string, string>,
+  files: Array<{ path: string; content: string }>,
+  commitMessage: string
+): Promise<{ success: boolean; commitSha?: string; commitUrl?: string; error?: string }> {
+  // Step 1: Get branch reference (HEAD commit)
+  const refRes = await fetch(
+    `https://api.github.com/repos/${cleanOwner}/${cleanRepo}/git/ref/heads/${cleanBranch}?_t=${Date.now()}`,
+    {
+      headers: {
+        ...headers,
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        Pragma: 'no-cache'
+      },
+      cache: 'no-store'
+    }
+  );
+
+  if (!refRes.ok) {
+    const errJson = await refRes.json().catch(() => null);
+    throw new Error(errJson?.message || `Failed to fetch ref/heads/${cleanBranch}: ${refRes.status}`);
+  }
+
+  const refData = await refRes.json();
+  const parentCommitSha = refData.object?.sha;
+  if (!parentCommitSha) {
+    throw new Error('Could not find latest parent commit SHA');
+  }
+
+  // Step 2: Get base commit to retrieve its base tree SHA
+  const commitRes = await fetch(
+    `https://api.github.com/repos/${cleanOwner}/${cleanRepo}/git/commits/${parentCommitSha}?_t=${Date.now()}`,
+    { headers, cache: 'no-store' }
+  );
+
+  if (!commitRes.ok) {
+    const errJson = await commitRes.json().catch(() => null);
+    throw new Error(errJson?.message || `Failed to fetch commit ${parentCommitSha}`);
+  }
+
+  const commitData = await commitRes.json();
+  const baseTreeSha = commitData.tree?.sha;
+  if (!baseTreeSha) {
+    throw new Error('Could not find base tree SHA');
+  }
+
+  // Step 3: Create a new Tree containing all updated files
+  const treePayload = {
+    base_tree: baseTreeSha,
+    tree: files.map((f) => ({
+      path: f.path,
+      mode: '100644',
+      type: 'blob',
+      content: f.content
+    }))
+  };
+
+  const treeRes = await fetch(
+    `https://api.github.com/repos/${cleanOwner}/${cleanRepo}/git/trees`,
+    {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(treePayload)
+    }
+  );
+
+  if (!treeRes.ok) {
+    const errJson = await treeRes.json().catch(() => null);
+    throw new Error(errJson?.message || `Failed to create tree on GitHub: ${treeRes.status}`);
+  }
+
+  const treeData = await treeRes.json();
+  const newTreeSha = treeData.sha;
+
+  // Step 4: Create new Commit
+  const newCommitPayload = {
+    message: commitMessage,
+    tree: newTreeSha,
+    parents: [parentCommitSha]
+  };
+
+  const newCommitRes = await fetch(
+    `https://api.github.com/repos/${cleanOwner}/${cleanRepo}/git/commits`,
+    {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(newCommitPayload)
+    }
+  );
+
+  if (!newCommitRes.ok) {
+    const errJson = await newCommitRes.json().catch(() => null);
+    throw new Error(errJson?.message || `Failed to create commit on GitHub: ${newCommitRes.status}`);
+  }
+
+  const newCommitData = await newCommitRes.json();
+  const newCommitSha = newCommitData.sha;
+
+  // Step 5: Update branch reference (Fast-Forward)
+  const patchRefRes = await fetch(
+    `https://api.github.com/repos/${cleanOwner}/${cleanRepo}/git/refs/heads/${cleanBranch}`,
+    {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({ sha: newCommitSha, force: false })
+    }
+  );
+
+  if (!patchRefRes.ok) {
+    const errJson = await patchRefRes.json().catch(() => null);
+    throw new Error(errJson?.message || `Failed to update ref/heads/${cleanBranch}: ${patchRefRes.status}`);
+  }
+
+  return {
+    success: true,
+    commitSha: newCommitSha,
+    commitUrl: `https://github.com/${cleanOwner}/${cleanRepo}/commit/${newCommitSha}`
+  };
+}
+
+// Fallback: Commit a single file to GitHub with automatic conflict retry (HTTP 409 resolution)
 async function commitFileWithRetry(
   cleanOwner: string,
   cleanRepo: string,
@@ -169,7 +322,6 @@ async function commitFileWithRetry(
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      // 1. Fetch live, uncached SHA from GitHub
       let currentSha: string | undefined = undefined;
       try {
         const getRes = await fetch(
@@ -192,10 +344,9 @@ async function commitFileWithRetry(
           }
         }
       } catch (err) {
-        console.warn(`[GitHubSync] SHA fetch attempt ${attempt + 1} notice for ${filePath}:`, err);
+        console.warn(`[GitHubSync] SHA fetch notice for ${filePath}:`, err);
       }
 
-      // If fetch returned no sha, fall back to known cached sha if available
       if (!currentSha && knownBlobShaMap.has(filePath)) {
         currentSha = knownBlobShaMap.get(filePath);
       }
@@ -233,26 +384,24 @@ async function commitFileWithRetry(
         };
       }
 
-      // Conflict (409) or bad gateway/rate-limit: retry after delay
       const errJson = await putRes.json().catch(() => null);
       lastError = errJson?.message || putRes.statusText;
 
       if (putRes.status === 409 || putRes.status === 422) {
-        // SHA conflict: clear stale cached SHA, wait for GitHub propagation, and retry
         knownBlobShaMap.delete(filePath);
-        const waitMs = 600 * (attempt + 1);
+        const waitMs = 700 * (attempt + 1);
         await new Promise((r) => setTimeout(r, waitMs));
         continue;
       }
 
       if (attempt < maxRetries) {
-        await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+        await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
         continue;
       }
     } catch (netErr: any) {
       lastError = netErr?.message || 'Network error';
       if (attempt < maxRetries) {
-        await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+        await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
         continue;
       }
     }
@@ -267,9 +416,13 @@ async function executePushDataToGitHub(
   dataPayload: any,
   customCommitMessage?: string
 ): Promise<GitHubSyncResult> {
-  const { token, owner, repo, branch, filePath } = config;
+  const { owner: rawOwner, repo: rawRepo, token, branch, filePath } = config;
+  const { owner: cleanOwner, repo: cleanRepo } = normalizeRepoInfo(rawOwner, rawRepo);
+  const cleanToken = cleanGitHubToken(token);
+  const cleanBranch = (branch || 'main').trim();
+  const cleanPath = (filePath || 'data/ihas_live_database.json').replace(/^\/+/, '').trim();
 
-  if (!token || !token.trim()) {
+  if (!cleanToken) {
     return {
       success: false,
       message: 'গিটহাবে ডেটা পুশ করতে Personal Access Token (PAT) প্রয়োজন।',
@@ -277,35 +430,27 @@ async function executePushDataToGitHub(
     };
   }
 
-  if (!owner || !repo) {
-    return {
-      success: false,
-      message: 'গিটহাব ওনার ও রিপোজিটরি নাম দিন।',
-      error: 'MISSING_REPO'
-    };
-  }
-
-  const cleanOwner = owner.trim();
-  let cleanRepo = repo.trim();
-  if (cleanOwner.toLowerCase() === 'bmd03024-code' && cleanRepo === 'I-Have-A-School') {
-    cleanRepo = 'I-Have-A-School-';
-  }
-  const cleanBranch = (branch || 'main').trim();
-  const cleanPath = (filePath || 'data/ihas_live_database.json').replace(/^\/+/, '').trim();
-
   const headers: Record<string, string> = {
     Accept: 'application/vnd.github.v3+json',
     'Content-Type': 'application/json',
-    Authorization: `Bearer ${token.trim()}`
+    Authorization: `Bearer ${cleanToken}`
   };
 
   try {
     const timestamp = new Date().toISOString();
     const commitMessage =
       customCommitMessage ||
-      `Live code & data sync from Admin Panel [${new Date().toLocaleString('bn-BD', { timeZone: 'Asia/Dhaka' })}]`;
+      `Live update from Admin Panel [${new Date().toLocaleString('bn-BD', { timeZone: 'Asia/Dhaka' })}]`;
 
-    // 1. Prepare data snapshot for data/ihas_live_database.json
+    // 1. Prepare sanitized snapshot for data/ihas_live_database.json
+    // CRITICAL SECURITY NOTE: Never commit raw PAT token into GitHub files!
+    // GitHub's Secret Scanner will immediately revoke it if found.
+    const sanitizedGithubConfig: GitHubConfig = {
+      ...config,
+      token: '', // Strip token from committed file
+      lastSyncedAt: timestamp
+    };
+
     const fullSnapshot = {
       _meta: {
         app: 'I Have A School',
@@ -314,13 +459,86 @@ async function executePushDataToGitHub(
         lastUpdated: timestamp,
         pushedBy: 'Admin Control Panel'
       },
-      ...dataPayload
+      ...dataPayload,
+      githubConfig: sanitizedGithubConfig
     };
 
     const databaseJsonString = JSON.stringify(fullSnapshot, null, 2);
-    const databaseBase64 = encodeUtf8ToBase64(databaseJsonString);
 
-    // Primary commit: data/ihas_live_database.json with automatic retry & conflict resolution
+    // 2. Prepare code snapshot for src/data/liveData.json & public/liveData.json
+    // This ensures Vercel's build (`npm run build`) uses the exact updated data!
+    const codeLiveDataSnapshot: Record<string, any> = {
+      _updatedAt: timestamp,
+      _meta: {
+        lastSavedAt: timestamp,
+        authoritative: true,
+        syncedBy: 'Admin Control Panel Auto Engine',
+        founder: 'MD Touhidul Hoque Tuhin',
+        platform: 'I Have A School'
+      },
+      ihas_school_settings: dataPayload.schoolSettings || fullSnapshot.schoolSettings,
+      ihas_hero_slides: dataPayload.heroSlides || fullSnapshot.heroSlides,
+      ihas_courses: dataPayload.courses || fullSnapshot.courses,
+      ihas_students: dataPayload.students || fullSnapshot.students,
+      ihas_subjects: dataPayload.subjects || fullSnapshot.subjects,
+      ihas_exams: dataPayload.exams || fullSnapshot.exams,
+      ihas_results: dataPayload.results || fullSnapshot.results,
+      ihas_teachers: dataPayload.teachers || fullSnapshot.teachers,
+      ihas_video_classes: dataPayload.videoClasses || fullSnapshot.videoClasses,
+      ihas_videos: dataPayload.videoClasses || fullSnapshot.videoClasses,
+      ihas_notes: dataPayload.notes || fullSnapshot.notes,
+      ihas_notices: dataPayload.notices || fullSnapshot.notices,
+      ihas_routines: dataPayload.routines || fullSnapshot.routines,
+      ihas_chatbot_training: dataPayload.chatbotTraining || fullSnapshot.chatbotTraining,
+      ihas_quizzes: dataPayload.modelTests || fullSnapshot.modelTests,
+      ihas_admin_creds: dataPayload.adminCredentials || fullSnapshot.adminCredentials,
+      ihas_github_config: sanitizedGithubConfig
+    };
+
+    const codeJsonString = JSON.stringify(codeLiveDataSnapshot, null, 2);
+
+    // List of files to commit simultaneously
+    const filesToCommit = [
+      { path: cleanPath, content: databaseJsonString },
+      { path: 'src/data/liveData.json', content: codeJsonString },
+      { path: 'public/liveData.json', content: codeJsonString }
+    ];
+
+    // Method A: Attempt single atomic commit via Git Database API
+    try {
+      const atomicResult = await commitMultipleFilesAtomic(
+        cleanOwner,
+        cleanRepo,
+        cleanBranch,
+        headers,
+        filesToCommit,
+        commitMessage
+      );
+
+      if (atomicResult.success) {
+        // Purge CDN caches asynchronously
+        try {
+          fetch(`https://purge.jsdelivr.net/gh/${cleanOwner}/${cleanRepo}@${cleanBranch}/data/ihas_live_database.json`, { method: 'POST', mode: 'no-cors' }).catch(() => {});
+          fetch(`https://purge.jsdelivr.net/gh/${cleanOwner}/${cleanRepo}@${cleanBranch}/public/liveData.json`, { method: 'POST', mode: 'no-cors' }).catch(() => {});
+          fetch(`https://purge.jsdelivr.net/gh/${cleanOwner}/${cleanRepo}@${cleanBranch}/src/data/liveData.json`, { method: 'POST', mode: 'no-cors' }).catch(() => {});
+        } catch {
+          // ignore
+        }
+
+        return {
+          success: true,
+          message: 'গিটহাবে ৩টি ফাইল সফলভাবে অ্যাটমিক পুশ হয়েছে এবং হোস্টিং রিডিপ্লয় ট্রিগার হয়েছে!',
+          commitSha: atomicResult.commitSha,
+          sha: atomicResult.commitSha,
+          commitUrl: atomicResult.commitUrl
+        };
+      }
+    } catch (atomicErr: any) {
+      console.warn('[GitHubSync] Atomic commit notice, falling back to Contents API:', atomicErr?.message);
+    }
+
+    // Method B: Fallback to Contents API with sequential commits
+    const databaseBase64 = encodeUtf8ToBase64(databaseJsonString);
     const primaryResult = await commitFileWithRetry(
       cleanOwner,
       cleanRepo,
@@ -339,61 +557,27 @@ async function executePushDataToGitHub(
       };
     }
 
-    // 2. Also push to src/data/liveData.json & public/liveData.json so the codebase itself is directly updated in GitHub!
-    try {
-      const codeLiveDataSnapshot: Record<string, any> = {
-        _updatedAt: timestamp,
-        _meta: {
-          lastSavedAt: timestamp,
-          authoritative: true,
-          syncedBy: 'Admin Control Panel Auto Engine',
-          founder: 'MD Touhidul Hoque Tuhin'
-        },
-        ihas_school_settings: dataPayload.schoolSettings || fullSnapshot.schoolSettings,
-        ihas_hero_slides: dataPayload.heroSlides || fullSnapshot.heroSlides,
-        ihas_courses: dataPayload.courses || fullSnapshot.courses,
-        ihas_students: dataPayload.students || fullSnapshot.students,
-        ihas_subjects: dataPayload.subjects || fullSnapshot.subjects,
-        ihas_exams: dataPayload.exams || fullSnapshot.exams,
-        ihas_results: dataPayload.results || fullSnapshot.results,
-        ihas_teachers: dataPayload.teachers || fullSnapshot.teachers,
-        ihas_video_classes: dataPayload.videoClasses || fullSnapshot.videoClasses,
-        ihas_videos: dataPayload.videoClasses || fullSnapshot.videoClasses,
-        ihas_notes: dataPayload.notes || fullSnapshot.notes,
-        ihas_notices: dataPayload.notices || fullSnapshot.notices,
-        ihas_routines: dataPayload.routines || fullSnapshot.routines,
-        ihas_chatbot_training: dataPayload.chatbotTraining || fullSnapshot.chatbotTraining,
-        ihas_quizzes: dataPayload.modelTests || fullSnapshot.modelTests,
-        ihas_admin_creds: dataPayload.adminCredentials || fullSnapshot.adminCredentials,
-        ihas_github_config: {
-          ...config,
-          lastSyncedAt: timestamp,
-          lastCommitSha: primaryResult.sha || primaryResult.commitSha || ''
-        }
-      };
+    // Also commit codebase files
+    const codeBase64 = encodeUtf8ToBase64(codeJsonString);
+    await commitFileWithRetry(
+      cleanOwner,
+      cleanRepo,
+      'src/data/liveData.json',
+      cleanBranch,
+      headers,
+      codeBase64,
+      `Update codebase data [${timestamp}]`
+    ).catch(() => {});
 
-      const codeBase64 = encodeUtf8ToBase64(JSON.stringify(codeLiveDataSnapshot, null, 2));
-      await commitFileWithRetry(
-        cleanOwner,
-        cleanRepo,
-        'src/data/liveData.json',
-        cleanBranch,
-        headers,
-        codeBase64,
-        `Update codebase data [${timestamp}]`
-      );
-
-      // Invalidate global jsDelivr CDN caches so visitors worldwide receive live data within 1-2 seconds
-      try {
-        fetch(`https://purge.jsdelivr.net/gh/${cleanOwner}/${cleanRepo}@${cleanBranch}/data/ihas_live_database.json`, { method: 'POST', mode: 'no-cors' }).catch(() => {});
-        fetch(`https://purge.jsdelivr.net/gh/${cleanOwner}/${cleanRepo}@${cleanBranch}/public/liveData.json`, { method: 'POST', mode: 'no-cors' }).catch(() => {});
-        fetch(`https://purge.jsdelivr.net/gh/${cleanOwner}/${cleanRepo}@${cleanBranch}/src/data/liveData.json`, { method: 'POST', mode: 'no-cors' }).catch(() => {});
-      } catch (_purgeErr) {
-        void _purgeErr;
-      }
-    } catch (codePushErr) {
-      console.warn('[GitHubSync] Non-blocking notice pushing codebase JSONs:', codePushErr);
-    }
+    await commitFileWithRetry(
+      cleanOwner,
+      cleanRepo,
+      'public/liveData.json',
+      cleanBranch,
+      headers,
+      codeBase64,
+      `Update public liveData [${timestamp}]`
+    ).catch(() => {});
 
     return {
       success: true,
@@ -433,32 +617,21 @@ export async function fetchDataFromGitHub(config: GitHubConfig): Promise<{
   sha?: string;
   lastUpdated?: string;
 }> {
-  const { token, owner, repo, branch, filePath } = config;
-
-  if (!owner || !repo) {
-    return {
-      success: false,
-      message: 'ওনার ও রিপোজিটরি কনফিগারেশন নেই।'
-    };
-  }
-
-  const cleanOwner = owner.trim();
-  let cleanRepo = repo.trim();
-  if (cleanOwner.toLowerCase() === 'bmd03024-code' && cleanRepo === 'I-Have-A-School') {
-    cleanRepo = 'I-Have-A-School-';
-  }
+  const { owner: rawOwner, repo: rawRepo, token, branch, filePath } = config;
+  const { owner: cleanOwner, repo: cleanRepo } = normalizeRepoInfo(rawOwner, rawRepo);
+  const cleanToken = cleanGitHubToken(token);
   const cleanBranch = (branch || 'main').trim();
   const cleanPath = (filePath || 'data/ihas_live_database.json').replace(/^\/+/, '').trim();
 
   // Tier 1: If Token provided, use GitHub Contents API (works for both private & public repos)
-  if (token && token.trim()) {
+  if (cleanToken) {
     try {
       const res = await fetch(
         `https://api.github.com/repos/${cleanOwner}/${cleanRepo}/contents/${cleanPath}?ref=${cleanBranch}&_ts=${Date.now()}`,
         {
           headers: {
             Accept: 'application/vnd.github.v3+json',
-            Authorization: `Bearer ${token.trim()}`,
+            Authorization: `Bearer ${cleanToken}`,
             'Cache-Control': 'no-cache, no-store, must-revalidate'
           },
           cache: 'no-store'
@@ -467,7 +640,6 @@ export async function fetchDataFromGitHub(config: GitHubConfig): Promise<{
 
       if (res.ok) {
         const fileInfo = await res.json();
-        // Case A: Content inline (< 1MB)
         if (fileInfo.content) {
           const decodedText = decodeBase64ToUtf8(fileInfo.content);
           const parsed = JSON.parse(decodedText);
@@ -480,10 +652,9 @@ export async function fetchDataFromGitHub(config: GitHubConfig): Promise<{
             lastUpdated: parsed._meta?.lastUpdated || parsed._updatedAt || new Date().toISOString()
           };
         }
-        // Case B: Content > 1MB, fetch download_url
         if (fileInfo.download_url) {
           const downRes = await fetch(fileInfo.download_url + `?_ts=${Date.now()}`, {
-            headers: { Authorization: `Bearer ${token.trim()}` },
+            headers: { Authorization: `Bearer ${cleanToken}` },
             cache: 'no-store'
           });
           if (downRes.ok) {

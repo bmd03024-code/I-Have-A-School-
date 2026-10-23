@@ -20,7 +20,7 @@ import {
   BookA
 } from 'lucide-react';
 import { GitHubConfig, Language } from '../../types';
-import { testGitHubConnection } from '../../services/githubSyncService';
+import { testGitHubConnection, cleanGitHubToken, normalizeRepoInfo } from '../../services/githubSyncService';
 import { safeStorage } from '../../lib/storageService';
 import { getStoredGitHubToken } from '../../data/mockData';
 
@@ -50,12 +50,24 @@ export const GitHubSyncTab: React.FC<GitHubSyncTabProps> = ({
   lang,
   showToast
 }) => {
-  const initialToken = (config.token && config.token.trim()) || getStoredGitHubToken();
-  const [formData, setFormData] = useState<GitHubConfig>({ ...config, token: initialToken });
+  const initialToken = cleanGitHubToken(config.token || getStoredGitHubToken());
+  const { owner: normOwner, repo: normRepo } = normalizeRepoInfo(config.owner, config.repo);
+  const [formData, setFormData] = useState<GitHubConfig>({
+    ...config,
+    owner: normOwner,
+    repo: normRepo,
+    token: initialToken
+  });
 
   React.useEffect(() => {
-    const savedToken = (config.token && config.token.trim()) || getStoredGitHubToken();
-    setFormData({ ...config, token: savedToken });
+    const savedToken = cleanGitHubToken(config.token || getStoredGitHubToken());
+    const { owner: curOwner, repo: curRepo } = normalizeRepoInfo(config.owner, config.repo);
+    setFormData({
+      ...config,
+      owner: curOwner,
+      repo: curRepo,
+      token: savedToken
+    });
   }, [config]);
 
   const [showToken, setShowToken] = useState(false);
@@ -65,13 +77,16 @@ export const GitHubSyncTab: React.FC<GitHubSyncTabProps> = ({
     success: boolean;
     message: string;
     repoDetails?: any;
+    canPush?: boolean;
   } | null>(null);
   const [copiedSha, setCopiedSha] = useState(false);
   const [customCommitMsg, setCustomCommitMsg] = useState('');
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    const tokenVal = formData.token ? formData.token.trim() : '';
+    const tokenVal = cleanGitHubToken(formData.token);
+    const { owner: cleanOwner, repo: cleanRepo } = normalizeRepoInfo(formData.owner, formData.repo);
+
     if (tokenVal) {
       try {
         localStorage.setItem('ihas_github_token_master', tokenVal);
@@ -82,11 +97,18 @@ export const GitHubSyncTab: React.FC<GitHubSyncTabProps> = ({
         console.warn('Storage token set error:', err);
       }
     }
-    updateConfig({ ...formData, token: tokenVal });
+    const updated = {
+      ...formData,
+      owner: cleanOwner,
+      repo: cleanRepo,
+      token: tokenVal
+    };
+    setFormData(updated);
+    updateConfig(updated);
     showToast(
       lang === 'bn'
-        ? 'গিটহাব টোকেন ও কনফিগারেশন স্থায়ীভাবে সংরক্ষিত হয়েছে! আর বারবার বসানোর প্রয়োজন নেই।'
-        : 'GitHub token and configuration permanently saved! No need to enter again.'
+        ? 'গিটহাব টোকেন ও রিপোজিটরি কনফিগারেশন স্থায়ীভাবে সংরক্ষিত হয়েছে! এখন যেকোনো আপডেটে স্বয়ংক্রিয় পুশ হবে।'
+        : 'GitHub token & repo configuration permanently saved! Auto-push is now active.'
     );
   };
 
@@ -106,42 +128,50 @@ export const GitHubSyncTab: React.FC<GitHubSyncTabProps> = ({
   };
 
   const handleTestConnection = async () => {
-    if (!formData.token?.trim()) {
+    const tokenVal = cleanGitHubToken(formData.token);
+    if (!tokenVal) {
       setTestResult({
         tested: true,
         success: false,
         message: lang === 'bn'
-          ? 'গিটহাব পার্সোনাল অ্যাক্সেস টোকেন (PAT) প্রদান করা হয়নি। অনুগ্রহ করে নিচে আপনার টোকেনটি প্রবেশ করিয়ে টেস্ট করুন।'
+          ? 'গিটহাব পার্সোনাল অ্যাক্সেস টোকেন (PAT) ফিল্ডটি খালি। অনুগ্রহ করে নিচে আপনার টোকেনটি প্রবেশ করিয়ে টেস্ট করুন।'
           : 'GitHub Personal Access Token (PAT) is empty. Please enter your token below.'
       });
       showToast(lang === 'bn' ? 'টোকেন প্রদান করুন!' : 'Token required!');
       return;
     }
+
     setIsTesting(true);
     setTestResult(null);
     try {
-      const res = await testGitHubConnection(formData);
+      const { owner: cleanOwner, repo: cleanRepo } = normalizeRepoInfo(formData.owner, formData.repo);
+      const testConfig = { ...formData, owner: cleanOwner, repo: cleanRepo, token: tokenVal };
+      const res = await testGitHubConnection(testConfig);
       setTestResult({
         tested: true,
         success: res.success,
         message: res.message,
-        repoDetails: res.repoDetails
+        repoDetails: res.repoDetails,
+        canPush: res.canPush
       });
       if (res.success) {
         // Auto-save verified token permanently
         try {
-          const validToken = formData.token.trim();
-          localStorage.setItem('ihas_github_token_master', validToken);
-          localStorage.setItem('ihas_github_token', validToken);
-          safeStorage.setItem('ihas_github_token_master', validToken);
-          safeStorage.setItem('ihas_github_token', validToken);
-          updateConfig({ ...formData, token: validToken });
+          localStorage.setItem('ihas_github_token_master', tokenVal);
+          localStorage.setItem('ihas_github_token', tokenVal);
+          safeStorage.setItem('ihas_github_token_master', tokenVal);
+          safeStorage.setItem('ihas_github_token', tokenVal);
+          updateConfig(testConfig);
         } catch {
           // ignore
         }
-        showToast(lang === 'bn' ? 'গিটহাব সংযোগ সফল ও টোকেন স্থায়ীভাবে সংরক্ষিত হয়েছে!' : 'GitHub connection verified & saved permanently!');
+        showToast(
+          lang === 'bn' 
+            ? 'গিটহাব সংযোগ সফল ও টোকেন স্থায়ীভাবে সংরক্ষিত হয়েছে (Auto-Deploy Ready)!' 
+            : 'GitHub connection verified & saved permanently!'
+        );
       } else {
-        showToast(lang === 'bn' ? 'সংযোগ ত্রুটি!' : 'Connection error!');
+        showToast(lang === 'bn' ? 'সংযোগ ত্রুটি বা পারমিশন সমস্যা!' : 'Connection error!');
       }
     } finally {
       setIsTesting(false);
@@ -327,11 +357,20 @@ export const GitHubSyncTab: React.FC<GitHubSyncTabProps> = ({
           ) : (
             <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
           )}
-          <div className="space-y-1">
+          <div className="space-y-1.5 flex-1">
             <div className="font-bold text-sm">{testResult.message}</div>
             {testResult.repoDetails && (
-              <div className="font-mono text-[11px] opacity-90">
-                Repo: {testResult.repoDetails.fullName} • Default Branch: {testResult.repoDetails.defaultBranch} • Visibility: {testResult.repoDetails.private ? 'Private' : 'Public'}
+              <div className="font-mono text-[11px] opacity-90 space-y-0.5">
+                <div>
+                  Repo: <strong>{testResult.repoDetails.fullName}</strong> • Branch: <strong>{testResult.repoDetails.defaultBranch}</strong> • Push Access: <strong className={testResult.canPush ? 'text-emerald-700' : 'text-rose-700'}>{testResult.canPush ? 'Granted ✓' : 'Denied ✗'}</strong>
+                </div>
+                {testResult.canPush && (
+                  <div className="text-emerald-800 font-sans font-semibold text-xs pt-1">
+                    {lang === 'bn' 
+                      ? '🚀 গিটহাব অটো-পুশ ও Vercel রিডিপ্লয় সিস্টেম সম্পূর্ণ কার্যকর। যেকোনো পরিবর্তনের সাথে সাথে রিপোজিটরি আপডেট হবে।'
+                      : '🚀 GitHub Auto-Push & Vercel Re-deploy pipeline is 100% active and ready.'}
+                  </div>
+                )}
               </div>
             )}
           </div>
