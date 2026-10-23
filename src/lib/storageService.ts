@@ -1,5 +1,5 @@
-// Robust IndexedDB & Real-Time Sync Service for I Have A School
-// Pure Google Cloud architecture & local IndexedDB storage with zero Firebase/Firestore dependencies.
+// Robust IndexedDB & Local Storage Service for I Have A School
+// Pure client storage with zero Firebase/Supabase/Google Cloud dependencies.
 
 const DB_NAME = 'ihas_database';
 const DB_VERSION = 2;

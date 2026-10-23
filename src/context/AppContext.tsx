@@ -14,10 +14,7 @@ import {
   Notice,
   ClassRoutine,
   ChatbotTrainingItem,
-  GoogleCloudConfig,
   GitHubConfig,
-  UniversalCloudSyncConfig,
-  UniversalSyncStatus,
   ModelTest
 } from '../types';
 import { 
@@ -34,42 +31,15 @@ import {
   NOTICES as DEFAULT_NOTICES,
   INITIAL_ROUTINES,
   INITIAL_CHATBOT_TRAINING,
-  DEFAULT_GOOGLE_CLOUD_CONFIG,
   DEFAULT_GITHUB_CONFIG,
-  DEFAULT_UNIVERSAL_CLOUD_SYNC_CONFIG,
   getStoredGitHubToken,
   MODEL_TESTS as DEFAULT_TESTS
 } from '../data/mockData';
 import codeLiveData from '../data/liveData.json';
 import { notifyRealtimeUpdate, subscribeRealtimeUpdate, clearAllCachesAndBroadcast, safeStorage } from '../lib/storageService';
 import { pushDataToGitHub, fetchDataFromGitHub } from '../services/githubSyncService';
-import { fetchOpenCloudData, pushToOpenCloud, testOpenCloudConnection } from '../services/cloudSyncService';
-import {
-  supabase,
-  testSupabaseTableStatus,
-  testSupabaseConnection,
-  fetchCentralDatabase,
-  saveCentralEntity,
-  saveCentralSnapshot,
-  deleteCentralEntity,
-  subscribeToCentralRealtime,
-  REQUIRED_SQL_MIGRATION
-} from '../lib/supabase';
 
 export interface AppContextType {
-  // Central Supabase Database & Realtime
-  supabaseStatus: {
-    ready: boolean;
-    tableExists: boolean;
-    realtimeConnected: boolean;
-    message: string;
-    lastSyncedAt?: string;
-    error?: string;
-  };
-  syncAllToSupabase: () => Promise<{ success: boolean; message: string; tableMissing?: boolean }>;
-  testSupabaseStatus: () => Promise<void>;
-  requiredSqlMigration: string;
-
   // Codebase Direct Sync & Authoritative Storage
   isCodeSyncing: boolean;
   codeSyncLastSaved: string | null;
@@ -161,20 +131,6 @@ export interface AppContextType {
   addModelTest: (test: ModelTest) => void;
   updateModelTest: (test: ModelTest) => void;
   deleteModelTest: (id: string) => void;
-
-  // Google Cloud & Realtime
-  googleCloudConfig: GoogleCloudConfig;
-  updateGoogleCloudConfig: (config: GoogleCloudConfig) => void;
-  isCloudSyncing: boolean;
-  triggerCloudSync: () => Promise<void>;
-
-  // Universal Real-Time Cloud Sync (Zero Firebase, Zero Supabase, Zero Google Cloud)
-  universalCloudSyncConfig: UniversalCloudSyncConfig;
-  updateUniversalCloudSyncConfig: (config: UniversalCloudSyncConfig) => void;
-  isUniversalCloudSyncing: boolean;
-  universalCloudSyncStatus: UniversalSyncStatus;
-  triggerUniversalCloudSync: () => Promise<void>;
-  testCloudConnection: () => Promise<{ success: boolean; message: string; latencyMs?: number }>;
 
   // GitHub REST API Integration & Cross-Browser Live Sync
   githubConfig: GitHubConfig;
@@ -334,74 +290,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return (codeLiveData as any)?._meta?.updatedAt || (codeLiveData as any)?._meta?.lastSavedAt || (codeLiveData as any)?._updatedAt || null;
   });
 
-  // Central Supabase status state
-  const [supabaseStatus, setSupabaseStatus] = useState<{
-    ready: boolean;
-    tableExists: boolean;
-    realtimeConnected: boolean;
-    message: string;
-    lastSyncedAt?: string;
-    error?: string;
-  }>({
-    ready: false,
-    tableExists: false,
-    realtimeConnected: false,
-    message: 'সুপারবেস ক্লাউড স্ট্যাটাস চেক করা হচ্ছে...',
-  });
-
   // Track exact timestamp of user/admin local edits to guard against stale incoming network snapshots
   const lastLocalEditTimeRef = useRef<number>(0);
 
-  // Master Commit & Real-Time Sync Engine:
-  // Atomically executes:
-  // 1. Storage persistence (localStorage + IndexedDB)
-  // 2. Central Supabase persistent write (saveCentralEntity) - updates database for all devices
-  // 3. Cross-tab/window BroadcastChannel, CustomEvent, and storage event ping
-  // 4. Server codebase write (/api/sync-to-code) triggering instant SSE stream to all visitors
+  // Commit changes to local persistent storage and server codebase file
   const commitAndSync = useCallback((key: string, topic: string, data: any) => {
     lastLocalEditTimeRef.current = Date.now();
     persistItem(key, data);
     notifyRealtimeUpdate(topic, data);
     setCodeSyncLastSaved(new Date().toISOString());
 
-    // 1. Central Supabase Cloud Database write
-    saveCentralEntity(key, data)
-      .then((res) => {
-        if (res.success) {
-          const now = new Date().toISOString();
-          setSupabaseStatus((prev) => ({
-            ...prev,
-            ready: true,
-            tableExists: true,
-            message: 'সুপারবেস ক্লাউড ডেটাবেজে সফলভাবে সংরক্ষিত হয়েছে',
-            lastSyncedAt: now,
-            error: undefined,
-          }));
-        } else {
-          console.warn(`[Supabase Write Warning] key="${key}":`, res.error);
-          if (res.tableMissing) {
-            setSupabaseStatus((prev) => ({
-              ...prev,
-              ready: false,
-              tableExists: false,
-              message: 'সুপারবেস টেবিল "public.ihas_data" অনুপস্থিত। SQL Editor-এ Migration চালান।',
-              error: res.error,
-            }));
-          } else {
-            setSupabaseStatus((prev) => ({
-              ...prev,
-              ready: false,
-              message: `সুপারবেস সেভ ব্যর্থ: ${res.error || 'ত্রুটি'}`,
-              error: res.error,
-            }));
-          }
-        }
-      })
-      .catch((err) => {
-        console.warn(`[Supabase Write Exception] key="${key}":`, err);
-      });
-
-    // 2. Local dev server write & SSE broadcast
+    // Local dev server write to update codebase files
     try {
       fetch('/api/sync-to-code', {
         method: 'POST',
@@ -788,90 +687,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [commitAndSync]);
 
   // 14. Google Cloud Database & Storage Integration
-  const [googleCloudConfig, setGoogleCloudConfig] = useState<GoogleCloudConfig>(() => {
-    return getPersistedItem('ihas_google_cloud_config', DEFAULT_GOOGLE_CLOUD_CONFIG);
-  });
-
-  const [isCloudSyncing, setIsCloudSyncing] = useState(false);
-
-  const updateGoogleCloudConfig = (config: GoogleCloudConfig) => {
-    setGoogleCloudConfig(config);
-    persistItem('ihas_google_cloud_config', config);
-    notifyRealtimeUpdate('googleCloudConfig', config);
-  };
-
-  const triggerCloudSync = async () => {
-    setIsCloudSyncing(true);
-    try {
-      // Simulate/trigger real-time handshake with Google Cloud storage & synchronization endpoint
-      await new Promise((resolve) => setTimeout(resolve, 800));
-      const updatedConfig = {
-        ...googleCloudConfig,
-        lastSyncedAt: new Date().toISOString()
-      };
-      setGoogleCloudConfig(updatedConfig);
-      persistItem('ihas_google_cloud_config', updatedConfig);
-      notifyRealtimeUpdate('googleCloudSync', { status: 'synced', time: updatedConfig.lastSyncedAt });
-    } finally {
-      setIsCloudSyncing(false);
-    }
-  };
-
-  // 14. Universal Real-Time Cloud Sync (Zero Firebase, Zero Supabase, Zero Google Cloud)
-  const [universalCloudSyncConfig, setUniversalCloudSyncConfig] = useState<UniversalCloudSyncConfig>(() => {
-    try {
-      const saved = safeStorage.getItem('ihas_universal_cloud_config');
-      if (saved) return JSON.parse(saved);
-      return DEFAULT_UNIVERSAL_CLOUD_SYNC_CONFIG;
-    } catch {
-      return DEFAULT_UNIVERSAL_CLOUD_SYNC_CONFIG;
-    }
-  });
-
-  const [isUniversalCloudSyncing, setIsUniversalCloudSyncing] = useState(false);
-  const [universalCloudSyncStatus, setUniversalCloudSyncStatus] = useState<UniversalSyncStatus>({
-    state: 'idle',
-    message: 'প্রস্তুত (Ready)',
-    lastSyncedAt: universalCloudSyncConfig.lastSyncedAt
-  });
-
-  const updateUniversalCloudSyncConfig = (cfg: UniversalCloudSyncConfig) => {
-    setUniversalCloudSyncConfig(cfg);
-    persistItem('ihas_universal_cloud_config', cfg);
-    notifyRealtimeUpdate('universalCloudConfig', cfg);
-  };
-
-  const triggerUniversalCloudSync = async () => {
-    if (!universalCloudSyncConfig.endpointUrl) return;
-    setIsUniversalCloudSyncing(true);
-    setUniversalCloudSyncStatus({ state: 'syncing', message: 'ক্লাউডে ডেটা সিঙ্ক হচ্ছে...' });
-    try {
-      const res = await pushToOpenCloud(universalCloudSyncConfig, latestEntitiesRef.current);
-      if (res.success) {
-        const now = new Date().toISOString();
-        const updated = { ...universalCloudSyncConfig, lastSyncedAt: now };
-        updateUniversalCloudSyncConfig(updated);
-        setUniversalCloudSyncStatus({
-          state: 'synced',
-          message: 'ক্লাউড স্টোরে সফলভাবে সিঙ্ক সম্পন্ন হয়েছে',
-          lastSyncedAt: now
-        });
-      } else {
-        setUniversalCloudSyncStatus({
-          state: 'error',
-          message: res.message || 'সিঙ্ক ব্যর্থ হয়েছে'
-        });
-      }
-    } catch (e: any) {
-      setUniversalCloudSyncStatus({ state: 'error', message: e.message || 'এরর' });
-    } finally {
-      setIsUniversalCloudSyncing(false);
-    }
-  };
-
-  const testCloudConnection = async () => {
-    return testOpenCloudConnection(universalCloudSyncConfig);
-  };
 
   // 15. GitHub REST API Database Sync & Cross-Browser Live Update
   // Master Token is permanently preserved so the admin only enters it once
@@ -1369,106 +1184,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [githubConfig, lang, pushToGitHub]);
 
-  // Master function to seed and synchronize the entire database to Supabase central database
-  const syncAllToSupabase = useCallback(async (): Promise<{
-    success: boolean;
-    message: string;
-    tableMissing?: boolean;
-  }> => {
-    try {
-      const snapshot = {
-        ihas_school_settings: latestEntitiesRef.current.schoolSettings,
-        ihas_hero_slides: latestEntitiesRef.current.heroSlides,
-        ihas_courses: latestEntitiesRef.current.courses,
-        ihas_students: latestEntitiesRef.current.students,
-        ihas_subjects: latestEntitiesRef.current.subjects,
-        ihas_exams: latestEntitiesRef.current.exams,
-        ihas_results: latestEntitiesRef.current.results,
-        ihas_teachers: latestEntitiesRef.current.teachers,
-        ihas_video_classes: latestEntitiesRef.current.videoClasses,
-        ihas_videos: latestEntitiesRef.current.videoClasses,
-        ihas_notes: latestEntitiesRef.current.notes,
-        ihas_notices: latestEntitiesRef.current.notices,
-        ihas_routines: latestEntitiesRef.current.routines,
-        ihas_chatbot_training: latestEntitiesRef.current.chatbotTraining,
-        ihas_quizzes: latestEntitiesRef.current.modelTests,
-        ihas_admin_creds: latestEntitiesRef.current.adminCredentials,
-        ihas_github_config: latestEntitiesRef.current.githubConfig,
-      };
-
-      const res = await saveCentralSnapshot(snapshot);
-      if (res.success) {
-        const now = new Date().toISOString();
-        setSupabaseStatus({
-          ready: true,
-          tableExists: true,
-          realtimeConnected: true,
-          message: 'সুপারবেস ক্লাউড ডেটাবেজে সম্পূর্ণ ওয়েবসাইট ডেটা সফলভাবে পুশ সম্পন্ন হয়েছে!',
-          lastSyncedAt: now,
-        });
-        return {
-          success: true,
-          message: lang === 'bn'
-            ? 'সুপারবেস ক্লাউড ডেটাবেজে সকল তথ্য সফলভাবে সংরক্ষিত হয়েছে!'
-            : 'All data successfully saved to central Supabase cloud database!',
-        };
-      } else {
-        if (res.tableMissing) {
-          setSupabaseStatus({
-            ready: false,
-            tableExists: false,
-            realtimeConnected: false,
-            message: 'সুপারবেসে "public.ihas_data" টেবিল তৈরি হয়নি। SQL Editor-এ গিয়ে স্ক্রিপ্টটি রান করুন।',
-            error: res.error,
-          });
-          return {
-            success: false,
-            tableMissing: true,
-            message: lang === 'bn'
-              ? 'সুপারবেস টেবিল "ihas_data" পাওয়া যায়নি। অনুগ্রহ করে Supabase SQL Editor-এ Migration চালান।'
-              : 'Supabase table "ihas_data" not found. Please run the SQL Migration script in Supabase.',
-          };
-        }
-        setSupabaseStatus((prev) => ({
-          ...prev,
-          ready: false,
-          message: `সুপারবেস সেভ ব্যর্থ: ${res.error || 'ত্রুটি'}`,
-          error: res.error,
-        }));
-        return {
-          success: false,
-          message: `সুপারবেস ক্লাউড সেভ ত্রুটি: ${res.error || 'অজানা সমস্যা'}`,
-        };
-      }
-    } catch (e: any) {
-      return {
-        success: false,
-        message: `ব্যর্থ: ${e?.message || 'সমস্যা হয়েছে'}`,
-      };
-    }
-  }, [lang]);
-
-  const testSupabaseStatus = useCallback(async () => {
-    try {
-      const res = await testSupabaseTableStatus();
-      setSupabaseStatus((prev) => ({
-        ...prev,
-        ready: res.ready,
-        tableExists: res.tableExists,
-        message: res.message,
-        error: res.error,
-      }));
-    } catch (err: any) {
-      setSupabaseStatus((prev) => ({
-        ...prev,
-        ready: false,
-        tableExists: false,
-        message: `সংযোগ ত্রুটি: ${err?.message || 'অজানা ত্রুটি'}`,
-        error: err?.message,
-      }));
-    }
-  }, []);
-
   const pullFromGitHub = useCallback(async (
     force: boolean = false
   ): Promise<{ success: boolean; data?: any; error?: string }> => {
@@ -1530,32 +1245,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setIsGitHubSyncing(false);
     }
   }, [githubConfig, applyDatabaseSnapshot]);
-
-  // Real-time Server-Sent Events (SSE) stream for instant sub-second live database broadcast
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.EventSource) return;
-    let eventSource: EventSource | null = null;
-    try {
-      eventSource = new EventSource('/api/live-stream');
-      eventSource.onmessage = (event) => {
-        try {
-          const parsed = JSON.parse(event.data);
-          if (parsed.type === 'database_update' && parsed.data) {
-            applyDatabaseSnapshot(parsed.data);
-            if (parsed.timestamp) setCodeSyncLastSaved(parsed.timestamp);
-          }
-        } catch (_e) {
-          void _e;
-        }
-      };
-    } catch (err) {
-      console.warn('[SSE Realtime] EventSource notice:', err);
-    }
-
-    return () => {
-      if (eventSource) eventSource.close();
-    };
-  }, [applyDatabaseSnapshot]);
 
   // Periodic background check and instant tab focus listener across all visitor browsers
   useEffect(() => {
@@ -1672,9 +1361,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const qz = safeParse<ModelTest[]>('ihas_quizzes');
       if (Array.isArray(qz)) safeSetIfChanged(setModelTests, qz);
 
-      const g = safeParse<GoogleCloudConfig>('ihas_google_cloud_config');
-      if (g) safeSetIfChanged(setGoogleCloudConfig, g);
-
       const gh = safeParse<GitHubConfig>('ihas_github_config');
       if (gh) {
         if (!gh.token) {
@@ -1690,176 +1376,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [safeSetIfChanged]);
 
-  // Initial Database Hydration: Supabase central database -> server /api/live-data -> live GitHub -> static fallback
+  // Initial Database Hydration: Server /api/live-data -> live GitHub -> static fallback
   const [isInitialLoading, setIsInitialLoading] = useState(true);
-
-  // Supabase Realtime Listener for instant cross-browser & cross-device synchronization
-  useEffect(() => {
-    const unsubscribe = subscribeToCentralRealtime(
-      (key, value) => {
-        try {
-          if (!key) return;
-          console.log(`[Supabase Realtime] Inbound change event on key "${key}"`);
-
-          switch (key) {
-            case 'ihas_school_settings':
-              if (value) {
-                safeSetIfChanged(setSchoolSettings, value);
-                safeStorage.setItem('ihas_school_settings', JSON.stringify(value));
-              }
-              break;
-            case 'ihas_hero_slides':
-              if (Array.isArray(value)) {
-                safeSetIfChanged(setHeroSlides, value);
-                safeStorage.setItem('ihas_hero_slides', JSON.stringify(value));
-              }
-              break;
-            case 'ihas_courses':
-              if (Array.isArray(value)) {
-                safeSetIfChanged(setCourses, value);
-                safeStorage.setItem('ihas_courses', JSON.stringify(value));
-              }
-              break;
-            case 'ihas_students':
-              if (Array.isArray(value)) {
-                safeSetIfChanged(setStudents, value);
-                safeStorage.setItem('ihas_students', JSON.stringify(value));
-              }
-              break;
-            case 'ihas_subjects':
-              if (Array.isArray(value)) {
-                safeSetIfChanged(setSubjects, value);
-                safeStorage.setItem('ihas_subjects', JSON.stringify(value));
-              }
-              break;
-            case 'ihas_exams':
-              if (Array.isArray(value)) {
-                safeSetIfChanged(setExams, value);
-                safeStorage.setItem('ihas_exams', JSON.stringify(value));
-              }
-              break;
-            case 'ihas_results':
-              if (Array.isArray(value)) {
-                safeSetIfChanged(setResults, value);
-                safeStorage.setItem('ihas_results', JSON.stringify(value));
-              }
-              break;
-            case 'ihas_teachers':
-              if (Array.isArray(value)) {
-                safeSetIfChanged(setTeachers, value);
-                safeStorage.setItem('ihas_teachers', JSON.stringify(value));
-              }
-              break;
-            case 'ihas_video_classes':
-            case 'ihas_videos':
-              if (Array.isArray(value)) {
-                safeSetIfChanged(setVideoClasses, value);
-                safeStorage.setItem('ihas_videos', JSON.stringify(value));
-                safeStorage.setItem('ihas_video_classes', JSON.stringify(value));
-              }
-              break;
-            case 'ihas_notes':
-              if (Array.isArray(value)) {
-                safeSetIfChanged(setNotes, value);
-                safeStorage.setItem('ihas_notes', JSON.stringify(value));
-              }
-              break;
-            case 'ihas_notices':
-              if (Array.isArray(value)) {
-                safeSetIfChanged(setNotices, value);
-                safeStorage.setItem('ihas_notices', JSON.stringify(value));
-              }
-              break;
-            case 'ihas_routines':
-              if (Array.isArray(value)) {
-                safeSetIfChanged(setRoutines, value);
-                safeStorage.setItem('ihas_routines', JSON.stringify(value));
-              }
-              break;
-            case 'ihas_chatbot_training':
-              if (Array.isArray(value)) {
-                safeSetIfChanged(setChatbotTraining, value);
-                safeStorage.setItem('ihas_chatbot_training', JSON.stringify(value));
-              }
-              break;
-            case 'ihas_quizzes':
-              if (Array.isArray(value)) {
-                safeSetIfChanged(setModelTests, value);
-                safeStorage.setItem('ihas_quizzes', JSON.stringify(value));
-              }
-              break;
-            case 'ihas_admin_creds':
-              if (value?.email && value?.password) {
-                safeSetIfChanged(setAdminCredentials, value);
-                safeStorage.setItem('ihas_admin_creds', JSON.stringify(value));
-              }
-              break;
-            case 'ihas_github_config':
-              if (value) {
-                safeSetIfChanged(setGithubConfig, value);
-                safeStorage.setItem('ihas_github_config', JSON.stringify(value));
-              }
-              break;
-            default:
-              break;
-          }
-
-          setCodeSyncLastSaved(new Date().toISOString());
-        } catch (subErr) {
-          console.warn('[Supabase Realtime Payload Error]:', subErr);
-        }
-      },
-      (status, err) => {
-        setSupabaseStatus((prev) => ({
-          ...prev,
-          realtimeConnected: status === 'SUBSCRIBED',
-          message: status === 'SUBSCRIBED'
-            ? 'সুপারবেস রিয়েল-টাইম চ্যানেল সংযুক্ত (লাইভ সিঙ্ক চালু)'
-            : prev.message,
-          error: err || prev.error,
-        }));
-      }
-    );
-
-    return () => {
-      unsubscribe();
-    };
-  }, [safeSetIfChanged]);
 
   useEffect(() => {
     let isMounted = true;
     const fetchInitialData = async () => {
       try {
         let liveData: any = null;
-
-        // Step 0: Check Supabase central authoritative database first
-        try {
-          const sbRes = await fetchCentralDatabase();
-          if (sbRes.success && sbRes.data && Object.keys(sbRes.data).length > 0) {
-            liveData = sbRes.data;
-            if (isMounted) {
-              setSupabaseStatus({
-                ready: true,
-                tableExists: true,
-                realtimeConnected: true,
-                message: 'সুপারবেস ক্লাউড ডেটাবেজ থেকে সর্বশেষ লাইভ তথ্য সফলভাবে লোড হয়েছে।',
-                lastSyncedAt: sbRes.data._updatedAt || new Date().toISOString(),
-              });
-            }
-          } else if (sbRes.tableMissing) {
-            if (isMounted) {
-              setSupabaseStatus({
-                ready: false,
-                tableExists: false,
-                realtimeConnected: false,
-                message: 'সুপারবেস প্রজেক্ট কানেক্টেড, কিন্তু "public.ihas_data" টেবিল তৈরি প্রয়োজন (SQL Migration চালান)।',
-                error: 'TABLE_MISSING',
-              });
-            }
-          }
-        } catch (sbErr) {
-          console.warn('[Supabase Initial Fetch Notice]:', sbErr);
-        }
 
         // Step 1: Check live server endpoint
         if (!liveData || typeof liveData !== 'object' || Object.keys(liveData).length === 0) {
@@ -2069,26 +1593,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
             break;
           }
-          case 'universalCloudConfig':
-          case 'universal_cloud':
-          case 'universal_cloud_config': {
-            if (data) safeSetIfChanged(setUniversalCloudSyncConfig, data);
-            else {
-              const raw = safeStorage.getItem('ihas_universal_cloud_config');
-              if (raw) safeSetIfChanged(setUniversalCloudSyncConfig, JSON.parse(raw));
-            }
-            break;
-          }
-          case 'googleCloudConfig':
-          case 'google_cloud':
-          case 'google_cloud_config': {
-            if (data) safeSetIfChanged(setGoogleCloudConfig, data);
-            else {
-              const raw = safeStorage.getItem('ihas_google_cloud_config');
-              if (raw) safeSetIfChanged(setGoogleCloudConfig, JSON.parse(raw));
-            }
-            break;
-          }
+
           case 'admin_creds':
           case 'adminCredentials': {
             if (data) safeSetIfChanged(setAdminCredentials, data);
@@ -2338,16 +1843,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addModelTest,
         updateModelTest,
         deleteModelTest,
-        googleCloudConfig,
-        updateGoogleCloudConfig,
-        isCloudSyncing,
-        triggerCloudSync,
-        universalCloudSyncConfig,
-        updateUniversalCloudSyncConfig,
-        isUniversalCloudSyncing,
-        universalCloudSyncStatus,
-        triggerUniversalCloudSync,
-        testCloudConnection,
         githubConfig,
         updateGitHubConfig,
         isGitHubSyncing,
@@ -2384,11 +1879,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         codeSyncStatus,
         codeSyncLastSaved,
         saveAllToCodebase,
-        markLocalEdit,
-        supabaseStatus,
-        syncAllToSupabase,
-        testSupabaseStatus,
-        requiredSqlMigration: REQUIRED_SQL_MIGRATION
+        markLocalEdit
       }}
     >
       {children}

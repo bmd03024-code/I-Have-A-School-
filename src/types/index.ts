@@ -285,31 +285,6 @@ export interface ClassRoutine {
   notes?: string;
 }
 
-export interface GoogleCloudConfig {
-  projectId: string;
-  bucketName: string;
-  apiEndpoint?: string;
-  apiKey?: string;
-  isRealtimeSyncEnabled: boolean;
-  oxfordApiCode?: string;
-  lastSyncedAt?: string;
-}
-
-export interface UniversalCloudSyncConfig {
-  enabled: boolean;
-  provider: 'custom' | 'jsonbin' | 'npoint' | 'server_stream';
-  endpointUrl: string;
-  apiKey?: string;
-  autoSyncOnChange: boolean;
-  lastSyncedAt?: string;
-}
-
-export interface UniversalSyncStatus {
-  state: 'idle' | 'syncing' | 'synced' | 'error';
-  message: string;
-  lastSyncedAt?: string;
-  source?: string;
-}
 
 export interface GitHubConfig {
   enabled: boolean;

@@ -64,7 +64,6 @@ import { TeacherIdCardModal } from '../components/admin/TeacherIdCardModal';
 import { PrintableResultSheet } from '../components/admin/PrintableResultSheet';
 import { QuizManagementTab } from '../components/admin/QuizManagementTab';
 import { ChatbotTrainingTab } from '../components/admin/ChatbotTrainingTab';
-import { GoogleCloudTab } from '../components/admin/GoogleCloudTab';
 import { GitHubSyncTab } from '../components/admin/GitHubSyncTab';
 import { RoutineManagementTab } from '../components/admin/RoutineManagementTab';
 import { DictionaryManagementTab } from '../components/admin/DictionaryManagementTab';
@@ -136,10 +135,6 @@ export const AdminPanel: React.FC = () => {
     addModelTest,
     updateModelTest,
     deleteModelTest,
-    googleCloudConfig,
-    updateGoogleCloudConfig,
-    isCloudSyncing,
-    triggerCloudSync,
     githubConfig,
     updateGitHubConfig,
     isGitHubSyncing,
@@ -151,16 +146,11 @@ export const AdminPanel: React.FC = () => {
     codeSyncLastSaved,
     saveAllToCodebase,
     markLocalEdit,
-    supabaseStatus,
-    syncAllToSupabase,
     showToast
   } = useApp();
 
   const handleSaveAllToCodebase = async () => {
     const res = await saveAllToCodebase();
-    if (supabaseStatus.tableExists) {
-      syncAllToSupabase().catch(() => {});
-    }
     showToast(res.message);
   };
 
@@ -187,7 +177,6 @@ export const AdminPanel: React.FC = () => {
     | 'dictionary' 
     | 'quizzes' 
     | 'code_sync'
-    | 'google_cloud' 
     | 'github_sync'
     | 'security'
   >('settings');
@@ -582,10 +571,7 @@ export const AdminPanel: React.FC = () => {
       // 2. Persist directly to codebase liveData files
       await saveAllToCodebase({ ihas_school_settings: currentForm });
 
-      // 3. Central Supabase Cloud Database write (if configured)
-      saveCentralEntity('ihas_school_settings', currentForm).catch(() => {});
-
-      // 4. If GitHub sync enabled, push to GitHub
+      // 3. If GitHub sync enabled, push to GitHub
       if (githubConfig.enabled && githubConfig.autoPushOnChange && githubConfig.token) {
         pushToGitHub('Updated institution branding, logo, signature & seal').catch(() => {});
       }
@@ -1171,24 +1157,40 @@ export const AdminPanel: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Supabase Central Database Status Badge */}
+            {/* GitHub Token & Auto-Publish Status Badge */}
             <button
               type="button"
-              onClick={() => setActiveTab('google_cloud')}
+              onClick={() => setActiveTab('github_sync')}
               className={`flex items-center gap-1.5 px-3 py-1.5 border text-xs font-semibold rounded-xl shadow-xs transition-all ${
-                supabaseStatus.tableExists
+                githubConfig.token
                   ? 'bg-emerald-950/80 border-emerald-500/40 text-emerald-300 hover:bg-emerald-900/80'
                   : 'bg-amber-950/80 border-amber-500/40 text-amber-300 hover:bg-amber-900/80'
               }`}
-              title="Supabase Central Cloud Database"
+              title="GitHub Token & Auto-Publish Status"
             >
-              <Database className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">সুপারবেস:</span>
+              <GitBranch className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">{lang === 'bn' ? 'গিটহাব টোকেন:' : 'GitHub Token:'}</span>
               <span className="font-mono text-[11px]">
-                {supabaseStatus.tableExists ? 'লাইভ সিঙ্ক চালু ✓' : 'SQL Migration প্রয়োজন !'}
+                {githubConfig.token
+                  ? (lang === 'bn' ? 'সংযুক্ত ও অটো-পাবলিশ চালু ✓' : 'Active & Auto-Publish ✓')
+                  : (lang === 'bn' ? 'টোকেন দিন !' : 'Token Required !')}
               </span>
-              <span className={`w-2 h-2 rounded-full ${supabaseStatus.tableExists ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400 animate-ping'}`} />
+              <span className={`w-2 h-2 rounded-full ${githubConfig.token ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400 animate-ping'}`} />
             </button>
+
+            {/* GitHub Live Push Button */}
+            {githubConfig.token && (
+              <button
+                type="button"
+                onClick={() => pushToGitHub()}
+                disabled={isGitHubSyncing}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600/90 hover:bg-emerald-600 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-all shadow-xs"
+                title="Push Database to GitHub Now"
+              >
+                <Zap className={`w-3.5 h-3.5 ${isGitHubSyncing ? 'animate-bounce' : ''}`} />
+                <span className="hidden sm:inline">{isGitHubSyncing ? (lang === 'bn' ? 'গিটহাবে সেভ হচ্ছে...' : 'Pushing...') : (lang === 'bn' ? 'গিটহাব পুশ' : 'GitHub Push')}</span>
+              </button>
+            )}
 
             {/* Real-Time Codebase Auto-Sync Status Badge */}
             <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 text-xs font-semibold rounded-xl shadow-xs">
@@ -1203,7 +1205,7 @@ export const AdminPanel: React.FC = () => {
               </span>
             </div>
 
-            {/* Master Codebase Save Button (অ্যাডমিনের পরিবর্তন কোডিংয়ে চূড়ান্ত সংরক্ষণ) */}
+            {/* Master Codebase Save Button */}
             <button
               type="button"
               onClick={handleSaveAllToCodebase}
@@ -1218,41 +1220,6 @@ export const AdminPanel: React.FC = () => {
                   : (lang === 'bn' ? 'কোডে ম্যানুয়াল ফোর্স সেভ' : 'Force Save to Code')}
               </span>
             </button>
-
-            {/* GitHub Live Sync Quick Indicator */}
-            <div className="flex items-center gap-2 border-r border-slate-700 pr-3">
-              <button
-                type="button"
-                onClick={() => setActiveTab('github_sync')}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors ${
-                  githubConfig.token
-                    ? 'bg-slate-800 text-emerald-400 hover:bg-slate-750'
-                    : 'bg-slate-800 text-slate-400 hover:text-white'
-                }`}
-                title="GitHub Real-Time Live Sync"
-              >
-                <GitBranch className="w-3.5 h-3.5" />
-                <span className="hidden md:inline">
-                  {githubConfig.token
-                    ? (lang === 'bn' ? 'গিটহাব: লাইভ' : 'GitHub: Live')
-                    : (lang === 'bn' ? 'গিটহাব সেটআপ' : 'Setup GitHub')}
-                </span>
-                <span className={`w-2 h-2 rounded-full ${githubConfig.token ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`} />
-              </button>
-
-              {githubConfig.token && (
-                <button
-                  type="button"
-                  onClick={() => pushToGitHub()}
-                  disabled={isGitHubSyncing}
-                  className="px-2.5 py-1 bg-emerald-600/90 hover:bg-emerald-600 disabled:opacity-50 text-white text-xs font-bold rounded-lg flex items-center gap-1 transition-colors"
-                  title="Push Database to GitHub Now"
-                >
-                  <Zap className={`w-3 h-3 ${isGitHubSyncing ? 'animate-bounce' : ''}`} />
-                  <span className="hidden sm:inline">{isGitHubSyncing ? (lang === 'bn' ? 'পুশ...' : 'Pushing...') : (lang === 'bn' ? 'পুশ' : 'Push')}</span>
-                </button>
-              )}
-            </div>
 
             {/* Auto-Save Active Indicator & View Website Button (No cache clearing in admin) */}
             <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 rounded-lg text-xs font-semibold shadow-xs">
@@ -1307,8 +1274,7 @@ export const AdminPanel: React.FC = () => {
             { id: 'dictionary', label: lang === 'bn' ? '৯. ডিকশনারি কন্ট্রোল' : '9. Dictionary', icon: BookOpen },
             { id: 'routines', label: lang === 'bn' ? '১০. রুটিন সেকশন' : '10. Routine', icon: Calendar },
             { id: 'quizzes', label: lang === 'bn' ? 'কুইজ মেনেজমেন্ট' : 'Quiz Management', icon: Layers },
-            { id: 'google_cloud', label: lang === 'bn' ? '১১. সার্বজনীন রিয়েল-টাইম সিঙ্ক' : '11. Real-Time Sync Hub', icon: Zap },
-            { id: 'github_sync', label: lang === 'bn' ? '১২. গিটহাব এপিআই ও লাইভ সিঙ্ক' : '12. GitHub Live Sync', icon: GitBranch },
+            { id: 'github_sync', label: lang === 'bn' ? '১১. গিটহাব টোকেন ও অটো-পাবলিশ' : '11. GitHub Token & Auto-Publish', icon: GitBranch },
             { id: 'code_sync', label: lang === 'bn' ? '⚡ কোডিং ডেটাবেজ (চূড়ান্ত)' : '⚡ Codebase Database', icon: Database },
             { id: 'security', label: lang === 'bn' ? 'সিকিউরিটি' : 'Security', icon: Lock }
           ].map((tab) => {
@@ -3624,17 +3590,6 @@ export const AdminPanel: React.FC = () => {
           />
         )}
 
-        {/* ==================== TAB 11: GOOGLE CLOUD DB & REAL-TIME (REQUIREMENT #11) ==================== */}
-        {activeTab === 'google_cloud' && (
-          <GoogleCloudTab
-            config={googleCloudConfig}
-            updateConfig={updateGoogleCloudConfig}
-            isSyncing={isCloudSyncing}
-            triggerSync={triggerCloudSync}
-            lang={lang}
-            showToast={showToast}
-          />
-        )}
 
         {/* ==================== TAB 12: GITHUB API & REAL-TIME SYNC ==================== */}
         {activeTab === 'github_sync' && (
@@ -3711,26 +3666,26 @@ export const AdminPanel: React.FC = () => {
               </div>
             </div>
 
-            {/* Universal Real-Time Engine Status (Zero Firebase / Supabase / Google Cloud) */}
-            <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border border-indigo-500/30 text-white p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-md">
+            {/* GitHub Token & Codebase Engine Status */}
+            <div className="bg-gradient-to-r from-slate-900 via-emerald-950 to-slate-900 border border-emerald-500/30 text-white p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-md">
               <div className="flex items-center gap-3.5">
-                <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-400/40 flex items-center justify-center text-indigo-400 shrink-0">
-                  <Zap className="w-5 h-5 fill-indigo-400" />
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-400 shrink-0">
+                  <GitBranch className="w-5 h-5" />
                 </div>
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-bold text-sm text-white">
-                      {lang === 'bn' ? 'সার্বজনীন ৩-লেয়ার রিয়েল-টাইম ইঞ্জিন' : 'Universal 3-Layer Real-Time Engine'}
+                      {lang === 'bn' ? 'গিটহাব টোকেন ও লোকাল কোডবেস অটো-পাবলিশ ইঞ্জিন' : 'GitHub Token & Codebase Auto-Publish Engine'}
                     </span>
                     <span className="px-2 py-0.5 text-[10px] font-black rounded-full bg-emerald-400 text-slate-950 uppercase flex items-center gap-1 shadow-xs">
                       <span className="w-1.5 h-1.5 rounded-full bg-slate-950 animate-pulse" />
-                      LIVE SYNC ACTIVE
+                      GITHUB PUBLISH READY
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-300">
                     {lang === 'bn' 
-                      ? 'গিটহাব লাইভ এপিআই + বিশ্বব্যাপী jsDelivr CDN + সার্ভার স্ট্রিম (SSE) সক্রিয়' 
-                      : 'GitHub Live API + jsDelivr Worldwide CDN + Server-Sent Events active'}
+                      ? 'অ্যাডমিনের প্রতিটি আপডেট সরাসরি লোকাল কোডবেসে সেভ হয় এবং গিটহাব টোকেনের মাধ্যমে স্বয়ংক্রিয়ভাবে পাবলিশ হয়।' 
+                      : 'All admin updates save directly to codebase and auto-publish to GitHub via your personal access token.'}
                   </p>
                 </div>
               </div>

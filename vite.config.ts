@@ -5,13 +5,8 @@ import tailwindcss from '@tailwindcss/vite'
 import fs from 'node:fs';
 import path from 'node:path';
 
-// Set of active SSE client responses for instant sub-100ms real-time broadcasting
-const sseClients = new Set<any>();
-let heartbeatTimer: NodeJS.Timeout | null = null;
-
 let cachedDatabase: Record<string, any> = {};
 let writeQueue: Promise<any> = Promise.resolve();
-
 function getOrLoadDatabase(): Record<string, any> {
   if (Object.keys(cachedDatabase).length > 0) {
     return cachedDatabase;
@@ -75,53 +70,12 @@ function queueSaveDatabase(data: Record<string, any>) {
   return writeQueue;
 }
 
-// Plugin to automatically sync and write admin changes directly into codebase and broadcast real-time updates
+// Plugin to automatically sync and write admin changes directly into codebase files
 function codeSyncPlugin() {
   return {
     name: 'code-sync-plugin',
     configureServer(server: any) {
-      if (!heartbeatTimer) {
-        heartbeatTimer = setInterval(() => {
-          for (const client of sseClients) {
-            try {
-              client.write(': ping\n\n');
-            } catch {
-              sseClients.delete(client);
-            }
-          }
-        }, 15000);
-        if (typeof heartbeatTimer.unref === 'function') {
-          heartbeatTimer.unref();
-        }
-      }
-
-      // 1. Live SSE Stream endpoint for all visitor browsers and open tabs
-      server.middlewares.use('/api/live-stream', (req: any, res: any) => {
-        res.setHeader('Content-Type', 'text/event-stream');
-        res.setHeader('Cache-Control', 'no-cache, no-transform');
-        res.setHeader('Connection', 'keep-alive');
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-        if (req.method === 'OPTIONS') {
-          res.statusCode = 204;
-          res.end();
-          return;
-        }
-
-        if (typeof res.flushHeaders === 'function') {
-          res.flushHeaders();
-        }
-
-        sseClients.add(res);
-        res.write(`data: ${JSON.stringify({ type: 'connected', timestamp: new Date().toISOString() })}\n\n`);
-
-        req.on('close', () => {
-          sseClients.delete(res);
-        });
-      });
-
-      // 2. Direct Live Data endpoint with strict zero-cache headers
+      // 1. Direct Live Data endpoint with strict zero-cache headers
       server.middlewares.use('/api/live-data', (req: any, res: any) => {
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -141,7 +95,7 @@ function codeSyncPlugin() {
         res.end(JSON.stringify(db));
       });
 
-      // 3. Sync to Code (POST & GET) with serialized multi-file persistence and SSE broadcast
+      // 2. Sync to Code (POST & GET) with serialized multi-file persistence
       server.middlewares.use('/api/sync-to-code', (req: any, res: any) => {
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -199,21 +153,11 @@ function codeSyncPlugin() {
 
               queueSaveDatabase(updated);
 
-              // Broadcast instant SSE event to all connected visitor browsers
-              const broadcastPayload = `data: ${JSON.stringify({ type: 'database_update', data: updated, timestamp })}\n\n`;
-              for (const client of sseClients) {
-                try {
-                  client.write(broadcastPayload);
-                } catch {
-                  sseClients.delete(client);
-                }
-              }
-
               res.setHeader('Content-Type', 'application/json');
               res.statusCode = 200;
               res.end(JSON.stringify({ 
                 success: true, 
-                message: 'Admin changes written directly to codebase and broadcasted live to all websites',
+                message: 'Admin changes written directly to codebase',
                 updatedAt: timestamp
               }));
             } catch (err: any) {

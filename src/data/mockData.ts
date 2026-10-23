@@ -16,9 +16,7 @@ import {
   StudentReview,
   ClassRoutine,
   ChatbotTrainingItem,
-  GoogleCloudConfig,
-  GitHubConfig,
-  UniversalCloudSyncConfig
+  GitHubConfig
 } from '../types';
 
 export const DEFAULT_SCHOOL_SETTINGS: SchoolSettings = {
@@ -637,16 +635,6 @@ export const INITIAL_CHATBOT_TRAINING: ChatbotTrainingItem[] = [
   }
 ];
 
-export const DEFAULT_GOOGLE_CLOUD_CONFIG: GoogleCloudConfig = {
-  projectId: 'ihas-gcp-education-platform',
-  bucketName: 'ihas-assets-storage-bucket',
-  apiEndpoint: 'https://storage.googleapis.com/ihas-assets-storage-bucket',
-  apiKey: 'AIzaSyGoogleCloudStorageProductionSyncKey',
-  isRealtimeSyncEnabled: true,
-  oxfordApiCode: 'OXFORD_ACADEMIC_PRO_2026',
-  lastSyncedAt: new Date().toISOString()
-};
-
 // Helper to retrieve securely saved GitHub token across all reloads
 export const getStoredGitHubToken = (): string => {
   try {
@@ -671,16 +659,6 @@ export const getStoredGitHubToken = (): string => {
     // ignore
   }
   return (typeof process !== 'undefined' && process.env?.VITE_GITHUB_TOKEN) || import.meta.env.VITE_GITHUB_TOKEN || '';
-};
-
-// Universal Real-Time Cloud Sync Config (Free, independent, zero Firebase/Supabase/Google Cloud)
-export const DEFAULT_UNIVERSAL_CLOUD_SYNC_CONFIG: UniversalCloudSyncConfig = {
-  enabled: true,
-  provider: 'server_stream',
-  endpointUrl: '',
-  apiKey: '',
-  autoSyncOnChange: true,
-  lastSyncedAt: ''
 };
 
 // Default GitHub Configuration - Token is permanently saved once entered
