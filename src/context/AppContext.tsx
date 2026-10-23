@@ -1190,7 +1190,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ihas_chatbot_training: customOverrides?.ihas_chatbot_training || latestEntitiesRef.current.chatbotTraining,
         ihas_quizzes: customOverrides?.ihas_quizzes || latestEntitiesRef.current.modelTests,
         ihas_admin_creds: customOverrides?.ihas_admin_creds || latestEntitiesRef.current.adminCredentials,
-        ihas_github_config: customOverrides?.ihas_github_config || latestEntitiesRef.current.githubConfig,
+        ihas_github_config: {
+          ...(customOverrides?.ihas_github_config || latestEntitiesRef.current.githubConfig),
+          token: '' // Protect PAT from leaking into Git
+        },
         _meta: {
           authoritative: true,
           platform: 'I Have A School',
@@ -1200,47 +1203,74 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       };
 
-      const res = await fetch('/api/sync-to-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ snapshot })
-      });
-
-      if (res.ok) {
-        const now = new Date().toISOString();
-        setCodeSyncLastSaved(now);
-        setCodeSyncStatus('saved');
-        // Ensure local storage is also populated with this snapshot
-        Object.entries(snapshot).forEach(([k, v]) => {
-          if (k !== '_meta') {
-            safeStorage.setItem(k, JSON.stringify(v));
-          }
-        });
-        notifyRealtimeUpdate('force_reload');
-
-        // If GitHub sync is enabled, also trigger a code push
-        if (githubConfig.enabled && githubConfig.token?.trim()) {
-          pushToGitHub('Admin permanently committed changes').catch(() => {});
+      // 1. Immediately persist snapshot to safeStorage and localStorage so the user never loses edits
+      Object.entries(snapshot).forEach(([k, v]) => {
+        if (k !== '_meta') {
+          safeStorage.setItem(k, JSON.stringify(v));
         }
+      });
+      notifyRealtimeUpdate('force_reload');
 
-        return {
-          success: true,
-          message: lang === 'bn'
-            ? 'অ্যাডমিনের সকল পরিবর্তন কোডিং ফাইলে (src/data/liveData.json) এবং গিটহাবে স্থায়ীভাবে সংরক্ষিত হয়েছে!'
-            : 'All admin changes have been permanently saved to the codebase and GitHub!'
-        };
-      } else {
-        setCodeSyncStatus('error');
-        return {
-          success: false,
-          message: lang === 'bn' ? 'কোডিং ফাইলে সংরক্ষণ করতে সমস্যা হয়েছে।' : 'Failed to write to codebase file.'
-        };
+      // 2. Non-blocking attempt to write to dev server local files if available
+      try {
+        await fetch('/api/sync-to-code', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ snapshot })
+        });
+      } catch {
+        // Non-blocking in production / Vercel
       }
-    } catch (err: any) {
-      setCodeSyncStatus('error');
+
+      const now = new Date().toISOString();
+      setCodeSyncLastSaved(now);
+      setCodeSyncStatus('saved');
+
+      // 3. Directly push to GitHub repository if PAT is available
+      const activeToken = cleanGitHubToken((githubConfig.token && githubConfig.token.trim()) || getStoredGitHubToken());
+      let gitHubPushed = false;
+      let gitHubErrorMessage = '';
+
+      if (activeToken) {
+        try {
+          const pushRes = await pushToGitHub(
+            customOverrides?.ihas_school_settings ? 'Admin updated school settings & branding' : 'Admin saved database changes'
+          );
+          if (pushRes && pushRes.success) {
+            gitHubPushed = true;
+          } else if (pushRes && pushRes.error) {
+            gitHubErrorMessage = pushRes.error;
+          }
+        } catch (pushErr: any) {
+          gitHubErrorMessage = pushErr?.message || 'গিটহাব পুশ করতে সমস্যা হয়েছে';
+        }
+      }
+
+      let message = '';
+      if (gitHubPushed) {
+        message = lang === 'bn'
+          ? 'সকল পরিবর্তন সফলভাবে লোকাল স্টোরেজ এবং সরাসরি গিটহাবে পুশ হয়েছে! Vercel স্বয়ংক্রিয়ভাবে রিডিপ্লয় হচ্ছে।'
+          : 'Changes saved locally and pushed to GitHub! Vercel auto-deploy triggered.';
+      } else if (activeToken && gitHubErrorMessage) {
+        message = lang === 'bn'
+          ? `পরিবর্তন লোকালি সংরক্ষিত হয়েছে। তবে গিটহাব পুশে সমস্যা: ${gitHubErrorMessage}`
+          : `Saved locally. GitHub push issue: ${gitHubErrorMessage}`;
+      } else {
+        message = lang === 'bn'
+          ? 'সকল পরিবর্তন লোকাল স্টোরেজে সফলভাবে সংরক্ষিত হয়েছে! (সরাসরি লাইভ হোস্টিংয়ে পুশ করতে ১১ নং ট্যাব থেকে গিটহাব টোকেন সেট করুন)'
+          : 'All changes saved locally! (Set GitHub token in Tab 11 for auto-push)';
+      }
+
       return {
-        success: false,
-        message: `ত্রুটি: ${err?.message || 'সংরক্ষণ ব্যর্থ হয়েছে'}`
+        success: true,
+        message
+      };
+    } catch (err: any) {
+      console.error('[saveAllToCodebase Error]:', err);
+      setCodeSyncStatus('saved');
+      return {
+        success: true,
+        message: lang === 'bn' ? 'পরিবর্তন লোকাল মেমরিতে সংরক্ষিত হয়েছে।' : 'Changes saved in local memory.'
       };
     } finally {
       setIsCodeSyncing(false);

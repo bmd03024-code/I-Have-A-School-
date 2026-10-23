@@ -181,9 +181,34 @@ const knownBlobShaMap = new Map<string, string>();
 // Mutex promise queue to serialize GitHub push operations and avoid concurrent commit collisions
 let pushQueue: Promise<any> = Promise.resolve();
 
+// Helper to create a git blob via GitHub API (supports files of any size without the 100KB limit of inline tree contents)
+async function createGitBlob(
+  cleanOwner: string,
+  cleanRepo: string,
+  headers: Record<string, string>,
+  content: string
+): Promise<string> {
+  const base64Content = encodeUtf8ToBase64(content);
+  const res = await fetch(`https://api.github.com/repos/${cleanOwner}/${cleanRepo}/git/blobs`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      content: base64Content,
+      encoding: 'base64'
+    })
+  });
+
+  if (!res.ok) {
+    const errJson = await res.json().catch(() => null);
+    throw new Error(errJson?.message || `Failed to create git blob: ${res.status}`);
+  }
+
+  const data = await res.json();
+  return data.sha;
+}
+
 // Atomic Multi-file Commit using Git Database API
-// Commits all 3 files (data/ihas_live_database.json, src/data/liveData.json, public/liveData.json)
-// in ONE SINGLE COMMIT so Vercel triggers EXACTLY ONE auto-deployment!
+// Creates blobs for each file, links them in a tree, and updates HEAD in ONE single atomic commit!
 async function commitMultipleFilesAtomic(
   cleanOwner: string,
   cleanRepo: string,
@@ -192,9 +217,9 @@ async function commitMultipleFilesAtomic(
   files: Array<{ path: string; content: string }>,
   commitMessage: string
 ): Promise<{ success: boolean; commitSha?: string; commitUrl?: string; error?: string }> {
-  // Step 1: Get branch reference (HEAD commit)
-  const refRes = await fetch(
-    `https://api.github.com/repos/${cleanOwner}/${cleanRepo}/git/ref/heads/${cleanBranch}?_t=${Date.now()}`,
+  // Step 1: Get latest commit on target branch (gives both commit SHA and its base tree SHA)
+  const commitRes = await fetch(
+    `https://api.github.com/repos/${cleanOwner}/${cleanRepo}/commits/${cleanBranch}?_t=${Date.now()}`,
     {
       headers: {
         ...headers,
@@ -205,43 +230,41 @@ async function commitMultipleFilesAtomic(
     }
   );
 
-  if (!refRes.ok) {
-    const errJson = await refRes.json().catch(() => null);
-    throw new Error(errJson?.message || `Failed to fetch ref/heads/${cleanBranch}: ${refRes.status}`);
-  }
-
-  const refData = await refRes.json();
-  const parentCommitSha = refData.object?.sha;
-  if (!parentCommitSha) {
-    throw new Error('Could not find latest parent commit SHA');
-  }
-
-  // Step 2: Get base commit to retrieve its base tree SHA
-  const commitRes = await fetch(
-    `https://api.github.com/repos/${cleanOwner}/${cleanRepo}/git/commits/${parentCommitSha}?_t=${Date.now()}`,
-    { headers, cache: 'no-store' }
-  );
-
   if (!commitRes.ok) {
     const errJson = await commitRes.json().catch(() => null);
-    throw new Error(errJson?.message || `Failed to fetch commit ${parentCommitSha}`);
+    throw new Error(errJson?.message || `Failed to get latest commit on ${cleanBranch}: ${commitRes.status}`);
   }
 
   const commitData = await commitRes.json();
-  const baseTreeSha = commitData.tree?.sha;
-  if (!baseTreeSha) {
-    throw new Error('Could not find base tree SHA');
+  const parentCommitSha = commitData.sha;
+  const baseTreeSha = commitData.commit?.tree?.sha;
+  if (!parentCommitSha || !baseTreeSha) {
+    throw new Error('Could not find latest parent commit or tree SHA');
   }
 
-  // Step 3: Create a new Tree containing all updated files
-  const treePayload = {
-    base_tree: baseTreeSha,
-    tree: files.map((f) => ({
+  // Step 2: Create Git Blobs for all files (handles Bengali UTF-8 and arbitrary file sizes)
+  // Shared blob optimization: if identical content, reuse blob SHA
+  const blobShaCache = new Map<string, string>();
+  const treeItems: Array<{ path: string; mode: string; type: string; sha: string }> = [];
+
+  for (const f of files) {
+    let sha = blobShaCache.get(f.content);
+    if (!sha) {
+      sha = await createGitBlob(cleanOwner, cleanRepo, headers, f.content);
+      blobShaCache.set(f.content, sha);
+    }
+    treeItems.push({
       path: f.path,
       mode: '100644',
       type: 'blob',
-      content: f.content
-    }))
+      sha
+    });
+  }
+
+  // Step 3: Create a new Tree pointing to the blobs
+  const treePayload = {
+    base_tree: baseTreeSha,
+    tree: treeItems
   };
 
   const treeRes = await fetch(
@@ -285,7 +308,7 @@ async function commitMultipleFilesAtomic(
   const newCommitData = await newCommitRes.json();
   const newCommitSha = newCommitData.sha;
 
-  // Step 5: Update branch reference (Fast-Forward)
+  // Step 5: Update branch reference (Fast-Forward HEAD)
   const patchRefRes = await fetch(
     `https://api.github.com/repos/${cleanOwner}/${cleanRepo}/git/refs/heads/${cleanBranch}`,
     {

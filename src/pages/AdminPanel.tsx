@@ -568,15 +568,10 @@ export const AdminPanel: React.FC = () => {
       // 1. Force update school settings in AppContext and localStorage
       updateSchoolSettings(currentForm, true);
 
-      // 2. Persist directly to codebase liveData files
-      await saveAllToCodebase({ ihas_school_settings: currentForm });
+      // 2. Persist directly to codebase liveData files and push to GitHub
+      const res = await saveAllToCodebase({ ihas_school_settings: currentForm });
 
-      // 3. If GitHub sync enabled, push to GitHub
-      if (githubConfig.enabled && githubConfig.autoPushOnChange && githubConfig.token) {
-        pushToGitHub('Updated institution branding, logo, signature & seal').catch(() => {});
-      }
-
-      showToast(lang === 'bn' ? 'প্রতিষ্ঠান সেটিংস, লোগো, সিল ও স্বাক্ষর সফলভাবে সংরক্ষিত হয়েছে!' : 'Settings, logo, seal, and signature saved successfully!');
+      showToast(res.message || (lang === 'bn' ? 'প্রতিষ্ঠান সেটিংস, লোগো, সিল ও স্বাক্ষর সফলভাবে সংরক্ষিত হয়েছে!' : 'Settings, logo, seal, and signature saved successfully!'));
     } catch (err: any) {
       showToast(lang === 'bn' ? `সংরক্ষণ ত্রুটি: ${err?.message || 'সমস্যা হয়েছে'}` : 'Failed to save settings.');
     } finally {

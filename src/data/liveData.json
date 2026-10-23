@@ -1,13 +1,13 @@
 {
-  "_updatedAt": "2026-10-22T10:48:21.007Z",
+  "_updatedAt": "2026-10-23T11:12:39.511Z",
   "_meta": {
-    "lastSavedAt": "2026-10-22T10:48:21.007Z",
+    "lastSavedAt": "2026-10-23T11:10:56.714Z",
     "authoritative": true,
     "syncedBy": "Admin Control Panel Auto Engine",
     "founder": "MD Touhidul Hoque Tuhin",
     "platform": "I Have A School",
     "lastUpdatedKey": "ihas_school_settings",
-    "updatedAt": "2026-10-22T10:46:09.928Z"
+    "updatedAt": "2026-10-23T11:10:56.399Z"
   },
   "ihas_school_settings": {
     "instituteNameEn": "I Have A School",
@@ -673,5 +673,6 @@
     "lastSyncedAt": "2026-10-22T09:41:10.721Z",
     "lastCommitSha": "",
     "lastCommitMessage": "Authoritative codebase synchronization"
-  }
+  },
+  "test": true
 }
