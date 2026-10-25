@@ -3,7 +3,7 @@
     "app": "I Have A School",
     "director": "MD Touhidul Hoque Tuhin",
     "schemaVersion": "2026.1",
-    "lastUpdated": "2026-10-25T17:30:44.200Z",
+    "lastUpdated": "2026-10-25T17:31:10.296Z",
     "pushedBy": "Admin Control Panel"
   },
   "schoolSettings": {
@@ -506,7 +506,7 @@
       "videoPlatform": "youtube",
       "videoFileUrl": "",
       "thumbnailUrl": "https://img.youtube.com/vi/zq8UVhivSVQ/hqdefault.jpg",
-      "views": "1.2K",
+      "views": "6.2K",
       "publishedDate": "Just now",
       "level": "All Levels"
     }
@@ -682,8 +682,8 @@
     "filePath": "data/ihas_live_database.json",
     "autoPushOnChange": true,
     "autoPollIntervalSec": 20,
-    "lastSyncedAt": "2026-10-25T17:30:44.200Z",
-    "lastCommitSha": "521c00ba9f8e48990c8d2bbd57b704542fa56557",
-    "lastCommitMessage": "Added video: Subject verb Agreement"
+    "lastSyncedAt": "2026-10-25T17:31:10.296Z",
+    "lastCommitSha": "284413d35f1636c68a66a5b4f6fb3bc49573373b",
+    "lastCommitMessage": "Updated video: পানির মতো সহজ Article"
   }
 }
