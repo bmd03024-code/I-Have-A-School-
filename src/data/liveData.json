@@ -1,7 +1,7 @@
 {
-  "_updatedAt": "2026-10-25T16:38:41.108Z",
+  "_updatedAt": "2026-10-25T16:41:01.372Z",
   "_meta": {
-    "lastSavedAt": "2026-10-25T16:38:41.108Z",
+    "lastSavedAt": "2026-10-25T16:41:01.372Z",
     "authoritative": true,
     "syncedBy": "Admin Control Panel Auto Engine",
     "founder": "MD Touhidul Hoque Tuhin",
@@ -668,8 +668,8 @@
     "filePath": "data/ihas_live_database.json",
     "autoPushOnChange": true,
     "autoPollIntervalSec": 20,
-    "lastSyncedAt": "2026-10-25T16:38:41.108Z",
-    "lastCommitSha": "f109cdd2192f4643b1c1f850c4369397865ba036",
+    "lastSyncedAt": "2026-10-25T16:41:01.372Z",
+    "lastCommitSha": "a09c34088538e93221ee3f5c54ae4b4dcdc1b0f9",
     "lastCommitMessage": "Live update from Admin Panel"
   }
 }
