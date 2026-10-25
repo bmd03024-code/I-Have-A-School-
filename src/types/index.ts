@@ -300,3 +300,17 @@ export interface GitHubConfig {
   lastCommitMessage?: string;
 }
 
+export interface GalleryItem {
+  id: string;
+  titleEn: string;
+  titleBn: string;
+  type: 'image' | 'video';
+  mediaUrl: string;
+  thumbnailUrl?: string;
+  captionEn?: string;
+  captionBn?: string;
+  category?: string;
+  date: string;
+  isFeatured?: boolean;
+}
+

@@ -16,7 +16,8 @@ import {
   StudentReview,
   ClassRoutine,
   ChatbotTrainingItem,
-  GitHubConfig
+  GitHubConfig,
+  GalleryItem
 } from '../types';
 import { safeStorage } from '../lib/storageService';
 
@@ -682,17 +683,99 @@ export const getStoredGitHubToken = (): string => {
 
 // Default GitHub Configuration - Token is permanently saved once entered
 // Note: autoPushOnChange is false by default: changes are pushed only when admin clicks the Push button
+// Auto-pull/poll is disabled so outdated remote repo never overwrites admin changes
 export const DEFAULT_GITHUB_CONFIG: GitHubConfig = {
-  enabled: true,
+  enabled: false,
   token: getStoredGitHubToken(),
   owner: import.meta.env.VITE_GITHUB_OWNER || 'bmd03024-code',
   repo: import.meta.env.VITE_GITHUB_REPO || 'I-Have-A-School-',
   branch: 'main',
   filePath: 'data/ihas_live_database.json',
   autoPushOnChange: false,
-  autoPollIntervalSec: 20,
+  autoPollIntervalSec: 0,
   lastSyncedAt: '',
   lastCommitSha: '',
   lastCommitMessage: 'Manual push mode enabled'
 };
+
+export const INITIAL_GALLERY_ITEMS: GalleryItem[] = [
+  {
+    id: 'gal-1',
+    titleBn: 'বার্ষিক মেধা পুরস্কার ও সম্মাননা প্রদান অনুষ্ঠান ২০২৬',
+    titleEn: 'Annual Academic Merit Award & Honors Ceremony 2026',
+    type: 'image',
+    mediaUrl: 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?q=80&w=1200&auto=format&fit=crop',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?q=80&w=600&auto=format&fit=crop',
+    captionBn: 'এইচএসসি ও এসএসসি পরীক্ষায় এ+ প্রাপ্ত কৃতী শিক্ষার্থীদের সংবর্ধনা ও সনদ প্রদান করছেন তৌহিদুল হক তুহিন স্যার।',
+    captionEn: 'MD Touhidul Hoque Tuhin awarding top GPA 5.00 achievers and presenting merit certificates.',
+    category: 'পুরস্কার বিতরণী',
+    date: '২০২৬-০৩-১৫',
+    isFeatured: true
+  },
+  {
+    id: 'gal-2',
+    titleBn: 'ইংলিশ গ্রামার ও স্পোকেন মাস্টারক্লাস সরাসরি ইন্টারঅ্যাকশন',
+    titleEn: 'Interactive Live English Grammar & Spoken Masterclass',
+    type: 'video',
+    mediaUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1577495508048-b635879837f1?q=80&w=600&auto=format&fit=crop',
+    captionBn: 'ক্লাসরুমে শিক্ষার্থীদের সাথে সরাসরি রাইট ফর্ম অব ভার্বস ও ফ্লুয়েন্ট স্পিকিং ড্রিল অনুশীলন।',
+    captionEn: 'Classroom practice session on Right Form of Verbs and Spoken Fluency with students.',
+    category: 'ক্লাসরুম ক্লাস',
+    date: '২০২৬-০৩-১০',
+    isFeatured: true
+  },
+  {
+    id: 'gal-3',
+    titleBn: 'আন্তর্জাতিক মাতৃভাষা দিবস ও সাংস্কৃতিক প্রতিযোগিতা',
+    titleEn: 'International Mother Language Day & Cultural Competition',
+    type: 'image',
+    mediaUrl: 'https://images.unsplash.com/photo-1511578314322-379afb476865?q=80&w=1200&auto=format&fit=crop',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1511578314322-379afb476865?q=80&w=600&auto=format&fit=crop',
+    captionBn: 'আই হ্যাভ এ স্কুল একাডেমি প্রাঙ্গণে রচনা ও উপস্থিত বক্তৃতা প্রতিযোগিতায় বিজয়ীদের সাথে শিক্ষকবৃন্দ।',
+    captionEn: 'Faculty members celebrating with essay and extempore speech winners at IHAS Academy.',
+    category: 'সাংস্কৃতিক অনুষ্ঠান',
+    date: '২০২৬-০২-২১',
+    isFeatured: true
+  },
+  {
+    id: 'gal-4',
+    titleBn: 'এইচএসসি ২০২৬ স্পেশাল মডেল টেস্ট পরীক্ষার হল পরিদর্শন',
+    titleEn: 'HSC 2026 Special Model Test Exam Hall Session',
+    type: 'image',
+    mediaUrl: 'https://images.unsplash.com/photo-1427504494785-3a9ca7044f45?q=80&w=1200&auto=format&fit=crop',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1427504494785-3a9ca7044f45?q=80&w=600&auto=format&fit=crop',
+    captionBn: 'বোর্ড পরীক্ষার অনুরূপ শতভাগ নিয়মতান্ত্রিক পরিবেশে অনুষ্ঠিত মডেল টেস্ট পরীক্ষার খণ্ডচিত্র।',
+    captionEn: 'Standard exam environment during the comprehensive board model test evaluation.',
+    category: 'পরীক্ষা হল',
+    date: '২০২৬-০৩-০৫',
+    isFeatured: false
+  },
+  {
+    id: 'gal-5',
+    titleBn: 'তুহিন স্যারের বিশেষ ওরিয়েন্টেশন ও মোটিভেশন সেশন',
+    titleEn: 'Special Orientation & Motivational Session by Tuhin Sir',
+    type: 'video',
+    mediaUrl: 'https://www.youtube.com/watch?v=kJQP7kiw5Fk',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1515187029135-18ee286d815b?q=80&w=600&auto=format&fit=crop',
+    captionBn: 'ইংরেজি ভয় দূর করে আত্মবিশ্বাসের সাথে লক্ষ্য অর্জনের দিকনির্দেশনামূলক পরামর্শ।',
+    captionEn: 'Overcoming fear of English and achieving life goals with determination and strategy.',
+    category: 'সেমিনার',
+    date: '২০২৬-০২-১৫',
+    isFeatured: true
+  },
+  {
+    id: 'gal-6',
+    titleBn: 'শিক্ষক-শিক্ষার্থী প্রীতি বিতর্ক প্রতিযোগিতা ও পুরস্কার প্রদান',
+    titleEn: 'Teacher-Student Friendly Debate Competition & Awards',
+    type: 'image',
+    mediaUrl: 'https://images.unsplash.com/photo-1544717305-2782549b5136?q=80&w=1200&auto=format&fit=crop',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1544717305-2782549b5136?q=80&w=600&auto=format&fit=crop',
+    captionBn: 'যুক্তিনির্ভর চিন্তা ও বাচনভঙ্গি বিকাশে শিক্ষার্থীদের অংশগ্রহণে আয়োজিত বার্ষিক বিতর্ক আসর।',
+    captionEn: 'Students enthusiastically participating in the annual debate championship at IHAS.',
+    category: 'বিতর্ক প্রতিযোগিতা',
+    date: '২০২৬-০১-২৮',
+    isFeatured: false
+  }
+];
 

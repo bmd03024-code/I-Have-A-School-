@@ -15,7 +15,8 @@ import {
   ClassRoutine,
   ChatbotTrainingItem,
   GitHubConfig,
-  ModelTest
+  ModelTest,
+  GalleryItem
 } from '../types';
 import { 
   DEFAULT_SCHOOL_SETTINGS, 
@@ -33,7 +34,8 @@ import {
   INITIAL_CHATBOT_TRAINING,
   DEFAULT_GITHUB_CONFIG,
   getStoredGitHubToken,
-  MODEL_TESTS as DEFAULT_TESTS
+  MODEL_TESTS as DEFAULT_TESTS,
+  INITIAL_GALLERY_ITEMS
 } from '../data/mockData';
 import codeLiveData from '../data/liveData.json';
 import { notifyRealtimeUpdate, subscribeRealtimeUpdate, clearAllCachesAndBroadcast, safeStorage } from '../lib/storageService';
@@ -131,6 +133,12 @@ export interface AppContextType {
   addModelTest: (test: ModelTest) => void;
   updateModelTest: (test: ModelTest) => void;
   deleteModelTest: (id: string) => void;
+
+  // Gallery Management (Photos & Videos)
+  galleryItems: GalleryItem[];
+  addGalleryItem: (item: GalleryItem) => void;
+  updateGalleryItem: (item: GalleryItem) => void;
+  deleteGalleryItem: (id: string) => void;
 
   // GitHub REST API Integration & Cross-Browser Live Sync
   githubConfig: GitHubConfig;
@@ -305,6 +313,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     hasUnpushedEditsRef.current = true;
     safeStorage.setItem('ihas_last_local_edit_time', String(now));
     safeStorage.setItem('ihas_has_unpushed_edits', 'true');
+    safeStorage.setItem('ihas_admin_has_custom_data', 'true');
 
     persistItem(key, data);
     if (latestEntitiesRef.current) {
@@ -712,7 +721,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   }, [commitAndSync]);
 
-  // 14. Google Cloud Database & Storage Integration
+  // 14. Gallery Management (Photos & Videos)
+  const [galleryItems, setGalleryItems] = useState<GalleryItem[]>(() => {
+    return getPersistedItem('ihas_gallery', INITIAL_GALLERY_ITEMS);
+  });
+
+  const addGalleryItem = useCallback((item: GalleryItem) => {
+    setGalleryItems((prev) => {
+      const next = [item, ...prev];
+      commitAndSync('ihas_gallery', 'gallery', next);
+      return next;
+    });
+  }, [commitAndSync]);
+
+  const updateGalleryItem = useCallback((item: GalleryItem) => {
+    setGalleryItems((prev) => {
+      const next = prev.map((g) => (g.id === item.id ? item : g));
+      commitAndSync('ihas_gallery', 'gallery', next);
+      return next;
+    });
+  }, [commitAndSync]);
+
+  const deleteGalleryItem = useCallback((id: string) => {
+    setGalleryItems((prev) => {
+      const next = prev.filter((g) => g.id !== id);
+      commitAndSync('ihas_gallery', 'gallery', next);
+      return next;
+    });
+  }, [commitAndSync]);
 
   // 15. GitHub REST API Database Sync & Cross-Browser Live Update
   // Master Token is permanently preserved so the admin only enters it once
@@ -799,6 +835,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!data || typeof data !== 'object') return;
     try {
       const hasUnpushed = (typeof window !== 'undefined' && safeStorage.getItem('ihas_has_unpushed_edits') === 'true') || hasUnpushedEditsRef.current;
+      const hasAdminData = typeof window !== 'undefined' && safeStorage.getItem('ihas_admin_has_custom_data') === 'true';
       const lastEditTime = Math.max(
         lastLocalEditTimeRef.current,
         typeof window !== 'undefined' ? Number(safeStorage.getItem('ihas_last_local_edit_time') || 0) : 0
@@ -807,8 +844,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ? new Date(data._updatedAt).getTime() 
         : (data._meta?.lastSavedAt ? new Date(data._meta?.lastSavedAt).getTime() : 0);
 
-      // Protect local unpushed edits unless force is explicitly true (e.g. manual pull or live sync broadcast)
-      if (!force && (hasUnpushed || (lastEditTime > 0 && incomingTime <= lastEditTime))) {
+      // Protect local admin edits: Never overwrite unless force is explicitly true (manual pull requested by admin)
+      if (!force && (hasUnpushed || (hasAdminData && incomingTime <= lastEditTime) || (lastEditTime > 0 && incomingTime <= lastEditTime))) {
         return;
       }
 
@@ -921,6 +958,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         safeStorage.setItem('ihas_quizzes', JSON.stringify(qz));
       }
 
+      const gal = data.galleryItems || data.ihas_gallery || data.gallery;
+      if (Array.isArray(gal)) {
+        safeSetIfChanged(setGalleryItems, gal);
+        safeStorage.setItem('ihas_gallery', JSON.stringify(gal));
+      }
+
       const cr = data.adminCredentials || data.ihas_admin_creds;
       if (cr?.email && cr?.password) {
         safeSetIfChanged(setAdminCredentials, cr);
@@ -947,6 +990,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     routines,
     chatbotTraining,
     modelTests,
+    galleryItems,
     adminCredentials,
     githubConfig
   });
@@ -967,6 +1011,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       routines,
       chatbotTraining,
       modelTests,
+      galleryItems,
       adminCredentials,
       githubConfig
     };
@@ -985,6 +1030,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     routines,
     chatbotTraining,
     modelTests,
+    galleryItems,
     adminCredentials,
     githubConfig
   ]);
@@ -1019,6 +1065,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           ihas_routines: latestEntitiesRef.current.routines,
           ihas_chatbot_training: latestEntitiesRef.current.chatbotTraining,
           ihas_quizzes: latestEntitiesRef.current.modelTests,
+          ihas_gallery: latestEntitiesRef.current.galleryItems,
           ihas_admin_creds: latestEntitiesRef.current.adminCredentials,
           ihas_github_config: {
             ...latestEntitiesRef.current.githubConfig,
@@ -1069,6 +1116,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     routines,
     chatbotTraining,
     modelTests,
+    galleryItems,
     adminCredentials,
     githubConfig.enabled,
     githubConfig.autoPushOnChange,
@@ -1183,6 +1231,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ihas_routines: customOverrides?.ihas_routines || latestEntitiesRef.current.routines,
         ihas_chatbot_training: customOverrides?.ihas_chatbot_training || latestEntitiesRef.current.chatbotTraining,
         ihas_quizzes: customOverrides?.ihas_quizzes || latestEntitiesRef.current.modelTests,
+        ihas_gallery: customOverrides?.ihas_gallery || latestEntitiesRef.current.galleryItems,
         ihas_admin_creds: customOverrides?.ihas_admin_creds || latestEntitiesRef.current.adminCredentials,
         ihas_github_config: {
           ...(customOverrides?.ihas_github_config || latestEntitiesRef.current.githubConfig),
@@ -1332,30 +1381,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [githubConfig, applyDatabaseSnapshot, isAdminLoggedIn]);
 
-  // Periodic background check and instant tab focus listener across all visitor browsers
+  // Focus listener to sync from authoritative dev server file when tab becomes active
   useEffect(() => {
-    if (!githubConfig.enabled || !githubConfig.owner || !githubConfig.repo) return;
-
-    // Polite background polling (60s) ONLY for public visitors when there are NO unpushed admin edits
-    const intervalSec = Math.max(45, githubConfig.autoPollIntervalSec || 60);
-    const timer = setInterval(() => {
-      const hasUnpushed = (typeof window !== 'undefined' && safeStorage.getItem('ihas_has_unpushed_edits') === 'true') || hasUnpushedEditsRef.current;
-      if (isAdminLoggedIn || hasUnpushed) return;
-
-      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
-        pullFromGitHub(false).catch(() => {});
-      }
-    }, intervalSec * 1000);
-
     const handleFocus = () => {
       // Guard: Do NOT pull and overwrite state if admin is logged in or actively editing or has unpushed edits
       const hasUnpushed = (typeof window !== 'undefined' && safeStorage.getItem('ihas_has_unpushed_edits') === 'true') || hasUnpushedEditsRef.current;
-      if (isAdminLoggedIn || hasUnpushed || Date.now() - lastLocalEditTimeRef.current < 60000) {
+      const hasAdminEdits = typeof window !== 'undefined' && safeStorage.getItem('ihas_admin_has_custom_data') === 'true';
+      if (isAdminLoggedIn || hasUnpushed || hasAdminEdits || Date.now() - lastLocalEditTimeRef.current < 60000) {
         return;
       }
 
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
-        pullFromGitHub(false).catch(() => {});
         fetch('/api/sync-to-code', { cache: 'no-store' })
           .then((r) => (r.ok ? r.json() : null))
           .then((data) => {
@@ -1376,19 +1412,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     window.addEventListener('focus', handleFocus);
 
     return () => {
-      clearInterval(timer);
       document.removeEventListener('visibilitychange', handleFocus);
       window.removeEventListener('focus', handleFocus);
     };
-  }, [
-    githubConfig.enabled,
-    githubConfig.owner,
-    githubConfig.repo,
-    githubConfig.autoPollIntervalSec,
-    pullFromGitHub,
-    applyDatabaseSnapshot,
-    isAdminLoggedIn
-  ]);
+  }, [applyDatabaseSnapshot, isAdminLoggedIn]);
 
   // Comprehensive state reload from storage to synchronize in-memory state WITHOUT unnecessary re-renders
   const reloadAllFromStorage = useCallback(() => {
@@ -1445,6 +1472,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const qz = safeParse<ModelTest[]>('ihas_quizzes');
       if (Array.isArray(qz)) safeSetIfChanged(setModelTests, qz);
 
+      const gal = safeParse<GalleryItem[]>('ihas_gallery');
+      if (Array.isArray(gal)) safeSetIfChanged(setGalleryItems, gal);
+
       const gh = safeParse<GitHubConfig>('ihas_github_config');
       if (gh) {
         if (!gh.token) {
@@ -1460,7 +1490,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [safeSetIfChanged]);
 
-  // Initial Database Hydration: Server /api/live-data -> live GitHub -> static fallback
+  // Initial Database Hydration: Server /api/live-data -> codebase /liveData.json
   const [isInitialLoading, setIsInitialLoading] = useState(true);
 
   useEffect(() => {
@@ -1492,26 +1522,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
         }
 
-        // Step 2: Fetch directly from live GitHub CDN / API if local server is empty or offline (for visitors)
-        if (!liveData || typeof liveData !== 'object' || Object.keys(liveData).length === 0) {
-          try {
-            const ghRes = await fetchDataFromGitHub(githubConfig);
-            if (ghRes.success && ghRes.data) {
-              liveData = ghRes.data;
-              if (isMounted && ghRes.sha) {
-                setGithubConfig((prev) => ({
-                  ...prev,
-                  lastSyncedAt: ghRes.lastUpdated || new Date().toISOString(),
-                  lastCommitSha: ghRes.sha || prev.lastCommitSha
-                }));
-              }
-            }
-          } catch (_ghErr) {
-            void _ghErr;
-          }
-        }
-
-        // Step 3: Fallback to static public/liveData.json
+        // Step 2: Fallback to static public/liveData.json (never auto-pull from old GitHub repository)
         if (!liveData || typeof liveData !== 'object' || Object.keys(liveData).length === 0) {
           try {
             const fallbackRes = await fetch('/liveData.json', { cache: 'no-store' });
@@ -1674,6 +1685,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             else {
               const raw = safeStorage.getItem('ihas_quizzes');
               if (raw) safeSetIfChanged(setModelTests, JSON.parse(raw));
+            }
+            break;
+          }
+          case 'gallery':
+          case 'ihas_gallery':
+          case 'galleryItems': {
+            if (data) safeSetIfChanged(setGalleryItems, data);
+            else {
+              const raw = safeStorage.getItem('ihas_gallery');
+              if (raw) safeSetIfChanged(setGalleryItems, JSON.parse(raw));
             }
             break;
           }
@@ -1927,6 +1948,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addModelTest,
         updateModelTest,
         deleteModelTest,
+        galleryItems,
+        addGalleryItem,
+        updateGalleryItem,
+        deleteGalleryItem,
         githubConfig,
         updateGitHubConfig,
         isGitHubSyncing,

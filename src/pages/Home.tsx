@@ -22,6 +22,8 @@ import { subscribeRealtimeUpdate } from '../lib/storageService';
 import { HeroSlider } from '../components/HeroSlider';
 import { VideoPlayerModal } from '../components/VideoPlayerModal';
 import { NotePreviewModal } from '../components/NotePreviewModal';
+import { HomeNoticeSection } from '../components/HomeNoticeSection';
+import { HomeGallerySection } from '../components/HomeGallerySection';
 import { VideoClass, NoteResource, Course, Teacher } from '../types';
 
 export const Home: React.FC = () => {
@@ -31,6 +33,8 @@ export const Home: React.FC = () => {
     courses, 
     videoClasses, 
     notes, 
+    notices,
+    galleryItems,
     openEnrollmentModal, 
     isEnrolled,
     schoolSettings,
@@ -518,8 +522,33 @@ export const Home: React.FC = () => {
         </div>
       </section>
 
-      {/* Headmaster Spotlight */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* Headmaster & Teachers Spotlight (আমাদের শিক্ষক মণ্ডলী) */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-slate-200/80 pb-4">
+          <div>
+            <div className="inline-flex items-center gap-1.5 text-emerald-600 text-xs font-bold uppercase tracking-wider mb-1">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>{lang === 'bn' ? 'অভিজ্ঞ শিক্ষকমণ্ডলী' : 'Dedicated Faculty'}</span>
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900">
+              {lang === 'bn' ? 'আমাদের শ্রদ্ধেয় শিক্ষক মণ্ডলী' : 'Our Esteemed Teachers & Mentors'}
+            </h2>
+            <p className="text-sm text-slate-500 mt-1">
+              {lang === 'bn' 
+                ? 'মো. তৌহিদুল হক তুহিন স্যারের দিকনির্দেশনায় পাঠদানকারী দক্ষ ও অভিজ্ঞ শিক্ষক প্যানেল।' 
+                : 'Passionate and qualified educators guiding students with proven methodologies.'}
+            </p>
+          </div>
+          <Link
+            to="/teachers"
+            className="text-xs font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1 group shrink-0"
+          >
+            <span>{lang === 'bn' ? `সকল শিক্ষক প্রোফাইল দেখুন (${teachers.length})` : `View All Teachers (${teachers.length})`}</span>
+            <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+          </Link>
+        </div>
+
+        {/* Headmaster Feature Banner */}
         <div className="bg-gradient-to-r from-emerald-950 via-teal-950 to-slate-950 rounded-3xl p-8 sm:p-12 text-white shadow-xl grid grid-cols-1 md:grid-cols-12 gap-8 items-center border border-emerald-900/40">
           <div className="md:col-span-4 text-center md:text-left">
             <img
@@ -560,7 +589,45 @@ export const Home: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* Other Faculty Mini-Cards if available */}
+        {teachers.filter((t: Teacher) => !t.isHeadmaster).length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 pt-2">
+            {teachers.filter((t: Teacher) => !t.isHeadmaster).slice(0, 3).map((teacher: Teacher) => (
+              <div
+                key={teacher.id}
+                className="bg-white rounded-3xl border border-slate-200 p-5 shadow-xs flex items-center gap-4 hover:border-emerald-300 smooth-card group"
+              >
+                <img
+                  src={teacher.photoUrl}
+                  alt={lang === 'bn' ? teacher.nameBn : teacher.nameEn}
+                  className="w-16 h-16 rounded-2xl object-cover border-2 border-emerald-500/20 shrink-0"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1544717305-2782549b5136?q=80&w=200';
+                  }}
+                />
+                <div className="min-w-0">
+                  <h4 className="font-bold text-sm text-slate-900 group-hover:text-emerald-600 transition-colors truncate">
+                    {lang === 'bn' ? teacher.nameBn : teacher.nameEn}
+                  </h4>
+                  <p className="text-xs text-emerald-600 font-semibold truncate">
+                    {lang === 'bn' ? teacher.designationBn : teacher.designationEn}
+                  </p>
+                  <p className="text-[11px] text-slate-400 truncate mt-0.5">
+                    {teacher.qualification}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
+
+      {/* ১. শিক্ষক মণ্ডলীর নিচে: নোটিশ বোর্ড সেকশন */}
+      <HomeNoticeSection notices={notices} lang={lang} />
+
+      {/* ২. নোটিশের পরে: ফটো ও ভিডিও গ্যালারি সেকশন (ফুটারের ঠিক উপরে) */}
+      <HomeGallerySection galleryItems={galleryItems} lang={lang} />
 
       {/* Modals */}
       <VideoPlayerModal

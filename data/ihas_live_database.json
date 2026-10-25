@@ -1,12 +1,14 @@
 {
+  "_updatedAt": "2026-10-25T18:08:36.723Z",
   "_meta": {
-    "app": "I Have A School",
-    "director": "MD Touhidul Hoque Tuhin",
-    "schemaVersion": "2026.1",
-    "lastUpdated": "2026-10-25T17:32:58.131Z",
-    "pushedBy": "Admin Control Panel"
+    "lastSavedAt": "2026-10-25T18:08:36.723Z",
+    "authoritative": true,
+    "syncedBy": "Admin Control Panel Auto Engine",
+    "founder": "MD Touhidul Hoque Tuhin",
+    "platform": "I Have A School",
+    "updatedAt": "2026-10-25T18:08:36.171Z"
   },
-  "schoolSettings": {
+  "ihas_school_settings": {
     "instituteNameEn": "I Have A School",
     "instituteNameBn": "আই হ্যাভ এ স্কুল",
     "taglineEn": "Learn, Grow, Succeed • By MD Touhidul Hoque Tuhin",
@@ -93,7 +95,7 @@
       }
     ]
   },
-  "heroSlides": [
+  "ihas_hero_slides": [
     {
       "id": "slide-1",
       "titleEn": "Master English with Tuhin Sir",
@@ -131,7 +133,7 @@
       "active": true
     }
   ],
-  "courses": [
+  "ihas_courses": [
     {
       "id": "course-1",
       "titleEn": "Complete English Grammar Mastery 2026",
@@ -296,7 +298,7 @@
       }
     }
   ],
-  "students": [
+  "ihas_students": [
     {
       "id": "std-1",
       "academicYear": "2026",
@@ -343,7 +345,7 @@
       "admissionDate": "2026-02-01"
     }
   ],
-  "subjects": [
+  "ihas_subjects": [
     {
       "id": "sub-1",
       "courseId": "course-1",
@@ -380,7 +382,7 @@
       "passMarks": 40
     }
   ],
-  "exams": [
+  "ihas_exams": [
     {
       "id": "exam-1",
       "courseId": "course-1",
@@ -403,7 +405,7 @@
       "date": "2026-04-20"
     }
   ],
-  "results": [
+  "ihas_results": [
     {
       "id": "res-1",
       "academicYear": "2026",
@@ -441,7 +443,7 @@
       "createdDate": "2026-03-15"
     }
   ],
-  "teachers": [
+  "ihas_teachers": [
     {
       "id": "tch-1",
       "nameEn": "MD Touhidul Hoque Tuhin",
@@ -458,7 +460,7 @@
       "address": "Hadi Fakir hat, Mireshrai, Chattogram "
     }
   ],
-  "videoClasses": [
+  "ihas_video_classes": [
     {
       "id": "vid-1792949378656",
       "titleBn": "Subject verb Agreement",
@@ -511,7 +513,60 @@
       "level": "All Levels"
     }
   ],
-  "notes": [
+  "ihas_videos": [
+    {
+      "id": "vid-1792949378656",
+      "titleBn": "Subject verb Agreement",
+      "titleEn": "Subject verb Agreement",
+      "descriptionBn": "তুহিন স্যারের বিশেষ ফ্রি ক্লাস।",
+      "descriptionEn": "Exclusive free video lecture by Tuhin Sir.",
+      "category": "Grammar Hacks",
+      "duration": "18:45",
+      "youtubeId": "9lg8KCL6krs",
+      "videoUrl": "https://youtu.be/9lg8KCL6krs?si=Ee5ixElgxt9M3w4T",
+      "videoPlatform": "youtube",
+      "videoFileUrl": "",
+      "thumbnailUrl": "https://img.youtube.com/vi/9lg8KCL6krs/hqdefault.jpg",
+      "views": "4.2K",
+      "publishedDate": "Just now",
+      "level": "All Levels"
+    },
+    {
+      "id": "vid-1792949294191",
+      "titleBn": "Non count to count noun",
+      "titleEn": "Non count to count noun",
+      "descriptionBn": "তুহিন স্যারের বিশেষ ফ্রি ক্লাস।",
+      "descriptionEn": "Exclusive free video lecture by Tuhin Sir.",
+      "category": "Grammar Hacks",
+      "duration": "18:45",
+      "youtubeId": "LcsV_HlRkBA",
+      "videoUrl": "https://youtu.be/LcsV_HlRkBA?si=w9KjiChI--D8Iync",
+      "videoPlatform": "youtube",
+      "videoFileUrl": "",
+      "thumbnailUrl": "https://img.youtube.com/vi/LcsV_HlRkBA/hqdefault.jpg",
+      "views": "3.2K",
+      "publishedDate": "Just now",
+      "level": "All Levels"
+    },
+    {
+      "id": "vid-1792498350265",
+      "titleBn": "পানির মতো সহজ Article",
+      "titleEn": "পানির মতো সহজ Article",
+      "descriptionBn": "",
+      "descriptionEn": "",
+      "category": "Grammar Hacks",
+      "duration": "18:45",
+      "youtubeId": "zq8UVhivSVQ",
+      "videoUrl": "https://youtube.com/watch?v=zq8UVhivSVQ&si=KLwz0DzU3i--ijn5",
+      "videoPlatform": "youtube",
+      "videoFileUrl": "",
+      "thumbnailUrl": "https://img.youtube.com/vi/zq8UVhivSVQ/hqdefault.jpg",
+      "views": "6.2K",
+      "publishedDate": "Just now",
+      "level": "All Levels"
+    }
+  ],
+  "ihas_notes": [
     {
       "id": "note-1",
       "titleEn": "Right Form of Verbs: 40 Golden Rules Sheet",
@@ -560,7 +615,7 @@
       ]
     }
   ],
-  "notices": [
+  "ihas_notices": [
     {
       "id": "not-1",
       "titleEn": "HSC 2026 Exclusive Intensive English Batch: Admission Open",
@@ -582,7 +637,7 @@
       "contentBn": "আগামী শুক্রবার থেকে সকল কোর্সের শিক্ষার্থীদের মাসিক মূল্যায়ন পরীক্ষা শুরু হবে। বিস্তারিত বিষয় ও রুটিন ক্লাসরুম থেকে জেনে নিন।"
     }
   ],
-  "routines": [
+  "ihas_routines": [
     {
       "id": "rtn-1",
       "titleEn": "HSC 2026 Live Master Class Routine",
@@ -604,7 +659,7 @@
       "notes": "পরীক্ষার্থীদের নির্ধারিত সময়ের ১০ মিনিট পূর্বে ক্লাসরুমে উপস্থিত হতে হবে।"
     }
   ],
-  "chatbotTraining": [
+  "ihas_chatbot_training": [
     {
       "id": "train-1",
       "year": "2026",
@@ -622,7 +677,7 @@
       "createdAt": "2026-10-18"
     }
   ],
-  "modelTests": [
+  "ihas_quizzes": [
     {
       "id": "test-1",
       "title": "Grammar Precision Challenge: Right Forms of Verbs & Prepositions",
@@ -669,21 +724,101 @@
       ]
     }
   ],
-  "adminCredentials": {
+  "ihas_gallery": [
+    {
+      "id": "gal-1",
+      "titleBn": "বার্ষিক মেধা পুরস্কার ও সম্মাননা প্রদান অনুষ্ঠান ২০২৬",
+      "titleEn": "Annual Academic Merit Award & Honors Ceremony 2026",
+      "type": "image",
+      "mediaUrl": "https://images.unsplash.com/photo-1523240795612-9a054b0db644?q=80&w=1200&auto=format&fit=crop",
+      "thumbnailUrl": "https://images.unsplash.com/photo-1523240795612-9a054b0db644?q=80&w=600&auto=format&fit=crop",
+      "captionBn": "এইচএসসি ও এসএসসি পরীক্ষায় এ+ প্রাপ্ত কৃতী শিক্ষার্থীদের সংবর্ধনা ও সনদ প্রদান করছেন তৌহিদুল হক তুহিন স্যার।",
+      "captionEn": "MD Touhidul Hoque Tuhin awarding top GPA 5.00 achievers and presenting merit certificates.",
+      "category": "পুরস্কার বিতরণী",
+      "date": "২০২৬-০৩-১৫",
+      "isFeatured": true
+    },
+    {
+      "id": "gal-2",
+      "titleBn": "ইংলিশ গ্রামার ও স্পোকেন মাস্টারক্লাস সরাসরি ইন্টারঅ্যাকশন",
+      "titleEn": "Interactive Live English Grammar & Spoken Masterclass",
+      "type": "video",
+      "mediaUrl": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      "thumbnailUrl": "https://images.unsplash.com/photo-1577495508048-b635879837f1?q=80&w=600&auto=format&fit=crop",
+      "captionBn": "ক্লাসরুমে শিক্ষার্থীদের সাথে সরাসরি রাইট ফর্ম অব ভার্বস ও ফ্লুয়েন্ট স্পিকিং ড্রিল অনুশীলন।",
+      "captionEn": "Classroom practice session on Right Form of Verbs and Spoken Fluency with students.",
+      "category": "ক্লাসরুম ক্লাস",
+      "date": "২০২৬-০৩-১০",
+      "isFeatured": true
+    },
+    {
+      "id": "gal-3",
+      "titleBn": "আন্তর্জাতিক মাতৃভাষা দিবস ও সাংস্কৃতিক প্রতিযোগিতা",
+      "titleEn": "International Mother Language Day & Cultural Competition",
+      "type": "image",
+      "mediaUrl": "https://images.unsplash.com/photo-1511578314322-379afb476865?q=80&w=1200&auto=format&fit=crop",
+      "thumbnailUrl": "https://images.unsplash.com/photo-1511578314322-379afb476865?q=80&w=600&auto=format&fit=crop",
+      "captionBn": "আই হ্যাভ এ স্কুল একাডেমি প্রাঙ্গণে রচনা ও উপস্থিত বক্তৃতা প্রতিযোগিতায় বিজয়ীদের সাথে শিক্ষকবৃন্দ।",
+      "captionEn": "Faculty members celebrating with essay and extempore speech winners at IHAS Academy.",
+      "category": "সাংস্কৃতিক অনুষ্ঠান",
+      "date": "২০২৬-০২-২১",
+      "isFeatured": true
+    },
+    {
+      "id": "gal-4",
+      "titleBn": "এইচএসসি ২০২৬ স্পেশাল মডেল টেস্ট পরীক্ষার হল পরিদর্শন",
+      "titleEn": "HSC 2026 Special Model Test Exam Hall Session",
+      "type": "image",
+      "mediaUrl": "https://images.unsplash.com/photo-1427504494785-3a9ca7044f45?q=80&w=1200&auto=format&fit=crop",
+      "thumbnailUrl": "https://images.unsplash.com/photo-1427504494785-3a9ca7044f45?q=80&w=600&auto=format&fit=crop",
+      "captionBn": "বোর্ড পরীক্ষার অনুরূপ শতভাগ নিয়মতান্ত্রিক পরিবেশে অনুষ্ঠিত মডেল টেস্ট পরীক্ষার খণ্ডচিত্র।",
+      "captionEn": "Standard exam environment during the comprehensive board model test evaluation.",
+      "category": "পরীক্ষা হল",
+      "date": "২০২৬-০৩-০৫",
+      "isFeatured": false
+    },
+    {
+      "id": "gal-5",
+      "titleBn": "তুহিন স্যারের বিশেষ ওরিয়েন্টেশন ও মোটিভেশন সেশন",
+      "titleEn": "Special Orientation & Motivational Session by Tuhin Sir",
+      "type": "video",
+      "mediaUrl": "https://www.youtube.com/watch?v=kJQP7kiw5Fk",
+      "thumbnailUrl": "https://images.unsplash.com/photo-1515187029135-18ee286d815b?q=80&w=600&auto=format&fit=crop",
+      "captionBn": "ইংরেজি ভয় দূর করে আত্মবিশ্বাসের সাথে লক্ষ্য অর্জনের দিকনির্দেশনামূলক পরামর্শ।",
+      "captionEn": "Overcoming fear of English and achieving life goals with determination and strategy.",
+      "category": "সেমিনার",
+      "date": "২০২৬-০২-১৫",
+      "isFeatured": true
+    },
+    {
+      "id": "gal-6",
+      "titleBn": "শিক্ষক-শিক্ষার্থী প্রীতি বিতর্ক প্রতিযোগিতা ও পুরস্কার প্রদান",
+      "titleEn": "Teacher-Student Friendly Debate Competition & Awards",
+      "type": "image",
+      "mediaUrl": "https://images.unsplash.com/photo-1544717305-2782549b5136?q=80&w=1200&auto=format&fit=crop",
+      "thumbnailUrl": "https://images.unsplash.com/photo-1544717305-2782549b5136?q=80&w=600&auto=format&fit=crop",
+      "captionBn": "যুক্তিনির্ভর চিন্তা ও বাচনভঙ্গি বিকাশে শিক্ষার্থীদের অংশগ্রহণে আয়োজিত বার্ষিক বিতর্ক আসর।",
+      "captionEn": "Students enthusiastically participating in the annual debate championship at IHAS.",
+      "category": "বিতর্ক প্রতিযোগিতা",
+      "date": "২০২৬-০১-২৮",
+      "isFeatured": false
+    }
+  ],
+  "ihas_admin_creds": {
     "email": "tuhinsir@gmail.com",
     "password": "tuhinsir1234"
   },
-  "githubConfig": {
-    "enabled": true,
+  "ihas_github_config": {
+    "enabled": false,
     "token": "",
     "owner": "bmd03024-code",
     "repo": "I-Have-A-School-",
     "branch": "main",
     "filePath": "data/ihas_live_database.json",
-    "autoPushOnChange": true,
-    "autoPollIntervalSec": 20,
-    "lastSyncedAt": "2026-10-25T17:32:58.131Z",
-    "lastCommitSha": "5b8237affc1e120ecf638ae06fbd78c57dcbee07",
-    "lastCommitMessage": "Admin finalized all edits and manually pushed to GitHub"
+    "autoPushOnChange": false,
+    "autoPollIntervalSec": 0,
+    "lastSyncedAt": "",
+    "lastCommitSha": "",
+    "lastCommitMessage": "Manual push mode enabled"
   }
 }

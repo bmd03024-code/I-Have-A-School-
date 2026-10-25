@@ -43,7 +43,8 @@ import {
   GitBranch,
   Zap,
   RefreshCw,
-  Database
+  Database,
+  Film
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { DEFAULT_SCHOOL_SETTINGS, getStoredGitHubToken } from '../data/mockData';
@@ -68,6 +69,7 @@ import { ChatbotTrainingTab } from '../components/admin/ChatbotTrainingTab';
 import { GitHubSyncTab } from '../components/admin/GitHubSyncTab';
 import { RoutineManagementTab } from '../components/admin/RoutineManagementTab';
 import { DictionaryManagementTab } from '../components/admin/DictionaryManagementTab';
+import { GalleryManagementTab } from '../components/admin/GalleryManagementTab';
 import { 
   EditSlideModal, 
   EditCourseModal, 
@@ -136,6 +138,10 @@ export const AdminPanel: React.FC = () => {
     addModelTest,
     updateModelTest,
     deleteModelTest,
+    galleryItems,
+    addGalleryItem,
+    updateGalleryItem,
+    deleteGalleryItem,
     githubConfig,
     updateGitHubConfig,
     isGitHubSyncing,
@@ -194,6 +200,7 @@ export const AdminPanel: React.FC = () => {
     | 'chatbot_training' 
     | 'dictionary' 
     | 'quizzes' 
+    | 'gallery'
     | 'code_sync'
     | 'github_sync'
     | 'security'
@@ -1344,7 +1351,8 @@ export const AdminPanel: React.FC = () => {
             { id: 'dictionary', label: lang === 'bn' ? '৯. ডিকশনারি কন্ট্রোল' : '9. Dictionary', icon: BookOpen },
             { id: 'routines', label: lang === 'bn' ? '১০. রুটিন সেকশন' : '10. Routine', icon: Calendar },
             { id: 'quizzes', label: lang === 'bn' ? 'কুইজ মেনেজমেন্ট' : 'Quiz Management', icon: Layers },
-            { id: 'github_sync', label: lang === 'bn' ? '১১. গিটহাব টোকেন ও অটো-পাবলিশ' : '11. GitHub Token & Auto-Publish', icon: GitBranch },
+            { id: 'gallery', label: lang === 'bn' ? '১১. গ্যালারি (ছবি ও ভিডিও)' : '11. Gallery', icon: Film },
+            { id: 'github_sync', label: lang === 'bn' ? '১২. গিটহাব টোকেন ও অটো-পাবলিশ' : '12. GitHub Token & Auto-Publish', icon: GitBranch },
             { id: 'code_sync', label: lang === 'bn' ? '⚡ কোডিং ডেটাবেজ (চূড়ান্ত)' : '⚡ Codebase Database', icon: Database },
             { id: 'security', label: lang === 'bn' ? 'সিকিউরিটি' : 'Security', icon: Lock }
           ].map((tab) => {
@@ -3642,6 +3650,17 @@ export const AdminPanel: React.FC = () => {
           />
         )}
 
+        {/* ==================== TAB: GALLERY MANAGEMENT (PHOTOS & VIDEOS) ==================== */}
+        {activeTab === 'gallery' && (
+          <GalleryManagementTab
+            galleryItems={galleryItems}
+            addGalleryItem={addGalleryItem}
+            updateGalleryItem={updateGalleryItem}
+            deleteGalleryItem={deleteGalleryItem}
+            lang={lang}
+            showToast={showToast}
+          />
+        )}
 
         {/* ==================== TAB 12: GITHUB API & REAL-TIME SYNC ==================== */}
         {activeTab === 'github_sync' && (
