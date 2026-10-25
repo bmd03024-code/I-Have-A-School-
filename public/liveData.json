@@ -1,7 +1,7 @@
 {
-  "_updatedAt": "2026-10-25T18:20:20.167Z",
+  "_updatedAt": "2026-10-25T18:21:14.609Z",
   "_meta": {
-    "lastSavedAt": "2026-10-25T18:20:20.167Z",
+    "lastSavedAt": "2026-10-25T18:21:14.609Z",
     "authoritative": true,
     "syncedBy": "Admin Control Panel Auto Engine",
     "founder": "MD Touhidul Hoque Tuhin",
@@ -18,8 +18,8 @@
     "phone": "+880 1580-370062",
     "whatsapp": "+880 1580-370062",
     "email": "tuhinsir@gmail.com",
-    "addressEn": "House 42, Road 11, Dhanmondi, Dhaka-1209, Bangladesh",
-    "addressBn": "বাড়ি ৪২, রোড ১১, ধানমন্ডি, ঢাকা-১২০৯, বাংলাদেশ",
+    "addressEn": "Hadi Fakir Hat Mireshrai  Chottogram ",
+    "addressBn": "হাদি ফকির হাট মিরসরাই চট্টগ্রাম ",
     "facebookUrl": "https://www.facebook.com/touhidulhoque.tuhin",
     "youtubeUrl": "https://youtube.com/@ihaveaschool?si=KO9IqCprs_uX0PEY",
     "telegramUrl": "https://t.me",
@@ -668,8 +668,8 @@
     "filePath": "data/ihas_live_database.json",
     "autoPushOnChange": true,
     "autoPollIntervalSec": 20,
-    "lastSyncedAt": "2026-10-25T18:20:20.167Z",
-    "lastCommitSha": "",
-    "lastCommitMessage": "Authoritative codebase synchronization"
+    "lastSyncedAt": "2026-10-25T18:21:14.609Z",
+    "lastCommitSha": "97982a8aebf9fe979c83504819065064aa0001fd",
+    "lastCommitMessage": "Updated headmaster signature from Admin Panel"
   }
 }
