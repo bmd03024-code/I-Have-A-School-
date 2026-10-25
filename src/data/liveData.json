@@ -1,7 +1,7 @@
 {
-  "_updatedAt": "2026-10-25T18:27:26.088Z",
+  "_updatedAt": "2026-10-25T18:28:01.044Z",
   "_meta": {
-    "lastSavedAt": "2026-10-25T18:27:26.088Z",
+    "lastSavedAt": "2026-10-25T18:28:01.044Z",
     "authoritative": true,
     "syncedBy": "Admin Control Panel Auto Engine",
     "founder": "MD Touhidul Hoque Tuhin",
@@ -668,8 +668,8 @@
     "filePath": "data/ihas_live_database.json",
     "autoPushOnChange": true,
     "autoPollIntervalSec": 20,
-    "lastSyncedAt": "2026-10-25T18:27:26.088Z",
-    "lastCommitSha": "8e1ac12afd10029d0e626859f9f0dd4b5c18d192",
-    "lastCommitMessage": "Updated hero slide: এইচএসসি ২০২৬ ও স্পোকেন ইংলিশ স্পেশাল ব্যাচ"
+    "lastSyncedAt": "2026-10-25T18:28:01.044Z",
+    "lastCommitSha": "2cc7ff17e1dc916b79151c5fa1d5d0f052504be3",
+    "lastCommitMessage": "Live update from Admin Panel"
   }
 }
