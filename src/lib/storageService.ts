@@ -188,8 +188,7 @@ export const subscribeRealtimeUpdate = (callback: (topic: string, data?: any) =>
 
   const handleCustomEvent = (e: Event) => {
     const custom = e as CustomEvent;
-    // CRITICAL FIX FOR FLICKER: Ignore events dispatched by the same tab to prevent re-entrant state thrashing
-    if (custom.detail?.topic && custom.detail?.senderTabId !== TAB_ID) {
+    if (custom.detail?.topic) {
       callback(custom.detail.topic, custom.detail.data);
     }
   };
@@ -198,7 +197,7 @@ export const subscribeRealtimeUpdate = (callback: (topic: string, data?: any) =>
     if (e.key === 'ihas_realtime_ping' && e.newValue) {
       try {
         const ping = JSON.parse(e.newValue);
-        if (ping?.topic && ping?.senderTabId !== TAB_ID) {
+        if (ping?.topic) {
           callback(ping.topic, ping.data);
         }
       } catch {

@@ -18,6 +18,7 @@ import {
   ChatbotTrainingItem,
   GitHubConfig
 } from '../types';
+import { safeStorage } from '../lib/storageService';
 
 export const DEFAULT_SCHOOL_SETTINGS: SchoolSettings = {
   instituteNameEn: 'I Have A School',
@@ -653,11 +654,15 @@ export const getStoredGitHubToken = (): string => {
     if (typeof window !== 'undefined') {
       const master = sanitize(localStorage.getItem('ihas_github_token_master'));
       if (master) return master;
+      const safeMaster = sanitize(safeStorage.getItem('ihas_github_token_master'));
+      if (safeMaster) return safeMaster;
       const session = sanitize(sessionStorage.getItem('ihas_github_token_master'));
       if (session) return session;
       const safe = sanitize(localStorage.getItem('ihas_github_token'));
       if (safe) return safe;
-      const cfgRaw = localStorage.getItem('ihas_github_config');
+      const safeTok = sanitize(safeStorage.getItem('ihas_github_token'));
+      if (safeTok) return safeTok;
+      const cfgRaw = localStorage.getItem('ihas_github_config') || safeStorage.getItem('ihas_github_config');
       if (cfgRaw) {
         try {
           const parsed = JSON.parse(cfgRaw);
@@ -671,7 +676,7 @@ export const getStoredGitHubToken = (): string => {
   } catch {
     // ignore
   }
-  const envToken = (typeof process !== 'undefined' && process.env?.VITE_GITHUB_TOKEN) || import.meta.env.VITE_GITHUB_TOKEN || '';
+  const envToken = (typeof process !== 'undefined' && process.env?.VITE_GITHUB_TOKEN) || (import.meta as any).env?.VITE_GITHUB_TOKEN || '';
   return sanitize(envToken);
 };
 

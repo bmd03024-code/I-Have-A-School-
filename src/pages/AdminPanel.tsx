@@ -46,7 +46,8 @@ import {
   Database
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { DEFAULT_SCHOOL_SETTINGS } from '../data/mockData';
+import { DEFAULT_SCHOOL_SETTINGS, getStoredGitHubToken } from '../data/mockData';
+import { cleanGitHubToken } from '../services/githubSyncService';
 import { 
   HeroSlide, 
   Course, 
@@ -227,29 +228,8 @@ export const AdminPanel: React.FC = () => {
   useEffect(() => {
     const incomingJson = JSON.stringify(schoolSettings);
     if (incomingJson !== lastSavedSettingsRef.current && !isEditingSettingsRef.current) {
-      // Guard: Admin's current custom logo, signature, and seal are strictly authoritative and final
-      const currentSig = settingsForm.headmasterSignatureUrl;
-      const currentLogo = settingsForm.logoUrl;
-      const currentSeal = settingsForm.officialSealUrl;
-      const defaultSig = DEFAULT_SCHOOL_SETTINGS.headmasterSignatureUrl;
-      const defaultLogo = DEFAULT_SCHOOL_SETTINGS.logoUrl;
-      const defaultSeal = DEFAULT_SCHOOL_SETTINGS.officialSealUrl;
-
-      const protectedSettings = {
-        ...schoolSettings,
-        headmasterSignatureUrl: (currentSig && currentSig !== defaultSig)
-          ? currentSig
-          : (schoolSettings.headmasterSignatureUrl || defaultSig),
-        logoUrl: (currentLogo && currentLogo !== defaultLogo)
-          ? currentLogo
-          : (schoolSettings.logoUrl || defaultLogo),
-        officialSealUrl: (currentSeal && currentSeal !== defaultSeal)
-          ? currentSeal
-          : (schoolSettings.officialSealUrl || defaultSeal),
-      };
-
-      lastSavedSettingsRef.current = JSON.stringify(protectedSettings);
-      setSettingsForm(protectedSettings);
+      lastSavedSettingsRef.current = incomingJson;
+      setSettingsForm(schoolSettings);
     }
   }, [schoolSettings]);
 
@@ -578,6 +558,13 @@ export const AdminPanel: React.FC = () => {
     lastSavedSettingsRef.current = JSON.stringify(updated);
     updateSchoolSettings(updated, true);
     await saveAllToCodebase({ ihas_school_settings: updated }).catch(() => {});
+
+    // If GitHub Token is available, push immediately to GitHub repository
+    const activeToken = cleanGitHubToken((githubConfig.token && githubConfig.token.trim()) || getStoredGitHubToken());
+    if (activeToken && githubConfig.owner && githubConfig.repo) {
+      pushToGitHub('Updated school logo from Admin Panel').catch(() => {});
+    }
+
     isEditingSettingsRef.current = false;
     showToast(lang === 'bn' ? 'লোগো সফলভাবে পরিবর্তিত ও চূড়ান্ত হিসেবে সংরক্ষিত হয়েছে!' : 'Logo updated and saved as final!');
   };
@@ -590,6 +577,13 @@ export const AdminPanel: React.FC = () => {
     lastSavedSettingsRef.current = JSON.stringify(updated);
     updateSchoolSettings(updated, true);
     await saveAllToCodebase({ ihas_school_settings: updated }).catch(() => {});
+
+    // If GitHub Token is available, push immediately to GitHub repository
+    const activeToken = cleanGitHubToken((githubConfig.token && githubConfig.token.trim()) || getStoredGitHubToken());
+    if (activeToken && githubConfig.owner && githubConfig.repo) {
+      pushToGitHub('Updated headmaster signature from Admin Panel').catch(() => {});
+    }
+
     isEditingSettingsRef.current = false;
     showToast(lang === 'bn' ? 'প্রধান শিক্ষকের স্বাক্ষর সফলভাবে সংরক্ষিত হয়েছে!' : 'Signature updated and saved as final!');
   };
@@ -602,6 +596,13 @@ export const AdminPanel: React.FC = () => {
     lastSavedSettingsRef.current = JSON.stringify(updated);
     updateSchoolSettings(updated, true);
     await saveAllToCodebase({ ihas_school_settings: updated }).catch(() => {});
+
+    // If GitHub Token is available, push immediately to GitHub repository
+    const activeToken = cleanGitHubToken((githubConfig.token && githubConfig.token.trim()) || getStoredGitHubToken());
+    if (activeToken && githubConfig.owner && githubConfig.repo) {
+      pushToGitHub('Updated official seal from Admin Panel').catch(() => {});
+    }
+
     isEditingSettingsRef.current = false;
     showToast(lang === 'bn' ? 'অফিসিয়াল সিল সফলভাবে সংরক্ষিত হয়েছে!' : 'Official seal updated and saved as final!');
   };
@@ -619,10 +620,27 @@ export const AdminPanel: React.FC = () => {
       // 1. Force update school settings in AppContext and localStorage
       updateSchoolSettings(currentForm, true);
 
-      // 2. Persist directly to codebase liveData files and push to GitHub
+      // 2. Persist directly to codebase liveData files
       const res = await saveAllToCodebase({ ihas_school_settings: currentForm });
 
-      showToast(res.message || (lang === 'bn' ? 'প্রতিষ্ঠান সেটিংস, লোগো, সিল ও স্বাক্ষর সফলভাবে সংরক্ষিত হয়েছে!' : 'Settings, logo, seal, and signature saved successfully!'));
+      // 3. If GitHub Token is configured, also push to GitHub live repository
+      const activeToken = cleanGitHubToken((githubConfig.token && githubConfig.token.trim()) || getStoredGitHubToken());
+      let livePushNotice = '';
+      if (activeToken && githubConfig.owner && githubConfig.repo) {
+        try {
+          const pushRes = await pushToGitHub('Updated school settings and branding');
+          if (pushRes.success) {
+            livePushNotice = lang === 'bn' ? ' এবং গিটহাবে লাইভ পাবলিশ সম্পন্ন হয়েছে ✓' : ' and published live to GitHub ✓';
+          }
+        } catch (pushErr) {
+          console.warn('Auto-push on save settings error:', pushErr);
+        }
+      }
+
+      showToast(
+        (res.message || (lang === 'bn' ? 'প্রতিষ্ঠান সেটিংস, লোগো, সিল ও স্বাক্ষর সফলভাবে সংরক্ষিত হয়েছে!' : 'Settings, logo, seal, and signature saved successfully!')) +
+        livePushNotice
+      );
     } catch (err: any) {
       showToast(lang === 'bn' ? `সংরক্ষণ ত্রুটি: ${err?.message || 'সমস্যা হয়েছে'}` : 'Failed to save settings.');
     } finally {

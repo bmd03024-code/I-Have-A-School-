@@ -123,7 +123,7 @@ export const GitHubSyncTab: React.FC<GitHubSyncTabProps> = ({
     }
     const updated = { ...formData, token: '' };
     setFormData(updated);
-    updateConfig(updated);
+    updateConfig({ ...updated, isExplicitClear: true } as any);
     showToast(lang === 'bn' ? 'গিটহাব টোকেন মুছে ফেলা হয়েছে!' : 'GitHub token cleared!');
   };
 

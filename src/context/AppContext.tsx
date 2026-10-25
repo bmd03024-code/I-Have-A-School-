@@ -753,7 +753,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     lastCommitSha: githubConfig.lastCommitSha
   });
 
-  const updateGitHubConfig = (cfg: GitHubConfig) => {
+  const updateGitHubConfig = (cfg: GitHubConfig & { isExplicitClear?: boolean }) => {
     const cleanToken = cleanGitHubToken(cfg.token);
     const cleanOwner = (cfg.owner || 'bmd03024-code').trim();
     let cleanRepo = (cfg.repo || 'I-Have-A-School-').trim();
@@ -761,16 +761,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       cleanRepo = 'I-Have-A-School-';
     }
 
-    if (cleanToken) {
+    const storedMasterToken = getStoredGitHubToken();
+    const effectiveToken = cleanToken || (cfg.isExplicitClear ? '' : storedMasterToken);
+
+    if (effectiveToken) {
       try {
-        localStorage.setItem('ihas_github_token_master', cleanToken);
-        localStorage.setItem('ihas_github_token', cleanToken);
-        safeStorage.setItem('ihas_github_token_master', cleanToken);
-        safeStorage.setItem('ihas_github_token', cleanToken);
+        localStorage.setItem('ihas_github_token_master', effectiveToken);
+        localStorage.setItem('ihas_github_token', effectiveToken);
+        safeStorage.setItem('ihas_github_token_master', effectiveToken);
+        safeStorage.setItem('ihas_github_token', effectiveToken);
       } catch (e) {
         console.warn('Storage token write notice:', e);
       }
-    } else {
+    } else if (cfg.isExplicitClear) {
       try {
         localStorage.removeItem('ihas_github_token_master');
         localStorage.removeItem('ihas_github_token');
@@ -780,9 +783,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         console.warn('Storage token remove notice:', e);
       }
     }
+
     const updatedCfg: GitHubConfig = {
       ...cfg,
-      token: cleanToken,
+      token: effectiveToken,
       owner: cleanOwner,
       repo: cleanRepo
     };
@@ -791,7 +795,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     notifyRealtimeUpdate('githubConfig', updatedCfg);
   };
 
-  const applyDatabaseSnapshot = useCallback((data: any) => {
+  const applyDatabaseSnapshot = useCallback((data: any, force: boolean = false) => {
     if (!data || typeof data !== 'object') return;
     try {
       const hasUnpushed = (typeof window !== 'undefined' && safeStorage.getItem('ihas_has_unpushed_edits') === 'true') || hasUnpushedEditsRef.current;
@@ -803,11 +807,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ? new Date(data._updatedAt).getTime() 
         : (data._meta?.lastSavedAt ? new Date(data._meta?.lastSavedAt).getTime() : 0);
 
-      // CRITICAL: Any change the admin made locally is strictly final and authoritative!
-      // If there are unpushed edits, or if incoming data is older than or equal to local edit time,
-      // DO NOT overwrite local state with stale incoming data.
-      if (hasUnpushed || (lastEditTime > 0 && incomingTime <= lastEditTime)) {
+      // Protect local unpushed edits unless force is explicitly true (e.g. manual pull or live sync broadcast)
+      if (!force && (hasUnpushed || (lastEditTime > 0 && incomingTime <= lastEditTime))) {
         return;
+      }
+
+      if (force) {
+        safeStorage.setItem('ihas_has_unpushed_edits', 'false');
+        hasUnpushedEditsRef.current = false;
       }
 
       const s = data.schoolSettings || data.ihas_school_settings || data.school_settings;
@@ -820,15 +827,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const mergedSettings: SchoolSettings = {
           ...currentSettings,
           ...s,
-          headmasterSignatureUrl: (currentSettings.headmasterSignatureUrl && currentSettings.headmasterSignatureUrl !== defaultSig)
-            ? currentSettings.headmasterSignatureUrl
-            : (s.headmasterSignatureUrl || defaultSig),
-          logoUrl: (currentSettings.logoUrl && currentSettings.logoUrl !== defaultLogo)
-            ? currentSettings.logoUrl
-            : (s.logoUrl || defaultLogo),
-          officialSealUrl: (currentSettings.officialSealUrl && currentSettings.officialSealUrl !== defaultSeal)
-            ? currentSettings.officialSealUrl
-            : (s.officialSealUrl || defaultSeal),
+          headmasterSignatureUrl: s.headmasterSignatureUrl !== undefined && s.headmasterSignatureUrl !== ''
+            ? s.headmasterSignatureUrl
+            : (currentSettings.headmasterSignatureUrl || defaultSig),
+          logoUrl: s.logoUrl !== undefined && s.logoUrl !== ''
+            ? s.logoUrl
+            : (currentSettings.logoUrl || defaultLogo),
+          officialSealUrl: s.officialSealUrl !== undefined && s.officialSealUrl !== ''
+            ? s.officialSealUrl
+            : (currentSettings.officialSealUrl || defaultSeal),
         };
 
         safeSetIfChanged(setSchoolSettings, mergedSettings);
@@ -1179,7 +1186,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ihas_admin_creds: customOverrides?.ihas_admin_creds || latestEntitiesRef.current.adminCredentials,
         ihas_github_config: {
           ...(customOverrides?.ihas_github_config || latestEntitiesRef.current.githubConfig),
-          token: '' // Protect PAT from leaking into Git
+          token: '' // Protect PAT from leaking into Git / codebase files
         },
         _meta: {
           authoritative: true,
@@ -1191,9 +1198,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
 
       // 1. Immediately persist snapshot to safeStorage and localStorage so the user never loses edits
+      // CRITICAL: Keep active GitHub token intact in local storage! Do NOT overwrite it with empty string!
+      const activeGithubToken = cleanGitHubToken(
+        customOverrides?.ihas_github_config?.token ||
+        latestEntitiesRef.current.githubConfig?.token ||
+        getStoredGitHubToken()
+      );
+      const activeGithubConfig = {
+        ...(customOverrides?.ihas_github_config || latestEntitiesRef.current.githubConfig),
+        token: activeGithubToken
+      };
+
       Object.entries(snapshot).forEach(([k, v]) => {
         if (k !== '_meta') {
-          safeStorage.setItem(k, JSON.stringify(v));
+          if (k === 'ihas_github_config') {
+            safeStorage.setItem(k, JSON.stringify(activeGithubConfig));
+            if (activeGithubToken) {
+              safeStorage.setItem('ihas_github_token_master', activeGithubToken);
+              safeStorage.setItem('ihas_github_token', activeGithubToken);
+            }
+          } else {
+            safeStorage.setItem(k, JSON.stringify(v));
+          }
         }
       });
       notifyRealtimeUpdate('force_reload');
@@ -1266,7 +1292,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const shouldApply = force || (shaChanged && !hasUnpushed) || (remoteTime > 0 && remoteTime > localTime && !hasUnpushed);
 
         if (shouldApply) {
-          applyDatabaseSnapshot(res.data);
+          applyDatabaseSnapshot(res.data, force);
           const now = new Date().toISOString();
           const updatedConfig: GitHubConfig = {
             ...githubConfig,
@@ -1663,7 +1689,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
           case 'github_sync': {
             if (data?.snapshot) {
-              applyDatabaseSnapshot(data.snapshot);
+              applyDatabaseSnapshot(data.snapshot, true);
             }
             if (data?.config) {
               setGithubConfig(data.config);
