@@ -290,13 +290,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return (codeLiveData as any)?._meta?.updatedAt || (codeLiveData as any)?._meta?.lastSavedAt || (codeLiveData as any)?._updatedAt || null;
   });
 
-  // Track exact timestamp of user/admin local edits to guard against stale incoming network snapshots
-  const lastLocalEditTimeRef = useRef<number>(0);
+  // Track exact timestamp of user/admin local edits and unpushed status to guard against stale incoming network snapshots
+  const lastLocalEditTimeRef = useRef<number>(
+    typeof window !== 'undefined' ? Number(safeStorage.getItem('ihas_last_local_edit_time') || 0) : 0
+  );
+  const hasUnpushedEditsRef = useRef<boolean>(
+    typeof window !== 'undefined' ? safeStorage.getItem('ihas_has_unpushed_edits') === 'true' : false
+  );
 
   // Commit changes to local persistent storage and server codebase file
   const commitAndSync = useCallback((key: string, topic: string, data: any) => {
-    lastLocalEditTimeRef.current = Date.now();
+    const now = Date.now();
+    lastLocalEditTimeRef.current = now;
+    hasUnpushedEditsRef.current = true;
+    safeStorage.setItem('ihas_last_local_edit_time', String(now));
+    safeStorage.setItem('ihas_has_unpushed_edits', 'true');
+
     persistItem(key, data);
+    if (latestEntitiesRef.current) {
+      (latestEntitiesRef.current as any)[topic] = data;
+      if (topic === 'schoolSettings') {
+        latestEntitiesRef.current.schoolSettings = data;
+      }
+    }
     notifyRealtimeUpdate(topic, data);
     setCodeSyncLastSaved(new Date().toISOString());
 
@@ -318,11 +334,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   const markLocalEdit = useCallback(() => {
-    lastLocalEditTimeRef.current = Date.now();
+    const now = Date.now();
+    lastLocalEditTimeRef.current = now;
+    hasUnpushedEditsRef.current = true;
+    safeStorage.setItem('ihas_last_local_edit_time', String(now));
+    safeStorage.setItem('ihas_has_unpushed_edits', 'true');
   }, []);
 
   const updateSchoolSettings = useCallback((newSettings: SchoolSettings, force: boolean = false) => {
-    lastLocalEditTimeRef.current = Date.now();
+    const now = Date.now();
+    lastLocalEditTimeRef.current = now;
+    hasUnpushedEditsRef.current = true;
+    safeStorage.setItem('ihas_last_local_edit_time', String(now));
+    safeStorage.setItem('ihas_has_unpushed_edits', 'true');
+    latestEntitiesRef.current.schoolSettings = newSettings;
+
     setSchoolSettings((prev) => {
       if (!force && isEqual(prev, newSettings)) return prev;
       commitAndSync('ihas_school_settings', 'schoolSettings', newSettings);
@@ -768,16 +794,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const applyDatabaseSnapshot = useCallback((data: any) => {
     if (!data || typeof data !== 'object') return;
     try {
+      const hasUnpushed = (typeof window !== 'undefined' && safeStorage.getItem('ihas_has_unpushed_edits') === 'true') || hasUnpushedEditsRef.current;
+      const lastEditTime = Math.max(
+        lastLocalEditTimeRef.current,
+        typeof window !== 'undefined' ? Number(safeStorage.getItem('ihas_last_local_edit_time') || 0) : 0
+      );
       const incomingTime = data._updatedAt 
         ? new Date(data._updatedAt).getTime() 
         : (data._meta?.lastSavedAt ? new Date(data._meta?.lastSavedAt).getTime() : 0);
-      const timeSinceLastLocalEdit = Date.now() - lastLocalEditTimeRef.current;
 
-      // Protect recent local edits (within 120 seconds) from being overwritten by older snapshots
-      if (lastLocalEditTimeRef.current > 0 && timeSinceLastLocalEdit < 120000) {
-        if (incomingTime <= lastLocalEditTimeRef.current) {
-          return;
-        }
+      // CRITICAL: Any change the admin made locally is strictly final and authoritative!
+      // If there are unpushed edits, or if incoming data is older than or equal to local edit time,
+      // DO NOT overwrite local state with stale incoming data.
+      if (hasUnpushed || (lastEditTime > 0 && incomingTime <= lastEditTime)) {
+        return;
       }
 
       const s = data.schoolSettings || data.ihas_school_settings || data.school_settings;
@@ -790,15 +820,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const mergedSettings: SchoolSettings = {
           ...currentSettings,
           ...s,
-          headmasterSignatureUrl: (s.headmasterSignatureUrl && s.headmasterSignatureUrl !== defaultSig)
-            ? s.headmasterSignatureUrl
-            : (currentSettings.headmasterSignatureUrl || s.headmasterSignatureUrl || defaultSig),
-          logoUrl: (s.logoUrl && s.logoUrl !== defaultLogo)
-            ? s.logoUrl
-            : (currentSettings.logoUrl || s.logoUrl || defaultLogo),
-          officialSealUrl: (s.officialSealUrl && s.officialSealUrl !== defaultSeal)
-            ? s.officialSealUrl
-            : (currentSettings.officialSealUrl || s.officialSealUrl || defaultSeal),
+          headmasterSignatureUrl: (currentSettings.headmasterSignatureUrl && currentSettings.headmasterSignatureUrl !== defaultSig)
+            ? currentSettings.headmasterSignatureUrl
+            : (s.headmasterSignatureUrl || defaultSig),
+          logoUrl: (currentSettings.logoUrl && currentSettings.logoUrl !== defaultLogo)
+            ? currentSettings.logoUrl
+            : (s.logoUrl || defaultLogo),
+          officialSealUrl: (currentSettings.officialSealUrl && currentSettings.officialSealUrl !== defaultSeal)
+            ? currentSettings.officialSealUrl
+            : (s.officialSealUrl || defaultSeal),
         };
 
         safeSetIfChanged(setSchoolSettings, mergedSettings);
@@ -1083,6 +1113,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
         setGithubConfig(updatedConfig);
         persistItem('ihas_github_config', updatedConfig);
+        safeStorage.setItem('ihas_has_unpushed_edits', 'false');
+        hasUnpushedEditsRef.current = false;
         setGitHubSyncStatus({
           state: 'synced',
           message: 'সফলভাবে পুশ ও লাইভ সিঙ্ক সম্পন্ন হয়েছে (হোস্টিং রিডিপ্লয় ট্রিগার হয়েছে) ✓',
@@ -1207,6 +1239,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!githubConfig.owner || !githubConfig.repo) {
       return { success: false, error: 'GitHub owner and repo not configured' };
     }
+
+    // CRITICAL: Any change the admin made locally is strictly final!
+    // Automatic/background pulls (force: false) must NEVER run or overwrite when admin is logged in or has unpushed edits.
+    const hasUnpushed = (typeof window !== 'undefined' && safeStorage.getItem('ihas_has_unpushed_edits') === 'true') || hasUnpushedEditsRef.current;
+    if (!force && (hasUnpushed || isAdminLoggedIn)) {
+      return {
+        success: true,
+        data: latestEntitiesRef.current
+      };
+    }
+
     setIsGitHubSyncing(true);
     setGitHubSyncStatus((prev) => ({
       ...prev,
@@ -1220,7 +1263,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const remoteTime = res.lastUpdated ? new Date(res.lastUpdated).getTime() : 0;
         const localTime = githubConfig.lastSyncedAt ? new Date(githubConfig.lastSyncedAt).getTime() : 0;
         const shaChanged = Boolean(res.sha && res.sha !== githubConfig.lastCommitSha);
-        const shouldApply = force || shaChanged || !localTime || !githubConfig.lastCommitSha || (remoteTime > 0 && remoteTime > localTime);
+        const shouldApply = force || (shaChanged && !hasUnpushed) || (remoteTime > 0 && remoteTime > localTime && !hasUnpushed);
 
         if (shouldApply) {
           applyDatabaseSnapshot(res.data);
@@ -1261,29 +1304,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } finally {
       setIsGitHubSyncing(false);
     }
-  }, [githubConfig, applyDatabaseSnapshot]);
+  }, [githubConfig, applyDatabaseSnapshot, isAdminLoggedIn]);
 
   // Periodic background check and instant tab focus listener across all visitor browsers
   useEffect(() => {
     if (!githubConfig.enabled || !githubConfig.owner || !githubConfig.repo) return;
 
-    // Run initial pull check on mount
-    const initialTimer = setTimeout(() => {
-      pullFromGitHub(false).catch(() => {});
-    }, 800);
-
-    // Fast polling interval for all visitor browsers (15s)
-    const intervalSec = Math.max(15, githubConfig.autoPollIntervalSec || 20);
+    // Polite background polling (60s) ONLY for public visitors when there are NO unpushed admin edits
+    const intervalSec = Math.max(45, githubConfig.autoPollIntervalSec || 60);
     const timer = setInterval(() => {
+      const hasUnpushed = (typeof window !== 'undefined' && safeStorage.getItem('ihas_has_unpushed_edits') === 'true') || hasUnpushedEditsRef.current;
+      if (isAdminLoggedIn || hasUnpushed) return;
+
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
         pullFromGitHub(false).catch(() => {});
       }
     }, intervalSec * 1000);
 
     const handleFocus = () => {
-      // Guard: Do NOT pull and overwrite state if admin is logged in or actively editing
-      // (e.g., when returning from the system file picker dialog to upload an image)
-      if (isAdminLoggedIn || Date.now() - lastLocalEditTimeRef.current < 25000) {
+      // Guard: Do NOT pull and overwrite state if admin is logged in or actively editing or has unpushed edits
+      const hasUnpushed = (typeof window !== 'undefined' && safeStorage.getItem('ihas_has_unpushed_edits') === 'true') || hasUnpushedEditsRef.current;
+      if (isAdminLoggedIn || hasUnpushed || Date.now() - lastLocalEditTimeRef.current < 60000) {
         return;
       }
 
@@ -1309,7 +1350,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     window.addEventListener('focus', handleFocus);
 
     return () => {
-      clearTimeout(initialTimer);
       clearInterval(timer);
       document.removeEventListener('visibilitychange', handleFocus);
       window.removeEventListener('focus', handleFocus);
@@ -1320,7 +1360,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     githubConfig.repo,
     githubConfig.autoPollIntervalSec,
     pullFromGitHub,
-    applyDatabaseSnapshot
+    applyDatabaseSnapshot,
+    isAdminLoggedIn
   ]);
 
   // Comprehensive state reload from storage to synchronize in-memory state WITHOUT unnecessary re-renders

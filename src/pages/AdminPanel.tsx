@@ -227,7 +227,7 @@ export const AdminPanel: React.FC = () => {
   useEffect(() => {
     const incomingJson = JSON.stringify(schoolSettings);
     if (incomingJson !== lastSavedSettingsRef.current && !isEditingSettingsRef.current) {
-      // Guard against downgrading custom uploaded base64 data URLs to default placeholder URLs
+      // Guard: Admin's current custom logo, signature, and seal are strictly authoritative and final
       const currentSig = settingsForm.headmasterSignatureUrl;
       const currentLogo = settingsForm.logoUrl;
       const currentSeal = settingsForm.officialSealUrl;
@@ -237,15 +237,15 @@ export const AdminPanel: React.FC = () => {
 
       const protectedSettings = {
         ...schoolSettings,
-        headmasterSignatureUrl: (schoolSettings.headmasterSignatureUrl && schoolSettings.headmasterSignatureUrl !== defaultSig)
-          ? schoolSettings.headmasterSignatureUrl
-          : (currentSig || schoolSettings.headmasterSignatureUrl),
-        logoUrl: (schoolSettings.logoUrl && schoolSettings.logoUrl !== defaultLogo)
-          ? schoolSettings.logoUrl
-          : (currentLogo || schoolSettings.logoUrl),
-        officialSealUrl: (schoolSettings.officialSealUrl && schoolSettings.officialSealUrl !== defaultSeal)
-          ? schoolSettings.officialSealUrl
-          : (currentSeal || schoolSettings.officialSealUrl),
+        headmasterSignatureUrl: (currentSig && currentSig !== defaultSig)
+          ? currentSig
+          : (schoolSettings.headmasterSignatureUrl || defaultSig),
+        logoUrl: (currentLogo && currentLogo !== defaultLogo)
+          ? currentLogo
+          : (schoolSettings.logoUrl || defaultLogo),
+        officialSealUrl: (currentSeal && currentSeal !== defaultSeal)
+          ? currentSeal
+          : (schoolSettings.officialSealUrl || defaultSeal),
       };
 
       lastSavedSettingsRef.current = JSON.stringify(protectedSettings);
@@ -567,6 +567,43 @@ export const AdminPanel: React.FC = () => {
         target.value = '';
       }
     }
+  };
+
+  // Dedicated Instant & Authoritative Upload Handlers for Branding Assets
+  const handleLogoUpload = async (newLogoUrl: string) => {
+    isEditingSettingsRef.current = true;
+    markLocalEdit();
+    const updated = { ...settingsForm, logoUrl: newLogoUrl };
+    setSettingsForm(updated);
+    lastSavedSettingsRef.current = JSON.stringify(updated);
+    updateSchoolSettings(updated, true);
+    await saveAllToCodebase({ ihas_school_settings: updated }).catch(() => {});
+    isEditingSettingsRef.current = false;
+    showToast(lang === 'bn' ? 'লোগো সফলভাবে পরিবর্তিত ও চূড়ান্ত হিসেবে সংরক্ষিত হয়েছে!' : 'Logo updated and saved as final!');
+  };
+
+  const handleSignatureUpload = async (newSigUrl: string) => {
+    isEditingSettingsRef.current = true;
+    markLocalEdit();
+    const updated = { ...settingsForm, headmasterSignatureUrl: newSigUrl };
+    setSettingsForm(updated);
+    lastSavedSettingsRef.current = JSON.stringify(updated);
+    updateSchoolSettings(updated, true);
+    await saveAllToCodebase({ ihas_school_settings: updated }).catch(() => {});
+    isEditingSettingsRef.current = false;
+    showToast(lang === 'bn' ? 'প্রধান শিক্ষকের স্বাক্ষর সফলভাবে সংরক্ষিত হয়েছে!' : 'Signature updated and saved as final!');
+  };
+
+  const handleSealUpload = async (newSealUrl: string) => {
+    isEditingSettingsRef.current = true;
+    markLocalEdit();
+    const updated = { ...settingsForm, officialSealUrl: newSealUrl };
+    setSettingsForm(updated);
+    lastSavedSettingsRef.current = JSON.stringify(updated);
+    updateSchoolSettings(updated, true);
+    await saveAllToCodebase({ ihas_school_settings: updated }).catch(() => {});
+    isEditingSettingsRef.current = false;
+    showToast(lang === 'bn' ? 'অফিসিয়াল সিল সফলভাবে সংরক্ষিত হয়েছে!' : 'Official seal updated and saved as final!');
   };
 
   // Save Settings
@@ -1543,17 +1580,7 @@ export const AdminPanel: React.FC = () => {
                         <input
                           type="file"
                           accept="image/*"
-                          onChange={(e) =>
-                            handleFileChange(
-                              e,
-                              (val) => {
-                                isEditingSettingsRef.current = true;
-                                markLocalEdit();
-                                setSettingsForm((prev) => ({ ...prev, logoUrl: val }));
-                              },
-                              lang === 'bn' ? 'লোগো সফলভাবে আপলোড হয়েছে! স্থায়ীভাবে সেভ করতে "সকল পরিবর্তন সংরক্ষণ করুন" বাটনে চাপুন।' : 'Logo uploaded! Click Save All Changes to persist.'
-                            )
-                          }
+                          onChange={(e) => handleFileChange(e, handleLogoUpload)}
                           className="hidden"
                         />
                       </label>
@@ -1574,17 +1601,7 @@ export const AdminPanel: React.FC = () => {
                         <input
                           type="file"
                           accept="image/*"
-                          onChange={(e) =>
-                            handleFileChange(
-                              e,
-                              (val) => {
-                                isEditingSettingsRef.current = true;
-                                markLocalEdit();
-                                setSettingsForm((prev) => ({ ...prev, headmasterSignatureUrl: val }));
-                              },
-                              lang === 'bn' ? 'প্রধান শিক্ষকের স্বাক্ষর আপলোড হয়েছে! স্থায়ীভাবে সেভ করতে "সকল পরিবর্তন সংরক্ষণ করুন" বাটনে চাপুন।' : 'Signature uploaded! Click Save All Changes to persist.'
-                            )
-                          }
+                          onChange={(e) => handleFileChange(e, handleSignatureUpload)}
                           className="hidden"
                         />
                       </label>
@@ -1605,17 +1622,7 @@ export const AdminPanel: React.FC = () => {
                         <input
                           type="file"
                           accept="image/*"
-                          onChange={(e) =>
-                            handleFileChange(
-                              e,
-                              (val) => {
-                                isEditingSettingsRef.current = true;
-                                markLocalEdit();
-                                setSettingsForm((prev) => ({ ...prev, officialSealUrl: val }));
-                              },
-                              lang === 'bn' ? 'অফিসিয়াল সিল আপলোড হয়েছে! স্থায়ীভাবে সেভ করতে "সকল পরিবর্তন সংরক্ষণ করুন" বাটনে চাপুন।' : 'Official seal uploaded! Click Save All Changes to persist.'
-                            )
-                          }
+                          onChange={(e) => handleFileChange(e, handleSealUpload)}
                           className="hidden"
                         />
                       </label>
