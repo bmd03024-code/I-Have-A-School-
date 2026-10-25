@@ -3,7 +3,7 @@
     "app": "I Have A School",
     "director": "MD Touhidul Hoque Tuhin",
     "schemaVersion": "2026.1",
-    "lastUpdated": "2026-10-25T18:23:22.928Z",
+    "lastUpdated": "2026-10-25T18:23:42.194Z",
     "pushedBy": "Admin Control Panel"
   },
   "schoolSettings": {
@@ -648,8 +648,8 @@
     "filePath": "data/ihas_live_database.json",
     "autoPushOnChange": true,
     "autoPollIntervalSec": 20,
-    "lastSyncedAt": "2026-10-25T18:23:22.928Z",
-    "lastCommitSha": "931c7a9dbbef4d2d6c28bd0be277095d042872b8",
-    "lastCommitMessage": "Updated course: কমপ্লিট ইংলিশ গ্রামার মাস্টারি ২০২৬"
+    "lastSyncedAt": "2026-10-25T18:23:42.194Z",
+    "lastCommitSha": "c23ad2f8b2f14c0f04a7434d68e52e29140bd711",
+    "lastCommitMessage": "Updated course: স্পোকেন ইংলিশ ও ফ্লুয়েন্সি এক্সিলারেটর"
   }
 }
