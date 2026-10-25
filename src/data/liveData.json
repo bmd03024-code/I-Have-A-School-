@@ -1,7 +1,7 @@
 {
-  "_updatedAt": "2026-10-25T17:28:14.260Z",
+  "_updatedAt": "2026-10-25T17:29:38.703Z",
   "_meta": {
-    "lastSavedAt": "2026-10-25T17:28:14.260Z",
+    "lastSavedAt": "2026-10-25T17:29:38.703Z",
     "authoritative": true,
     "syncedBy": "Admin Control Panel Auto Engine",
     "founder": "MD Touhidul Hoque Tuhin",
@@ -461,6 +461,23 @@
   ],
   "ihas_video_classes": [
     {
+      "id": "vid-1792949378656",
+      "titleBn": "Subject verb Agreement",
+      "titleEn": "Subject verb Agreement",
+      "descriptionBn": "তুহিন স্যারের বিশেষ ফ্রি ক্লাস।",
+      "descriptionEn": "Exclusive free video lecture by Tuhin Sir.",
+      "category": "Grammar Hacks",
+      "duration": "18:45",
+      "youtubeId": "9lg8KCL6krs",
+      "videoUrl": "https://youtu.be/9lg8KCL6krs?si=Ee5ixElgxt9M3w4T",
+      "videoPlatform": "youtube",
+      "videoFileUrl": "",
+      "thumbnailUrl": "https://img.youtube.com/vi/9lg8KCL6krs/hqdefault.jpg",
+      "views": "1.2K",
+      "publishedDate": "Just now",
+      "level": "All Levels"
+    },
+    {
       "id": "vid-1792949294191",
       "titleBn": "Non count to count noun",
       "titleEn": "Non count to count noun",
@@ -496,6 +513,23 @@
     }
   ],
   "ihas_videos": [
+    {
+      "id": "vid-1792949378656",
+      "titleBn": "Subject verb Agreement",
+      "titleEn": "Subject verb Agreement",
+      "descriptionBn": "তুহিন স্যারের বিশেষ ফ্রি ক্লাস।",
+      "descriptionEn": "Exclusive free video lecture by Tuhin Sir.",
+      "category": "Grammar Hacks",
+      "duration": "18:45",
+      "youtubeId": "9lg8KCL6krs",
+      "videoUrl": "https://youtu.be/9lg8KCL6krs?si=Ee5ixElgxt9M3w4T",
+      "videoPlatform": "youtube",
+      "videoFileUrl": "",
+      "thumbnailUrl": "https://img.youtube.com/vi/9lg8KCL6krs/hqdefault.jpg",
+      "views": "1.2K",
+      "publishedDate": "Just now",
+      "level": "All Levels"
+    },
     {
       "id": "vid-1792949294191",
       "titleBn": "Non count to count noun",
@@ -702,8 +736,8 @@
     "filePath": "data/ihas_live_database.json",
     "autoPushOnChange": true,
     "autoPollIntervalSec": 20,
-    "lastSyncedAt": "2026-10-25T17:28:14.260Z",
-    "lastCommitSha": "2026-10-22T10:48:21.007Z",
+    "lastSyncedAt": "2026-10-25T17:29:38.703Z",
+    "lastCommitSha": "",
     "lastCommitMessage": "Authoritative codebase synchronization"
   }
 }
