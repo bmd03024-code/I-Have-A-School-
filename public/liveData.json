@@ -1,7 +1,7 @@
 {
-  "_updatedAt": "2026-10-25T18:28:01.044Z",
+  "_updatedAt": "2026-10-25T18:32:33.423Z",
   "_meta": {
-    "lastSavedAt": "2026-10-25T18:28:01.044Z",
+    "lastSavedAt": "2026-10-25T18:32:33.423Z",
     "authoritative": true,
     "syncedBy": "Admin Control Panel Auto Engine",
     "founder": "MD Touhidul Hoque Tuhin",
@@ -660,16 +660,16 @@
     "password": "tuhinsir1234"
   },
   "ihas_github_config": {
-    "enabled": true,
+    "enabled": false,
     "token": "",
     "owner": "bmd03024-code",
     "repo": "I-Have-A-School-",
     "branch": "main",
     "filePath": "data/ihas_live_database.json",
-    "autoPushOnChange": true,
-    "autoPollIntervalSec": 20,
-    "lastSyncedAt": "2026-10-25T18:28:01.044Z",
-    "lastCommitSha": "2cc7ff17e1dc916b79151c5fa1d5d0f052504be3",
-    "lastCommitMessage": "Live update from Admin Panel"
+    "autoPushOnChange": false,
+    "autoPollIntervalSec": 0,
+    "lastSyncedAt": "2026-10-25T18:32:33.423Z",
+    "lastCommitSha": "",
+    "lastCommitMessage": "Manual push mode enabled"
   }
 }
