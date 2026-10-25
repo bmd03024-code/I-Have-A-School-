@@ -3,7 +3,7 @@
     "app": "I Have A School",
     "director": "MD Touhidul Hoque Tuhin",
     "schemaVersion": "2026.1",
-    "lastUpdated": "2026-10-25T18:33:01.708Z",
+    "lastUpdated": "2026-10-25T18:34:02.410Z",
     "pushedBy": "Admin Control Panel"
   },
   "schoolSettings": {
@@ -720,7 +720,7 @@
     "password": "tuhinsir1234"
   },
   "githubConfig": {
-    "enabled": false,
+    "enabled": true,
     "token": "",
     "owner": "bmd03024-code",
     "repo": "I-Have-A-School-",
@@ -728,8 +728,8 @@
     "filePath": "data/ihas_live_database.json",
     "autoPushOnChange": false,
     "autoPollIntervalSec": 0,
-    "lastSyncedAt": "2026-10-25T18:33:01.708Z",
-    "lastCommitSha": "e661d189cd30762cb0cb4b6de30f8090ab8e7edb",
-    "lastCommitMessage": "Admin finalized all edits and manually pushed to GitHub"
+    "lastSyncedAt": "2026-10-25T18:34:02.410Z",
+    "lastCommitSha": "7bf0e9abf72d325cd860cc411a7ea2b01fe0ed4a",
+    "lastCommitMessage": "Live update from Admin Panel"
   }
 }
