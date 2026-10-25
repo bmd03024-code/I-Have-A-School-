@@ -3,7 +3,7 @@
     "app": "I Have A School",
     "director": "MD Touhidul Hoque Tuhin",
     "schemaVersion": "2026.1",
-    "lastUpdated": "2026-10-25T17:31:39.792Z",
+    "lastUpdated": "2026-10-25T17:32:28.707Z",
     "pushedBy": "Admin Control Panel"
   },
   "schoolSettings": {
@@ -682,8 +682,8 @@
     "filePath": "data/ihas_live_database.json",
     "autoPushOnChange": true,
     "autoPollIntervalSec": 20,
-    "lastSyncedAt": "2026-10-25T17:31:39.792Z",
-    "lastCommitSha": "1697c4f90992165195d2c6ff168511f2c33601b7",
-    "lastCommitMessage": "Updated video: পানির মতো সহজ Article"
+    "lastSyncedAt": "2026-10-25T17:32:28.707Z",
+    "lastCommitSha": "3763a99c08c0a78fffd5c43dde9ecfc923372907",
+    "lastCommitMessage": "Updated video: Non count to count noun"
   }
 }
