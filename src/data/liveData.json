@@ -1,7 +1,7 @@
 {
-  "_updatedAt": "2026-10-25T17:31:25.858Z",
+  "_updatedAt": "2026-10-25T17:31:39.792Z",
   "_meta": {
-    "lastSavedAt": "2026-10-25T17:31:25.858Z",
+    "lastSavedAt": "2026-10-25T17:31:39.792Z",
     "authoritative": true,
     "syncedBy": "Admin Control Panel Auto Engine",
     "founder": "MD Touhidul Hoque Tuhin",
@@ -490,7 +490,7 @@
       "videoPlatform": "youtube",
       "videoFileUrl": "",
       "thumbnailUrl": "https://img.youtube.com/vi/LcsV_HlRkBA/hqdefault.jpg",
-      "views": "1.2K",
+      "views": "3.2K",
       "publishedDate": "Just now",
       "level": "All Levels"
     },
@@ -543,7 +543,7 @@
       "videoPlatform": "youtube",
       "videoFileUrl": "",
       "thumbnailUrl": "https://img.youtube.com/vi/LcsV_HlRkBA/hqdefault.jpg",
-      "views": "1.2K",
+      "views": "3.2K",
       "publishedDate": "Just now",
       "level": "All Levels"
     },
@@ -736,7 +736,7 @@
     "filePath": "data/ihas_live_database.json",
     "autoPushOnChange": true,
     "autoPollIntervalSec": 20,
-    "lastSyncedAt": "2026-10-25T17:31:25.858Z",
+    "lastSyncedAt": "2026-10-25T17:31:39.792Z",
     "lastCommitSha": "1697c4f90992165195d2c6ff168511f2c33601b7",
     "lastCommitMessage": "Updated video: পানির মতো সহজ Article"
   }
