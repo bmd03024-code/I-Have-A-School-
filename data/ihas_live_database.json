@@ -3,7 +3,7 @@
     "app": "I Have A School",
     "director": "MD Touhidul Hoque Tuhin",
     "schemaVersion": "2026.1",
-    "lastUpdated": "2026-10-25T17:05:42.268Z",
+    "lastUpdated": "2026-10-25T17:06:31.831Z",
     "pushedBy": "Admin Control Panel"
   },
   "schoolSettings": {
@@ -648,8 +648,8 @@
     "filePath": "data/ihas_live_database.json",
     "autoPushOnChange": true,
     "autoPollIntervalSec": 20,
-    "lastSyncedAt": "2026-10-25T17:05:42.268Z",
-    "lastCommitSha": "fd0683d59afda7f82a664585aef8227a056970f2",
+    "lastSyncedAt": "2026-10-25T17:06:31.831Z",
+    "lastCommitSha": "52716a98d97e2d069d4639abd7791111a87ce349",
     "lastCommitMessage": "Live update from Admin Panel"
   }
 }
