@@ -352,6 +352,25 @@ async function commitMultipleFilesAtomic(
     }
   );
 
+  // If reference doesn't exist yet (404), create it via POST git/refs
+  if (!patchRefRes.ok && patchRefRes.status === 404) {
+    const createRefRes = await fetch(
+      `https://api.github.com/repos/${cleanOwner}/${cleanRepo}/git/refs`,
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ ref: `refs/heads/${activeBranch}`, sha: newCommitSha })
+      }
+    );
+    if (createRefRes.ok) {
+      return {
+        success: true,
+        commitSha: newCommitSha,
+        commitUrl: `https://github.com/${cleanOwner}/${cleanRepo}/commit/${newCommitSha}`
+      };
+    }
+  }
+
   if (!patchRefRes.ok) {
     const errJson = await patchRefRes.json().catch(() => null);
     throw new Error(errJson?.message || `Failed to update ref/heads/${activeBranch}: ${patchRefRes.status}`);
@@ -364,7 +383,145 @@ async function commitMultipleFilesAtomic(
   };
 }
 
-// Fallback: Commit a single file to GitHub with automatic conflict retry (HTTP 409 resolution)
+// Comprehensive SHA Resolver across all branches, default branch, commits, and in-memory cache
+async function resolveFileSha(
+  cleanOwner: string,
+  cleanRepo: string,
+  filePath: string,
+  cleanBranch: string,
+  headers: Record<string, string>
+): Promise<string | undefined> {
+  const normalizedPath = filePath.replace(/^\/+/, '').trim();
+
+  // Strategy 1: In-memory cache
+  const cached = knownBlobShaMap.get(normalizedPath);
+
+  // Strategy 2: Direct contents query with specified branch
+  try {
+    const res = await fetch(
+      `https://api.github.com/repos/${cleanOwner}/${cleanRepo}/contents/${normalizedPath}?ref=${cleanBranch}&_ts=${Date.now()}`,
+      {
+        headers: {
+          ...headers,
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          Pragma: 'no-cache'
+        },
+        cache: 'no-store'
+      }
+    );
+    if (res.ok) {
+      const data = await res.json();
+      if (data?.sha) {
+        knownBlobShaMap.set(normalizedPath, data.sha);
+        return data.sha;
+      }
+    }
+  } catch {
+    // continue
+  }
+
+  // Strategy 3: Contents query WITHOUT ?ref= (GitHub resolves against repository's default branch)
+  try {
+    const resNoRef = await fetch(
+      `https://api.github.com/repos/${cleanOwner}/${cleanRepo}/contents/${normalizedPath}?_ts=${Date.now()}`,
+      {
+        headers: {
+          ...headers,
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          Pragma: 'no-cache'
+        },
+        cache: 'no-store'
+      }
+    );
+    if (resNoRef.ok) {
+      const data = await resNoRef.json();
+      if (data?.sha) {
+        knownBlobShaMap.set(normalizedPath, data.sha);
+        return data.sha;
+      }
+    }
+  } catch {
+    // continue
+  }
+
+  // Strategy 4: Fallback branch (main <-> master)
+  const altBranch = cleanBranch === 'main' ? 'master' : 'main';
+  try {
+    const resAlt = await fetch(
+      `https://api.github.com/repos/${cleanOwner}/${cleanRepo}/contents/${normalizedPath}?ref=${altBranch}&_ts=${Date.now()}`,
+      {
+        headers: {
+          ...headers,
+          'Cache-Control': 'no-cache, no-store, must-revalidate'
+        },
+        cache: 'no-store'
+      }
+    );
+    if (resAlt.ok) {
+      const data = await resAlt.json();
+      if (data?.sha) {
+        knownBlobShaMap.set(normalizedPath, data.sha);
+        return data.sha;
+      }
+    }
+  } catch {
+    // continue
+  }
+
+  // Strategy 5: Query commits for file to extract blob SHA
+  try {
+    const commitsRes = await fetch(
+      `https://api.github.com/repos/${cleanOwner}/${cleanRepo}/commits?path=${normalizedPath}&per_page=1&_ts=${Date.now()}`,
+      { headers, cache: 'no-store' }
+    );
+    if (commitsRes.ok) {
+      const commits = await commitsRes.json();
+      if (Array.isArray(commits) && commits.length > 0) {
+        const commitSha = commits[0]?.sha;
+        if (commitSha) {
+          const detailRes = await fetch(
+            `https://api.github.com/repos/${cleanOwner}/${cleanRepo}/commits/${commitSha}`,
+            { headers, cache: 'no-store' }
+          );
+          if (detailRes.ok) {
+            const detail = await detailRes.json();
+            const matchedFile = detail.files?.find((f: any) => f.filename === normalizedPath);
+            if (matchedFile?.sha) {
+              knownBlobShaMap.set(normalizedPath, matchedFile.sha);
+              return matchedFile.sha;
+            }
+          }
+        }
+      }
+    }
+  } catch {
+    // continue
+  }
+
+  // Strategy 6: Query git tree
+  try {
+    const treeRes = await fetch(
+      `https://api.github.com/repos/${cleanOwner}/${cleanRepo}/git/trees/${cleanBranch}?recursive=1`,
+      { headers, cache: 'no-store' }
+    );
+    if (treeRes.ok) {
+      const treeData = await treeRes.json();
+      if (Array.isArray(treeData?.tree)) {
+        const item = treeData.tree.find((t: any) => t.path === normalizedPath);
+        if (item?.sha) {
+          knownBlobShaMap.set(normalizedPath, item.sha);
+          return item.sha;
+        }
+      }
+    }
+  } catch {
+    // continue
+  }
+
+  return cached || undefined;
+}
+
+// Fallback: Commit a single file to GitHub with automatic SHA resolution & conflict retry
 async function commitFileWithRetry(
   cleanOwner: string,
   cleanRepo: string,
@@ -376,36 +533,12 @@ async function commitFileWithRetry(
   maxRetries: number = 4
 ): Promise<{ success: boolean; sha?: string; commitSha?: string; commitUrl?: string; error?: string }> {
   let lastError = 'Unknown error';
+  const normalizedPath = filePath.replace(/^\/+/, '').trim();
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      let currentSha: string | undefined = undefined;
-      try {
-        const getRes = await fetch(
-          `https://api.github.com/repos/${cleanOwner}/${cleanRepo}/contents/${filePath}?ref=${cleanBranch}&_ts=${Date.now()}_${attempt}`,
-          {
-            headers: {
-              ...headers,
-              'Cache-Control': 'no-cache, no-store, must-revalidate',
-              Pragma: 'no-cache'
-            },
-            cache: 'no-store'
-          }
-        );
-
-        if (getRes.ok) {
-          const fileInfo = await getRes.json();
-          if (fileInfo?.sha) {
-            currentSha = fileInfo.sha;
-            knownBlobShaMap.set(filePath, fileInfo.sha);
-          }
-        } else if (getRes.status === 404) {
-          currentSha = undefined;
-          knownBlobShaMap.delete(filePath);
-        }
-      } catch (err) {
-        console.warn(`[GitHubSync] SHA fetch notice for ${filePath}:`, err);
-      }
+      // Step A: Resolve existing SHA using comprehensive lookup
+      const currentSha = await resolveFileSha(cleanOwner, cleanRepo, normalizedPath, cleanBranch, headers);
 
       const requestBody: any = {
         message: commitMessage,
@@ -417,8 +550,9 @@ async function commitFileWithRetry(
         requestBody.sha = currentSha;
       }
 
+      // Step B: Send PUT request
       const putRes = await fetch(
-        `https://api.github.com/repos/${cleanOwner}/${cleanRepo}/contents/${filePath}`,
+        `https://api.github.com/repos/${cleanOwner}/${cleanRepo}/contents/${normalizedPath}`,
         {
           method: 'PUT',
           headers,
@@ -430,7 +564,7 @@ async function commitFileWithRetry(
         const resJson = await putRes.json();
         const newSha = resJson.content?.sha || resJson.commit?.sha;
         if (newSha) {
-          knownBlobShaMap.set(filePath, newSha);
+          knownBlobShaMap.set(normalizedPath, newSha);
         }
         return {
           success: true,
@@ -443,8 +577,35 @@ async function commitFileWithRetry(
       const errJson = await putRes.json().catch(() => null);
       lastError = errJson?.message || putRes.statusText;
 
-      if (putRes.status === 409 || putRes.status === 422) {
-        knownBlobShaMap.delete(filePath);
+      // Step C: Handle 422 ("sha wasn't supplied") or 409 Conflict
+      // If GitHub requires SHA or SHA was outdated, immediately force-fetch SHA and retry
+      if (putRes.status === 422 || putRes.status === 409) {
+        knownBlobShaMap.delete(normalizedPath);
+        const forceSha = await resolveFileSha(cleanOwner, cleanRepo, normalizedPath, cleanBranch, headers);
+        if (forceSha) {
+          requestBody.sha = forceSha;
+          const retryRes = await fetch(
+            `https://api.github.com/repos/${cleanOwner}/${cleanRepo}/contents/${normalizedPath}`,
+            {
+              method: 'PUT',
+              headers,
+              body: JSON.stringify(requestBody)
+            }
+          );
+          if (retryRes.ok || retryRes.status === 200 || retryRes.status === 201) {
+            const retryJson = await retryRes.json();
+            const newSha = retryJson.content?.sha || retryJson.commit?.sha;
+            if (newSha) {
+              knownBlobShaMap.set(normalizedPath, newSha);
+            }
+            return {
+              success: true,
+              sha: newSha,
+              commitSha: retryJson.commit?.sha,
+              commitUrl: retryJson.commit?.html_url
+            };
+          }
+        }
         const waitMs = 700 * (attempt + 1);
         await new Promise((r) => setTimeout(r, waitMs));
         continue;
