@@ -3,7 +3,7 @@
     "app": "I Have A School",
     "director": "MD Touhidul Hoque Tuhin",
     "schemaVersion": "2026.1",
-    "lastUpdated": "2026-10-25T18:26:01.366Z",
+    "lastUpdated": "2026-10-25T18:27:26.088Z",
     "pushedBy": "Admin Control Panel"
   },
   "schoolSettings": {
@@ -728,8 +728,8 @@
     "filePath": "data/ihas_live_database.json",
     "autoPushOnChange": true,
     "autoPollIntervalSec": 20,
-    "lastSyncedAt": "2026-10-25T18:26:01.366Z",
-    "lastCommitSha": "40487317f8b5d3883972133938b6f4741264f867",
-    "lastCommitMessage": "Updated course: কমপ্লিট ইংলিশ গ্রামার মাস্টারি ২০২৬"
+    "lastSyncedAt": "2026-10-25T18:27:26.088Z",
+    "lastCommitSha": "8e1ac12afd10029d0e626859f9f0dd4b5c18d192",
+    "lastCommitMessage": "Updated hero slide: এইচএসসি ২০২৬ ও স্পোকেন ইংলিশ স্পেশাল ব্যাচ"
   }
 }
