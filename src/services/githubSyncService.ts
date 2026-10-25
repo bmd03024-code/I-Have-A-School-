@@ -669,14 +669,18 @@ async function executePushDataToGitHub(
     };
 
     const fullSnapshot = {
+      _updatedAt: timestamp,
       _meta: {
         app: 'I Have A School',
         director: 'MD Touhidul Hoque Tuhin',
         schemaVersion: '2026.1',
         lastUpdated: timestamp,
+        lastSavedAt: timestamp,
         pushedBy: 'Admin Control Panel'
       },
       ...dataPayload,
+      galleryItems: dataPayload.galleryItems || [],
+      ihas_gallery: dataPayload.galleryItems || [],
       githubConfig: sanitizedGithubConfig
     };
 
@@ -688,6 +692,7 @@ async function executePushDataToGitHub(
       _updatedAt: timestamp,
       _meta: {
         lastSavedAt: timestamp,
+        lastUpdated: timestamp,
         authoritative: true,
         syncedBy: 'Admin Control Panel Auto Engine',
         founder: 'MD Touhidul Hoque Tuhin',
@@ -708,6 +713,7 @@ async function executePushDataToGitHub(
       ihas_routines: dataPayload.routines || fullSnapshot.routines,
       ihas_chatbot_training: dataPayload.chatbotTraining || fullSnapshot.chatbotTraining,
       ihas_quizzes: dataPayload.modelTests || fullSnapshot.modelTests,
+      ihas_gallery: dataPayload.galleryItems || fullSnapshot.galleryItems || dataPayload.ihas_gallery || [],
       ihas_admin_creds: dataPayload.adminCredentials || fullSnapshot.adminCredentials,
       ihas_github_config: sanitizedGithubConfig
     };

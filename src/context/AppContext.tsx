@@ -842,7 +842,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       );
       const incomingTime = data._updatedAt 
         ? new Date(data._updatedAt).getTime() 
-        : (data._meta?.lastSavedAt ? new Date(data._meta?.lastSavedAt).getTime() : 0);
+        : (data._meta?.lastSavedAt 
+            ? new Date(data._meta.lastSavedAt).getTime() 
+            : (data._meta?.lastUpdated 
+                ? new Date(data._meta.lastUpdated).getTime() 
+                : 0));
 
       // Protect local admin edits: Never overwrite unless force is explicitly true (manual pull requested by admin)
       if (!force && (hasUnpushed || (hasAdminData && incomingTime <= lastEditTime) || (lastEditTime > 0 && incomingTime <= lastEditTime))) {
@@ -1381,41 +1385,74 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [githubConfig, applyDatabaseSnapshot, isAdminLoggedIn]);
 
-  // Focus listener to sync from authoritative dev server file when tab becomes active
+  // Focus listener & background updater to sync latest data across all visitor devices & browsers
   useEffect(() => {
-    const handleFocus = () => {
+    let isFetching = false;
+    const handleFocus = async () => {
       // Guard: Do NOT pull and overwrite state if admin is logged in or actively editing or has unpushed edits
       const hasUnpushed = (typeof window !== 'undefined' && safeStorage.getItem('ihas_has_unpushed_edits') === 'true') || hasUnpushedEditsRef.current;
       const hasAdminEdits = typeof window !== 'undefined' && safeStorage.getItem('ihas_admin_has_custom_data') === 'true';
       if (isAdminLoggedIn || hasUnpushed || hasAdminEdits || Date.now() - lastLocalEditTimeRef.current < 60000) {
         return;
       }
+      if (isFetching) return;
 
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
-        fetch('/api/sync-to-code', { cache: 'no-store' })
-          .then((r) => (r.ok ? r.json() : null))
-          .then((data) => {
-            if (data && typeof data === 'object' && Object.keys(data).length > 0) {
-              const incomingTime = data._updatedAt 
-                ? new Date(data._updatedAt).getTime() 
-                : (data._meta?.lastSavedAt ? new Date(data._meta?.lastSavedAt).getTime() : 0);
-              if (incomingTime > lastLocalEditTimeRef.current) {
+        isFetching = true;
+        try {
+          let appliedLocally = false;
+          try {
+            const r = await fetch('/api/sync-to-code', { cache: 'no-store' });
+            if (r.ok) {
+              const data = await r.json();
+              if (data && typeof data === 'object' && Object.keys(data).length > 0) {
                 applyDatabaseSnapshot(data);
+                appliedLocally = true;
               }
             }
-          })
-          .catch(() => {});
+          } catch (_err) {
+            void _err;
+          }
+
+          // For other browsers on static/production deployments, fetch live updates from GitHub
+          if (!appliedLocally) {
+            const effectiveGhConfig: GitHubConfig = {
+              ...DEFAULT_GITHUB_CONFIG,
+              ...githubConfig,
+              owner: (githubConfig.owner && githubConfig.owner.trim()) || DEFAULT_GITHUB_CONFIG.owner,
+              repo: (githubConfig.repo && githubConfig.repo.trim()) || DEFAULT_GITHUB_CONFIG.repo
+            };
+            const ghRes = await fetchDataFromGitHub(effectiveGhConfig);
+            if (ghRes.success && ghRes.data && typeof ghRes.data === 'object') {
+              applyDatabaseSnapshot(ghRes.data);
+            }
+          }
+        } catch {
+          // ignore network errors
+        } finally {
+          isFetching = false;
+        }
       }
     };
 
     document.addEventListener('visibilitychange', handleFocus);
     window.addEventListener('focus', handleFocus);
 
+    // Periodic check (every 90s) for visitor browsers so they always receive the admin's pushed updates
+    const visitorInterval = setInterval(() => {
+      const hasUnpushed = (typeof window !== 'undefined' && safeStorage.getItem('ihas_has_unpushed_edits') === 'true') || hasUnpushedEditsRef.current;
+      const hasAdminEdits = typeof window !== 'undefined' && safeStorage.getItem('ihas_admin_has_custom_data') === 'true';
+      if (!isAdminLoggedIn && !hasUnpushed && !hasAdminEdits) {
+        handleFocus();
+      }
+    }, 90000);
+
     return () => {
       document.removeEventListener('visibilitychange', handleFocus);
       window.removeEventListener('focus', handleFocus);
+      clearInterval(visitorInterval);
     };
-  }, [applyDatabaseSnapshot, isAdminLoggedIn]);
+  }, [applyDatabaseSnapshot, isAdminLoggedIn, githubConfig]);
 
   // Comprehensive state reload from storage to synchronize in-memory state WITHOUT unnecessary re-renders
   const reloadAllFromStorage = useCallback(() => {
@@ -1541,9 +1578,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const token = (incomingGh.token && incomingGh.token.trim()) ? incomingGh.token.trim() : getStoredGitHubToken();
             safeSetIfChanged(setGithubConfig, { ...incomingGh, token });
           }
-          if (liveData._updatedAt || liveData._meta?.lastSavedAt) {
-            setCodeSyncLastSaved(liveData._updatedAt || liveData._meta?.lastSavedAt);
+          if (liveData._updatedAt || liveData._meta?.lastSavedAt || liveData._meta?.lastUpdated) {
+            setCodeSyncLastSaved(liveData._updatedAt || liveData._meta?.lastSavedAt || liveData._meta?.lastUpdated);
           }
+        }
+
+        // Step 3: Fetch fresh live data from GitHub across all visitor devices & browsers
+        // Ensures that whenever the Admin pushes to GitHub, all other browsers and visitor devices see the changes immediately!
+        try {
+          const effectiveGhConfig: GitHubConfig = {
+            ...DEFAULT_GITHUB_CONFIG,
+            ...githubConfig,
+            owner: (githubConfig.owner && githubConfig.owner.trim()) || DEFAULT_GITHUB_CONFIG.owner,
+            repo: (githubConfig.repo && githubConfig.repo.trim()) || DEFAULT_GITHUB_CONFIG.repo
+          };
+
+          const ghRes = await fetchDataFromGitHub(effectiveGhConfig);
+          if (isMounted && ghRes.success && ghRes.data && typeof ghRes.data === 'object' && Object.keys(ghRes.data).length > 0) {
+            applyDatabaseSnapshot(ghRes.data);
+            if (ghRes.data.ihas_github_config) {
+              const incomingGh = ghRes.data.ihas_github_config;
+              const token = (incomingGh.token && incomingGh.token.trim()) ? incomingGh.token.trim() : getStoredGitHubToken();
+              safeSetIfChanged(setGithubConfig, { ...incomingGh, token });
+            }
+            const incomingTime = ghRes.data._updatedAt || ghRes.data._meta?.lastSavedAt || ghRes.data._meta?.lastUpdated;
+            if (incomingTime) {
+              setCodeSyncLastSaved(incomingTime);
+            }
+          }
+        } catch (ghErr) {
+          console.warn('[AppContext] GitHub live fetch notice:', ghErr);
         }
       } catch (err) {
         console.warn('Initial live database sync failed, using local storage state', err);
@@ -1554,7 +1618,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     fetchInitialData();
     return () => { isMounted = false; };
-  }, [safeSetIfChanged]);
+  }, [safeSetIfChanged, githubConfig, applyDatabaseSnapshot]);
 
   // Listen to cross-tab / cross-window real-time synchronization updates with safeSetIfChanged
   useEffect(() => {
