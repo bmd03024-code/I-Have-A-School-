@@ -1174,6 +1174,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setGithubConfig(updatedConfig);
         persistItem('ihas_github_config', updatedConfig);
         safeStorage.setItem('ihas_has_unpushed_edits', 'false');
+        safeStorage.setItem('ihas_admin_has_custom_data', 'false');
         hasUnpushedEditsRef.current = false;
         setGitHubSyncStatus({
           state: 'synced',
