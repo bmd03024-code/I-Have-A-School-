@@ -848,12 +848,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 ? new Date(data._meta.lastUpdated).getTime() 
                 : 0));
 
-      // Protect local admin edits: Never overwrite unless force is explicitly true (manual pull requested by admin)
-      if (!force && (hasUnpushed || (hasAdminData && incomingTime <= lastEditTime) || (lastEditTime > 0 && incomingTime <= lastEditTime))) {
+      // Local admin edits remain authoritative until a strictly newer remote snapshot exists.
+      // Manual sync must never force an older GitHub snapshot over newer admin data.
+      if (hasUnpushed || (lastEditTime > 0 && (!incomingTime || incomingTime <= lastEditTime))) {
         return;
       }
 
-      if (force) {
+      if (force && incomingTime > lastEditTime) {
         safeStorage.setItem('ihas_has_unpushed_edits', 'false');
         hasUnpushedEditsRef.current = false;
       }
@@ -1341,8 +1342,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (res.success && res.data) {
         const remoteTime = res.lastUpdated ? new Date(res.lastUpdated).getTime() : 0;
         const localTime = githubConfig.lastSyncedAt ? new Date(githubConfig.lastSyncedAt).getTime() : 0;
+        const lastEditTime = Math.max(
+          lastLocalEditTimeRef.current,
+          typeof window !== 'undefined' ? Number(safeStorage.getItem('ihas_last_local_edit_time') || 0) : 0
+        );
+        const hasAdminData = typeof window !== 'undefined' && safeStorage.getItem('ihas_admin_has_custom_data') === 'true';
         const shaChanged = Boolean(res.sha && res.sha !== githubConfig.lastCommitSha);
-        const shouldApply = force || (shaChanged && !hasUnpushed) || (remoteTime > 0 && remoteTime > localTime && !hasUnpushed);
+        // A changed commit SHA alone does not prove that its data is newer.
+        const isNewerThanAdmin = !lastEditTime || (remoteTime > 0 && remoteTime > lastEditTime);
+        const shouldApply = !hasUnpushed && isNewerThanAdmin && (
+          (remoteTime > 0 && remoteTime > localTime) || (shaChanged && !hasAdminData)
+        );
 
         if (shouldApply) {
           applyDatabaseSnapshot(res.data, force);
