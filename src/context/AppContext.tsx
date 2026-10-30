@@ -850,7 +850,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       // Local admin edits remain authoritative until a strictly newer remote snapshot exists.
       // Manual sync must never force an older GitHub snapshot over newer admin data.
-      if (hasUnpushed || (lastEditTime > 0 && (!incomingTime || incomingTime <= lastEditTime))) {
+      if (
+        hasUnpushed ||
+        (hasAdminData && (!lastEditTime || !incomingTime || incomingTime <= lastEditTime)) ||
+        (lastEditTime > 0 && (!incomingTime || incomingTime <= lastEditTime))
+      ) {
         return;
       }
 
