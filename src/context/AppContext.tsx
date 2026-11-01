@@ -1464,10 +1464,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     let isFetching = false;
     const handleFocus = async () => {
-      // Guard: Do NOT pull and overwrite state if admin is logged in or actively editing or has unpushed edits
-      const hasUnpushed = (typeof window !== 'undefined' && safeStorage.getItem('ihas_has_unpushed_edits') === 'true') || hasUnpushedEditsRef.current;
-      const hasAdminEdits = typeof window !== 'undefined' && safeStorage.getItem('ihas_admin_has_custom_data') === 'true';
-      if (isAdminLoggedIn || hasUnpushed || hasAdminEdits || Date.now() - lastLocalEditTimeRef.current < 60000) {
+      // Do not fetch while the admin is logged in or immediately after a local edit.
+      // Stale local flags must not disable remote sync forever; applyDatabaseSnapshot compares timestamps.
+      if (isAdminLoggedIn || Date.now() - lastLocalEditTimeRef.current < 60000) {
         return;
       }
       if (isFetching) return;
@@ -1513,14 +1512,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     document.addEventListener('visibilitychange', handleFocus);
     window.addEventListener('focus', handleFocus);
 
-    // Periodic check (every 90s) for visitor browsers so they always receive the admin's pushed updates
+    // Poll shared GitHub data for visitor browsers; timestamp guards preserve newer local edits.
+    // Frequent checks prevent stale per-browser flags from leaving the page outdated.
     const visitorInterval = setInterval(() => {
-      const hasUnpushed = (typeof window !== 'undefined' && safeStorage.getItem('ihas_has_unpushed_edits') === 'true') || hasUnpushedEditsRef.current;
-      const hasAdminEdits = typeof window !== 'undefined' && safeStorage.getItem('ihas_admin_has_custom_data') === 'true';
-      if (!isAdminLoggedIn && !hasUnpushed && !hasAdminEdits) {
-        handleFocus();
-      }
-    }, 90000);
+      if (!isAdminLoggedIn) handleFocus();
+    }, 15000);
 
     return () => {
       document.removeEventListener('visibilitychange', handleFocus);
