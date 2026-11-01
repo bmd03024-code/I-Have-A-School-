@@ -103,10 +103,10 @@ export const HeroSlider: React.FC = () => {
       <div className="absolute inset-0 z-0">
         {activeSlides.map((slide, idx) => (
           <img
-            key={slide.id || idx}
+            key={idx === safeIdx ? `${slide.id || idx}-active-${current.id || currentIdx}` : (slide.id || idx)}
             src={slide.imageUrl}
             alt={lang === 'bn' ? slide.titleBn : slide.titleEn}
-            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ease-in-out ${
+            className={`home-circle-reveal absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ease-in-out ${
               idx === safeIdx ? 'opacity-25' : 'opacity-0 pointer-events-none'
             }`}
           />
@@ -117,7 +117,7 @@ export const HeroSlider: React.FC = () => {
 
       {/* Slide Content: Smooth transition on slide change */}
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 sm:pt-12 pb-6 sm:pb-8 w-full flex-1 flex items-center">
-        <div key={current.id || currentIdx} className="max-w-2xl space-y-4 sm:space-y-5 animate-fade-in">
+        <div key={current.id || currentIdx} className="home-text-stagger max-w-2xl space-y-4 sm:space-y-5 animate-fade-in">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/35 text-emerald-300 text-xs font-bold">
             <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
             <span>{schoolSettings.taglineBn && lang === 'bn' ? schoolSettings.taglineBn : schoolSettings.taglineEn}</span>
