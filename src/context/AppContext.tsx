@@ -1211,6 +1211,52 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [githubConfig, lang]);
 
+  // Publish admin edits to the shared GitHub database so other devices receive the same data.
+  // Local storage and the Vite-only /api endpoint are not shared across production devices.
+  const autoPublishInitialMountRef = useRef(true);
+  useEffect(() => {
+    if (autoPublishInitialMountRef.current) {
+      autoPublishInitialMountRef.current = false;
+      return;
+    }
+    if (!isAdminLoggedIn) return;
+
+    const activeToken = cleanGitHubToken(
+      (githubConfig.token && githubConfig.token.trim()) || getStoredGitHubToken()
+    );
+    if (!activeToken || !hasUnpushedEditsRef.current) return;
+
+    const timer = setTimeout(async () => {
+      if (!hasUnpushedEditsRef.current) return;
+      const result = await pushToGitHub('Automatic publish after admin edit');
+      if (!result.success) {
+        console.warn('[AppContext] Automatic GitHub publish failed:', result.error);
+      }
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [
+    isAdminLoggedIn,
+    schoolSettings,
+    heroSlides,
+    courses,
+    students,
+    subjects,
+    exams,
+    results,
+    teachers,
+    videoClasses,
+    notes,
+    notices,
+    routines,
+    chatbotTraining,
+    modelTests,
+    galleryItems,
+    adminCredentials,
+    githubConfig.token,
+    pushToGitHub
+  ]);
+
   // Master function to write the entire database snapshot directly into the codebase file (src/data/liveData.json)
   const saveAllToCodebase = useCallback(async (customOverrides?: Record<string, any>): Promise<{ success: boolean; message: string }> => {
     setIsCodeSyncing(true);
