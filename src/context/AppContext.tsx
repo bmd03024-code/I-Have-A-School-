@@ -978,11 +978,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         safeStorage.setItem('ihas_gallery', JSON.stringify(gal));
       }
 
-      const cr = data.adminCredentials || data.ihas_admin_creds;
-      if (cr?.email && cr?.password) {
-        safeSetIfChanged(setAdminCredentials, cr);
-        safeStorage.setItem('ihas_admin_creds', JSON.stringify(cr));
-      }
+      // Admin credentials are device-local and must not be loaded from public/shared snapshots.
     } catch (e) {
       console.warn('Error applying database snapshot:', e);
     }
@@ -1080,7 +1076,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           ihas_chatbot_training: latestEntitiesRef.current.chatbotTraining,
           ihas_quizzes: latestEntitiesRef.current.modelTests,
           ihas_gallery: latestEntitiesRef.current.galleryItems,
-          ihas_admin_creds: latestEntitiesRef.current.adminCredentials,
           ihas_github_config: {
             ...latestEntitiesRef.current.githubConfig,
             token: '' // Never write raw PAT into repository files
@@ -1302,7 +1297,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ihas_chatbot_training: customOverrides?.ihas_chatbot_training || latestEntitiesRef.current.chatbotTraining,
         ihas_quizzes: customOverrides?.ihas_quizzes || latestEntitiesRef.current.modelTests,
         ihas_gallery: customOverrides?.ihas_gallery || latestEntitiesRef.current.galleryItems,
-        ihas_admin_creds: customOverrides?.ihas_admin_creds || latestEntitiesRef.current.adminCredentials,
         ihas_github_config: {
           ...(customOverrides?.ihas_github_config || latestEntitiesRef.current.githubConfig),
           token: '' // Protect PAT from leaking into Git / codebase files
