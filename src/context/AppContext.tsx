@@ -848,18 +848,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 ? new Date(data._meta.lastUpdated).getTime() 
                 : 0));
 
-      // Local admin edits remain authoritative until a strictly newer remote snapshot exists.
-      // Manual sync must never force an older GitHub snapshot over newer admin data.
+      // Prefer local edits only while the remote snapshot is not newer.
+      // This prevents an old per-browser "un-pushed" flag from blocking newer shared data forever.
+      const remoteIsNewer = incomingTime > 0 && incomingTime > lastEditTime;
       if (
-        hasUnpushed ||
-        (hasAdminData && (!lastEditTime || !incomingTime || incomingTime <= lastEditTime)) ||
-        (lastEditTime > 0 && (!incomingTime || incomingTime <= lastEditTime))
+        !remoteIsNewer &&
+        (
+          hasUnpushed ||
+          (hasAdminData && (!lastEditTime || !incomingTime || incomingTime <= lastEditTime)) ||
+          (lastEditTime > 0 && (!incomingTime || incomingTime <= lastEditTime))
+        )
       ) {
         return;
       }
 
-      if (force && incomingTime > lastEditTime) {
+      if (remoteIsNewer) {
         safeStorage.setItem('ihas_has_unpushed_edits', 'false');
+        safeStorage.setItem('ihas_admin_has_custom_data', 'false');
         hasUnpushedEditsRef.current = false;
       }
 
