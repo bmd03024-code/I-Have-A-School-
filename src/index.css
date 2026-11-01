@@ -161,14 +161,14 @@ input, select, textarea {
 }
 
 .home-presentation img {
-  animation: homeCircleReveal 900ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: homeCircleReveal 1.2s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .home-presentation section > div > h2,
 .home-presentation section h3,
 .home-presentation section p,
 .home-presentation section .home-text-entrance {
-  animation: homeRiseIn 650ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: homeRiseIn 850ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .home-presentation section > div > h2 {
@@ -176,7 +176,7 @@ input, select, textarea {
 }
 
 .home-presentation .smooth-card {
-  animation: homeRiseIn 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: homeRiseIn 900ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .home-presentation .smooth-card:nth-child(2) { animation-delay: 70ms; }
