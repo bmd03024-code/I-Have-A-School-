@@ -1213,14 +1213,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Publish admin edits to the shared GitHub database so other devices receive the same data.
   // Local storage and the Vite-only /api endpoint are not shared across production devices.
-  const autoPublishInitialMountRef = useRef(true);
+  const lastAutoPublishSnapshotRef = useRef('');
   useEffect(() => {
-    if (autoPublishInitialMountRef.current) {
-      autoPublishInitialMountRef.current = false;
+    const snapshotKey = JSON.stringify([
+      schoolSettings, heroSlides, courses, students, subjects, exams, results, teachers,
+      videoClasses, notes, notices, routines, chatbotTraining, modelTests, galleryItems,
+      adminCredentials
+    ]);
+
+    // Establish a baseline on mount and only publish when actual app data changes.
+    if (!lastAutoPublishSnapshotRef.current) {
+      lastAutoPublishSnapshotRef.current = snapshotKey;
       return;
     }
-    if (!isAdminLoggedIn) return;
+    if (lastAutoPublishSnapshotRef.current === snapshotKey) return;
+    lastAutoPublishSnapshotRef.current = snapshotKey;
 
+    if (!isAdminLoggedIn) return;
     const activeToken = cleanGitHubToken(
       (githubConfig.token && githubConfig.token.trim()) || getStoredGitHubToken()
     );
