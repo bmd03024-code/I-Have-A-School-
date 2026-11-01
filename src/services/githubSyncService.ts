@@ -668,6 +668,11 @@ async function executePushDataToGitHub(
       lastSyncedAt: timestamp
     };
 
+    // Admin credentials are local-only and must never be published to GitHub.
+    const publicDataPayload = { ...dataPayload };
+    delete publicDataPayload.adminCredentials;
+    delete publicDataPayload.ihas_admin_creds;
+
     const fullSnapshot = {
       _updatedAt: timestamp,
       _meta: {
@@ -678,9 +683,9 @@ async function executePushDataToGitHub(
         lastSavedAt: timestamp,
         pushedBy: 'Admin Control Panel'
       },
-      ...dataPayload,
-      galleryItems: dataPayload.galleryItems || [],
-      ihas_gallery: dataPayload.galleryItems || [],
+      ...publicDataPayload,
+      galleryItems: publicDataPayload.galleryItems || [],
+      ihas_gallery: publicDataPayload.galleryItems || [],
       githubConfig: sanitizedGithubConfig
     };
 
@@ -714,7 +719,6 @@ async function executePushDataToGitHub(
       ihas_chatbot_training: dataPayload.chatbotTraining || fullSnapshot.chatbotTraining,
       ihas_quizzes: dataPayload.modelTests || fullSnapshot.modelTests,
       ihas_gallery: dataPayload.galleryItems || fullSnapshot.galleryItems || dataPayload.ihas_gallery || [],
-      ihas_admin_creds: dataPayload.adminCredentials || fullSnapshot.adminCredentials,
       ihas_github_config: sanitizedGithubConfig
     };
 
