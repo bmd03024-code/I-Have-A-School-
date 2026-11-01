@@ -131,7 +131,7 @@ export const Home: React.FC = () => {
   }
 
   return (
-    <div className={`space-y-16 pb-16 transition-opacity duration-200 ${isHomeSyncing ? 'opacity-95' : 'opacity-100'}`}>
+    <div className={`home-presentation space-y-16 pb-16 transition-opacity duration-200 ${isHomeSyncing ? 'opacity-95' : 'opacity-100'}`}>
       {/* 1. Dynamic Hero Slider (Directly reflects live admin slide changes) */}
       <HeroSlider />
 
